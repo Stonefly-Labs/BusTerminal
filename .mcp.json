@@ -1,21 +1,24 @@
 {
   "mcpServers": {
-    "shadcn": {
+    "next-devtools": {
       "type": "stdio",
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
-        "shadcn@latest",
-        "mcp"
+        "next-devtools-mcp@latest"
       ],
       "env": {}
     },
-    "nextjs": {
+    "shadcn": {
       "type": "stdio",
-      "command": "npx",
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
-        "next",
+        "shadcn@latest",
         "mcp"
       ],
       "env": {}
