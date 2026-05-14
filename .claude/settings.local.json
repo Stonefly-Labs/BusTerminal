@@ -1,12 +1,14 @@
 {
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Projects\\\\BusTerminal\\\\.specify\\\\scripts\\\\powershell\\\\check-prerequisites.ps1\" -Json -PathsOnly)",
+      "PowerShell(& \"C:\\\\Projects\\\\BusTerminal\\\\.specify\\\\scripts\\\\powershell\\\\setup-plan.ps1\" -Json)",
+      "PowerShell(.specify/scripts/powershell/setup-plan.ps1 -Json)"
+    ]
+  },
   "enabledMcpjsonServers": [
     "shadcn",
     "nextjs",
     "next-devtools"
-  ],
-  "permissions": {
-    "allow": [
-      "PowerShell(& \"C:\\\\Projects\\\\BusTerminal\\\\.specify\\\\scripts\\\\powershell\\\\check-prerequisites.ps1\" -Json -PathsOnly)"
-    ]
-  }
+  ]
 }
