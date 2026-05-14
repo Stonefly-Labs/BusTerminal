@@ -163,7 +163,7 @@ These standards are binding for new work. Deviations require an ADR.
 ### Backend
 
 - .NET 10, C#, ASP.NET Core. Minimal APIs SHOULD be preferred where
-  appropriate. Vertical Slice Architecture is preferred over horizontal
+  practical.  Controllers should not be used unless Minimal API isn't feasible. Vertical Slice Architecture is preferred over horizontal
   layering. Dependency Injection uses the built-in container unless
   requirements justify an alternative.
 - Modern C# features (primary constructors, collection expressions,
@@ -202,6 +202,12 @@ These standards are binding for new work. Deviations require an ADR.
 ### Hosting and Infrastructure
 
 - Azure Container Apps and Azure Container Registry.
+- Azure Key Vault will be used to store any secrets required by the platform.
+- Obserability will be handled by Azure Monitor and Application Insights, using OpenTelemetry for Azure Monitor.
+  - All Azure services must route all diagnostic logs to the Log Analytics Workspace that will be deployed with this solution.
+- Any background processing jobs will run as Azure Container Apps Jobs
+- Event driven processing will be implemented as containerized Azure Functions that are deployed on the Container Apps Environment.
+  - Ensure that the newest, native Azure Functions for Container Apps hosting is used.
 - **OpenTofu is the required Infrastructure as Code tool.** Bicep MUST NOT
   be used for BusTerminal infrastructure unless explicitly approved by an
   ADR-recorded architectural exception.
