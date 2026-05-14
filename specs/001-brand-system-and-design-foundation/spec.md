@@ -129,6 +129,8 @@ A feature developer building the first Service Bus screen needs to render a name
 
 ### Functional Requirements
 
+> **Numbering note**: Sub-numbered IDs (e.g., FR-002a/b, FR-022a–d, FR-035a–f) group related requirements that share a topical heading. FR-035 itself is the **scope-boundary** marker and is intentionally placed under its own "Scope Boundaries" heading near the end of this section, after the topical FR-035a–f sub-numbers. This ordering reflects topical grouping rather than strictly numeric sequence.
+
 **Identity and Brand**
 
 - **FR-001**: The product MUST present a single, consistent product name (`BusTerminal`) across the UI, documentation, generated artifacts, and any GitHub/social surfaces.
@@ -157,7 +159,7 @@ A feature developer building the first Service Bus screen needs to render a name
 
 **Primitive Component Library**
 
-- **FR-013**: The following primitives MUST be available, themed, owned by the project, and ready for composition: Button, Input, Textarea, Select, Checkbox, Radio Group, Switch, Label, Form, Dialog, Sheet/Drawer, Dropdown Menu, Context Menu, Command (palette), Tabs, Card, Badge, Alert, Toast, Tooltip, Popover, Separator, Skeleton, Table foundation, Breadcrumb, Scroll Area, Resizable Panels.
+- **FR-013**: The following primitives MUST be available, themed, owned by the project, and ready for composition: Button, Input, Textarea, Select, Checkbox, Radio Group, Switch, Label, Form, Dialog, **Sheet** (the side-overlay primitive — colloquially referred to as "Drawer" in some contexts; the canonical primitive name is `Sheet`, matching shadcn/ui; "drawer" is reserved for the app-shell composition pattern that uses `Sheet`), Dropdown Menu, Context Menu, Command (palette), Tabs, Card, Badge, Alert, Toast, Tooltip, Popover, Separator, Skeleton, Table foundation, Breadcrumb, Scroll Area, Resizable Panels.
 - **FR-014**: All primitives MUST be composable; the system MUST favor composition over wrapper-heavy abstractions, and a documented `cn()`-style class-merging utility plus a variant-definition utility MUST be available for project-wide use.
 
 **Data Tables**
@@ -253,7 +255,7 @@ A feature developer building the first Service Bus screen needs to render a name
 
 ### Measurable Outcomes
 
-- **SC-001**: A new operational screen (sidebar + top bar + page header + sortable/filterable data table + entity detail drawer + validated form + toast) can be assembled from the published foundation in under one development hour, with **zero** new color, spacing, typography, or chrome values introduced.
+- **SC-001**: A new operational screen (sidebar + top bar + page header + sortable/filterable data table + entity detail drawer + validated form + toast) can be assembled from the published foundation using only its primitives, domain composites, and design tokens. **Zero** new color, spacing, typography, motion, or chrome values are introduced — verified by `pnpm audit:tokens && pnpm audit:strings && pnpm audit:directions` reporting zero violations on the assembled screen's source. (The earlier "under one development hour" wording was eliminated as arbitrary; the audit gate is the objective, reproducible measure.)
 - **SC-002**: One hundred percent (100%) of foundation primitives and domain composites pass automated WCAG 2.2 AA checks in their published states across both themes.
 - **SC-003**: Every UI value rendered by the foundation derives from a named design token; an audit of the foundation source reports zero hardcoded color, spacing, radius, elevation, or motion-duration literals outside the token definitions.
 - **SC-004**: Theme switching (dark ↔ light) and first-load theme resolution complete with no visible flash of incorrect theme on a representative consumer-grade workstation.

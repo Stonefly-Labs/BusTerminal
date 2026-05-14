@@ -77,7 +77,7 @@ Establish the BusTerminal frontend foundation as a Next.js 16.x App Router appli
 
 **Scale / Scope**:
 
-- 27 primitives required by [FR-013](./spec.md) (Button, Input, Textarea, Select, Checkbox, Radio Group, Switch, Label, Form, Dialog, Sheet/Drawer, Dropdown Menu, Context Menu, Command, Tabs, Card, Badge, Alert, Toast, Tooltip, Popover, Separator, Skeleton, Table foundation, Breadcrumb, Scroll Area, Resizable Panels).
+- 27 primitives required by [FR-013](./spec.md) (Button, Input, Textarea, Select, Checkbox, Radio Group, Switch, Label, Form, Dialog, Sheet (canonical name; the side-overlay primitive — "Drawer" is reserved for the app-shell composition that uses Sheet), Dropdown Menu, Context Menu, Command, Tabs, Card, Badge, Alert, Toast, Tooltip, Popover, Separator, Skeleton, Table foundation, Breadcrumb, Scroll Area, Resizable Panels).
 - 13 domain composites required by [FR-028](./spec.md) (Namespace card, Queue row/card, Topic row/card, Subscription row/card, Dead-letter status indicator, Message count indicator, Health summary indicator, Discovery job status, Entity relationship badge, Environment badge, Azure resource link, Metadata key-value panel, Topology mini-map placeholder).
 - One representative composed screen wired in the application shell to validate all P1 / P2 acceptance scenarios end-to-end.
 - Storybook surface: every primitive and composite has stories covering principal states, variants, dark + light, and a passing a11y check (FR-030 / SC-005).
@@ -318,13 +318,13 @@ The plan organizes the work into six dependency-ordered phases. Each phase is **
 **Key deliverables**:
 
 - App shell (sidebar + top bar + page container + footer) composed in `app/(app)/layout.tsx` (FR-010).
-- Drawer, Sheet, split / resizable panels, tabs (FR-011 / FR-012).
+- Sheet primitive + the app-shell drawer composition pattern that uses Sheet, split / resizable panels, tabs (FR-011 / FR-012).
 - Breadcrumb composite, command-palette overlay, pagination (FR-013 + Source artifact §11.2 Navigation).
 - TanStack Table foundation: type-safe columns, sorting, filtering, column visibility, sticky headers, keyboard navigation, row actions, bulk select, pagination, empty/loading/error states, responsive overflow (FR-015 / FR-016).
 - React Hook Form + Zod form foundation: schema-driven validation, accessible required indication, inline error display, submit-pending state, destructive-action confirmation pattern, long-running progress feedback (FR-017 / FR-018).
 - Feedback primitives: skeleton patterns (FR-019), empty/error/inline-validation/alert/toast surfaces (FR-020).
 - Recharts chart primitive layer (Research R10): `<ChartContainer>`, `<ChartLine>`, `<ChartBar>`, `<ChartArea>` — token-themed, reduced-motion-aware, color-and-text semantic state.
-- Representative composed demo screen rendered at `/` validating SC-001 (composable scaffold under one hour with zero new values).
+- Representative composed demo screen rendered at `/` validating SC-001 (composable scaffold from foundation primitives only — `pnpm audit:tokens && pnpm audit:strings && pnpm audit:directions` report zero violations).
 
 **Parallel track active in Phase C**: Brand asset pipeline Stages 2 → 3 (vector authoring → variant export).
 
