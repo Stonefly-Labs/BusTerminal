@@ -3,5 +3,10 @@
     "shadcn",
     "nextjs",
     "next-devtools"
-  ]
+  ],
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"C:\\\\Projects\\\\BusTerminal\\\\.specify\\\\scripts\\\\powershell\\\\check-prerequisites.ps1\" -Json -PathsOnly)"
+    ]
+  }
 }
