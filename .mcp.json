@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "shadcn": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "shadcn@latest",
+        "mcp"
+      ],
+      "env": {}
+    },
+    "nextjs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "next",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}
