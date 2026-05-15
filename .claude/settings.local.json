@@ -65,6 +65,9 @@
   "enabledMcpjsonServers": [
     "shadcn",
     "nextjs",
-    "next-devtools"
+    "next-devtools",
+    "context7",
+    "microsoft-learn",
+    "test-echo"
   ]
 }
