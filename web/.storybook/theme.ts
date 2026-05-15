@@ -15,12 +15,16 @@ import { create } from "storybook/theming";
 // here (mirroring `lib/design-system/raster-colors.ts`) so the Storybook
 // UI stays brand-aligned. Update both files if you change the dark-surface
 // palette in `web/styles/tokens.css`.
+//
+// IMPORTANT: All values must be hex/rgb/hsl. Storybook's `create()` runs
+// every color through the `polished` library, which throws on `oklch(...)`
+// and on CSS `var(--…)` references.
 const RASTER_SURFACE_CANVAS_DARK = "#0f1115";
 const RASTER_FOREGROUND_DEFAULT_DARK = "#e6edf5";
 const RASTER_FOREGROUND_MUTED_DARK = "#9faec5";
-const ACCENT = "oklch(72% 0.16 220)";
-const BORDER = "oklch(28% 0.014 240)";
-const SURFACE_ELEVATED = "oklch(19% 0.012 240)";
+const ACCENT = "#4ea3ff";
+const BORDER = "#3a3f48";
+const SURFACE_ELEVATED = "#1a1d23";
 
 export default create({
   base: "dark",

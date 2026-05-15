@@ -29,3 +29,15 @@ export const RASTER_OG_GRADIENT_DARK_C = "#1d2b3f";
 
 export const RASTER_FOREGROUND_INVERSE_LIGHT = "#1f2937";
 export const RASTER_FOREGROUND_MUTED_LIGHT = "#6b7280";
+
+/**
+ * Storybook manager-UI palette. Storybook's `create()` pipes color values
+ * through the `polished` library to derive hover/active/border shades, and
+ * polished only parses hex/rgb/hsl — it throws on `oklch(...)` and on CSS
+ * `var(--…)` references. These hex values approximate the dark-theme tokens
+ * (`color.accent.primary`, `color.border.default`, `color.surface.elevated`)
+ * so the Storybook chrome stays visually aligned with the app.
+ */
+export const RASTER_ACCENT_PRIMARY_DARK = "#4ea3ff";
+export const RASTER_BORDER_DEFAULT_DARK = "#3a3f48";
+export const RASTER_SURFACE_ELEVATED_DARK = "#1a1d23";

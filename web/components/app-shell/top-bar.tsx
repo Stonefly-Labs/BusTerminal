@@ -26,7 +26,13 @@ export interface TopBarProps {
  */
 export function TopBar({ onSearchTrigger, className }: TopBarProps) {
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  // The server doesn't know which theme will resolve, so the toggle waits
+  // until mount before rendering theme-dependent content. Without this gate,
+  // the SSR HTML (Moon + "switch to dark") collides with the post-hydration
+  // client output (Sun + "switch to light") and React throws a hydration error.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const isDark = mounted ? resolvedTheme === "dark" : false;
   return (
     <header
       className={cn(
@@ -48,9 +54,16 @@ export function TopBar({ onSearchTrigger, className }: TopBarProps) {
         intent="ghost"
         size="icon"
         onClick={() => setTheme(isDark ? "light" : "dark")}
-        aria-label={isDark ? t("appshell.topbar.themeToggle.toLight") : t("appshell.topbar.themeToggle.toDark")}
+        aria-label={
+          mounted
+            ? isDark
+              ? t("appshell.topbar.themeToggle.toLight")
+              : t("appshell.topbar.themeToggle.toDark")
+            : t("appshell.topbar.themeToggle.label")
+        }
+        suppressHydrationWarning
       >
-        {isDark ? <Sun /> : <Moon />}
+        <span suppressHydrationWarning>{isDark ? <Sun /> : <Moon />}</span>
       </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { Toaster as SonnerToaster, toast as sonnerToast, type ToasterProps } from "sonner";
 import { useTheme } from "next-themes";
 
@@ -9,13 +10,21 @@ export type ToasterMountProps = Omit<ToasterProps, "theme">;
 
 /**
  * Mount the Sonner toaster once near the app root. Theme is sourced from
- * `next-themes` so toasts honor the active color scheme.
+ * `next-themes` so toasts honor the active color scheme. Theme reading is
+ * gated on mount because `resolvedTheme` is undefined during SSR — without
+ * the gate, the server emits `theme="system"` while the client immediately
+ * resolves to `dark`/`light`, triggering a hydration warning.
  */
 export function Toaster({ className, position = "bottom-right", ...rest }: ToasterMountProps) {
   const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const theme: "light" | "dark" | "system" = mounted
+    ? ((resolvedTheme as "light" | "dark" | undefined) ?? "system")
+    : "system";
   return (
     <SonnerToaster
-      theme={(resolvedTheme as "light" | "dark" | undefined) ?? "system"}
+      theme={theme}
       position={position}
       className={cn("font-sans", className)}
       toastOptions={{
