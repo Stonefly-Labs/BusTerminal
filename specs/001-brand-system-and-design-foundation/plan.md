@@ -36,7 +36,7 @@ Establish the BusTerminal frontend foundation as a Next.js 16.x App Router appli
 - **Animation**: Framer Motion (sparingly; respects `prefers-reduced-motion`)
 - **Theme management**: next-themes (class strategy, inline anti-FOUC script)
 - **Class utilities**: clsx, tailwind-merge, class-variance-authority
-- **Component docs**: Storybook 8.x with `@storybook/nextjs`, `addon-a11y`, `addon-themes`, `addon-interactions`, `addon-viewport`, RTL toggle (see [Research R1](./research.md#r1-component-documentation-system--storybook-vs-equivalent))
+- **Component docs**: Storybook **10.x** (bumped from clarification-time 8.x for Next.js 16 peer compatibility — see [Research R1](./research.md#r1-component-documentation-system--storybook-vs-equivalent)) with `@storybook/nextjs`, `@storybook/addon-a11y`, `@storybook/addon-themes`, RTL toggle, plus `storybook/test` for interactions and inline viewport declarations in `.storybook/preview.tsx`. (`@storybook/test`, `@storybook/addon-interactions`, and `@storybook/addon-viewport` are folded into Storybook core in 9+ and are no longer separate packages.)
 - **Web Vitals**: `web-vitals`
 - **Observability adapter**: hand-rolled `ObservabilityAdapter` interface (see [contracts/observability-adapter.ts](./contracts/observability-adapter.ts)); the AI adapter dynamically imports `@microsoft/applicationinsights-web` when the connection string is configured
 - **Locale formatting**: native `Intl.*` (no polyfill needed)

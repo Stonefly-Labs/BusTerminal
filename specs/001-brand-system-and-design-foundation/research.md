@@ -11,13 +11,15 @@ This document resolves the open implementation questions identified during plann
 
 ## R1. Component Documentation System — Storybook vs. Equivalent
 
-**Decision**: Adopt **Storybook 8.x** with the official `@storybook/nextjs` framework, configured for the App Router. Stories live alongside each component as `<Component>.stories.tsx`. Required addons:
+**Decision**: Adopt **Storybook 10.x** with the official `@storybook/nextjs` framework, configured for the App Router. Stories live alongside each component as `<Component>.stories.tsx`. Required addons:
 
 - `@storybook/addon-a11y` — axe-core powered accessibility checks per story (satisfies FR-027 automation gate inside Storybook).
 - `@storybook/addon-themes` — dark / light toggle and side-by-side preview.
-- `@storybook/addon-interactions` + `@storybook/test` — interaction tests (keyboard, focus, click) for primitives that have stateful behavior (Tabs, Dialog, Combobox, Command).
-- `@storybook/addon-viewport` — wide-desktop, laptop, tablet, mobile, and the 13" laptop reference viewport used by SC-010.
+- Interaction testing and `play` functions — provided by `storybook/test` (core export in 9+; **no longer a separate `@storybook/test` package**) — interaction tests (keyboard, focus, click) for primitives that have stateful behavior (Tabs, Dialog, Combobox, Command).
+- Viewport handling — built into Storybook core in 9+ (no separate `@storybook/addon-viewport` package needed); wide-desktop, laptop, tablet, mobile, and the 13" laptop reference viewport for SC-010 are declared inline in `.storybook/preview.tsx` via the `viewport.viewports` parameter.
 - `storybook-addon-rtl-direction` (or equivalent) — `dir="rtl"` toggle for the manual review required by SC-011.
+
+> **Version-bump note (post-clarification adjustment)**: The original clarification round (2026-05-14) locked in Storybook 8.x. During T003 implementation, peer-dependency analysis surfaced that `@storybook/nextjs@8` only supports Next.js 13/14/15 — not Next.js 16, which the constitution mandates. Storybook 8 was published in early 2024 before Next 16 existed. The compatible Storybook line for Next.js 16 is **10.x** (Storybook 10.3.6 was the installed version; 10.4.x is the current minor). The bump is a forced-by-compatibility adjustment, not a design change. Side-effect: addons `@storybook/test`, `@storybook/addon-interactions`, and `@storybook/addon-viewport` were folded into the core `storybook` package in 9+, so they are no longer separate dependencies — the foundation imports test utilities from `storybook/test` and declares viewports inline in `preview.tsx`.
 
 Storybook static export is produced in CI and published as a build artifact (a deployable site is a future enhancement).
 
