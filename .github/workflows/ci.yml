@@ -52,11 +52,8 @@ jobs:
       - name: Unit / component tests (Vitest)
         run: pnpm -C web test
 
-      - name: Build Storybook
-        run: pnpm -C web build-storybook
-
-      - name: Storybook test-runner (a11y + interactions)
-        run: pnpm -C web test:storybook
+      - name: Build & test Storybook (a11y + interactions)
+        run: pnpm -C web test:storybook:ci
 
       - name: Install Playwright browsers
         run: pnpm -C web exec playwright install --with-deps
