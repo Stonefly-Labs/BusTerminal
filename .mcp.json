@@ -2,10 +2,8 @@
   "mcpServers": {
     "next-devtools": {
       "type": "stdio",
-      "command": "cmd",
+      "command": "npx",
       "args": [
-        "/c",
-        "npx",
         "-y",
         "next-devtools-mcp@latest"
       ],
@@ -13,10 +11,8 @@
     },
     "shadcn": {
       "type": "stdio",
-      "command": "cmd",
+      "command": "npx",
       "args": [
-        "/c",
-        "npx",
         "-y",
         "shadcn@latest",
         "mcp"
@@ -25,3 +21,4 @@
     }
   }
 }
+
