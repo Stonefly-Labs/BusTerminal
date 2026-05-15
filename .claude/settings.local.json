@@ -9,7 +9,18 @@
       "PowerShell(Get-Command *)",
       "PowerShell(corepack *)",
       "PowerShell(Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\"; \"---\"; Get-ChildItem \"C:\\\\Projects\\\\BusTerminal\\\\web\" -Force | Select-Object Mode, Name | Format-Table -AutoSize; \"---\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\node_modules\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\package.json\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\app\")",
-      "PowerShell(pnpm *)"
+      "PowerShell(pnpm *)",
+      "Bash(pwsh *)",
+      "Bash(npx tsc *)",
+      "WebSearch",
+      "Bash(npx eslint *)",
+      "Bash(npm ls *)",
+      "Bash(pnpm add *)",
+      "Bash(npx vitest *)",
+      "Bash(npx playwright *)",
+      "Bash(pnpm run *)",
+      "Bash(mkdir -p .github/workflows)",
+      "Read(//c/c/Projects/BusTerminal/**)"
     ]
   },
   "enabledMcpjsonServers": [

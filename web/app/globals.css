@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
+/* Class-strategy dark mode (next-themes sets `class="dark"` on <html>). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Tailwind v4 is CSS-first; per-token theme definitions live in
+ * `web/styles/tokens.css` (T013) and `web/styles/typography.css` (T014).
+ * This file currently holds the minimum v4 wiring + a tiny boot
+ * surface; T015 will replace the body styles with a token-aligned
+ * base layer.
+ */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
+:root.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
 }

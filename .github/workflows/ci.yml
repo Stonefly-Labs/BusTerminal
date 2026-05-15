@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same PR/branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: build · lint · typecheck · test · storybook · e2e · analyze
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Honor the soft / hard bundle thresholds (FR-035e / SC-020 / Research R2).
+      BUNDLE_SOFT_TARGET_KB: "180"
+      BUNDLE_HARD_ALERT_KB: "200"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install dependencies (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+        working-directory: web
+
+      - name: Lint
+        run: pnpm -C web lint
+
+      - name: Typecheck
+        run: pnpm -C web typecheck
+
+      - name: Unit / component tests (Vitest)
+        run: pnpm -C web test
+
+      - name: Build Storybook
+        run: pnpm -C web build-storybook
+
+      - name: Storybook test-runner (a11y + interactions)
+        run: pnpm -C web test:storybook
+
+      - name: Install Playwright browsers
+        run: pnpm -C web exec playwright install --with-deps
+
+      - name: Playwright E2E
+        run: pnpm -C web test:e2e
+
+      - name: Bundle analyzer build
+        run: pnpm -C web analyze
+
+      - name: Upload bundle analyzer report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analyzer-report
+          path: |
+            web/.next/analyze/client.html
+            web/.next/analyze/bundle-summary.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Bundle-size diff (PR comment)
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node web/scripts/bundle-diff.mjs
