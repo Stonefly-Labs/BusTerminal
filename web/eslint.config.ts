@@ -66,6 +66,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "node_modules/**",
+    "storybook-static/**",
     "next-env.d.ts",
     // Token files may need physical-direction anchors for low-level theming.
     "styles/**",
@@ -73,6 +74,12 @@ const eslintConfig = defineConfig([
   ]),
   {
     name: "busterminal/no-physical-direction-utilities",
+    files: ["**/*.{ts,tsx,js,jsx,mts,cts}"],
+    ignores: [
+      // Audit scripts mention the forbidden utility names as data; they
+      // are the canonical source of truth for the same rule.
+      "scripts/**",
+    ],
     plugins: {
       busterminal: {
         rules: {

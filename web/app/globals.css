@@ -1,33 +1,143 @@
 @import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/typography.css";
 
 /* Class-strategy dark mode (next-themes sets `class="dark"` on <html>). */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Tailwind v4 is CSS-first; per-token theme definitions live in
- * `web/styles/tokens.css` (T013) and `web/styles/typography.css` (T014).
- * This file currently holds the minimum v4 wiring + a tiny boot
- * surface; T015 will replace the body styles with a token-aligned
- * base layer.
+ * Tailwind v4 @theme — maps the design-token CSS variables onto Tailwind's
+ * theme scales so utilities (`bg-surface-canvas`, `text-foreground-default`,
+ * `p-4`, `rounded-md`, etc.) consume tokens directly. `inline` keeps the
+ * `var(--…)` references resolved at runtime so theme switching works without
+ * a rebuild.
  */
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-:root.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Colors — surfaces */
+  --color-surface-canvas: var(--color-surface-canvas);
+  --color-surface-elevated: var(--color-surface-elevated);
+  --color-surface-overlay: var(--color-surface-overlay);
+  --color-surface-muted: var(--color-surface-muted);
+
+  /* Colors — foregrounds */
+  --color-foreground-default: var(--color-foreground-default);
+  --color-foreground-muted: var(--color-foreground-muted);
+  --color-foreground-subtle: var(--color-foreground-subtle);
+  --color-foreground-inverse: var(--color-foreground-inverse);
+
+  /* Colors — borders */
+  --color-border-default: var(--color-border-default);
+  --color-border-muted: var(--color-border-muted);
+  --color-border-focus: var(--color-border-focus);
+
+  /* Colors — brand accent */
+  --color-accent-primary: var(--color-accent-primary);
+  --color-accent-primary-foreground: var(--color-accent-primary-foreground);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-active: var(--color-accent-active);
+
+  /* Colors — semantic */
+  --color-success-surface: var(--color-success-surface);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-warning-surface: var(--color-warning-surface);
+  --color-warning-foreground: var(--color-warning-foreground);
+  --color-error-surface: var(--color-error-surface);
+  --color-error-foreground: var(--color-error-foreground);
+  --color-info-surface: var(--color-info-surface);
+  --color-info-foreground: var(--color-info-foreground);
+
+  /* Colors — disabled / interactive */
+  --color-disabled-surface: var(--color-disabled-surface);
+  --color-disabled-foreground: var(--color-disabled-foreground);
+  --color-interactive-hover: var(--color-interactive-hover);
+  --color-interactive-focus-ring: var(--color-interactive-focus-ring);
+
+  /* Colors — chart data sequence */
+  --color-chart-data-1: var(--color-chart-data-1);
+  --color-chart-data-2: var(--color-chart-data-2);
+  --color-chart-data-3: var(--color-chart-data-3);
+  --color-chart-data-4: var(--color-chart-data-4);
+  --color-chart-data-5: var(--color-chart-data-5);
+  --color-chart-data-6: var(--color-chart-data-6);
+  --color-chart-data-7: var(--color-chart-data-7);
+  --color-chart-data-8: var(--color-chart-data-8);
+  --color-chart-data-9: var(--color-chart-data-9);
+  --color-chart-data-10: var(--color-chart-data-10);
+  --color-chart-data-11: var(--color-chart-data-11);
+  --color-chart-data-12: var(--color-chart-data-12);
+
+  /* Radius */
+  --radius-none: var(--radius-none);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-full: var(--radius-full);
+
+  /* Shadows (Tailwind's `shadow-*` scale) */
+  --shadow-elevation-1: var(--elevation-1);
+  --shadow-elevation-2: var(--elevation-2);
+  --shadow-elevation-3: var(--elevation-3);
+  --shadow-elevation-overlay: var(--elevation-overlay);
+
+  /* Font families */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+/*
+ * Base layer — global resets + focus-ring defaults consuming the focus-ring
+ * design tokens. Token references only; no hardcoded color / spacing literals
+ * (SC-003).
+ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    block-size: 100%;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-surface-canvas);
+    color: var(--color-foreground-default);
+    font-family: var(--font-sans);
+    font-size: var(--typography-body-size);
+    line-height: var(--typography-body-line-height);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible, token-driven focus ring for every keyboard-focused element.    */
+  /* Components opt out via :focus:not(:focus-visible) where needed.         */
+  :focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+  }
+
+  /* Honor user motion preference globally; primitives still gate           */
+  /* non-essential motion via `useReducedMotion` (FR-025 / SC-008).         */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

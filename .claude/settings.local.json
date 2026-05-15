@@ -20,7 +20,21 @@
       "Bash(npx playwright *)",
       "Bash(pnpm run *)",
       "Bash(mkdir -p .github/workflows)",
-      "Read(//c/c/Projects/BusTerminal/**)"
+      "Read(//c/c/Projects/BusTerminal/**)",
+      "Bash(pnpm exec *)",
+      "Bash(echo \"exit code: $?\")",
+      "Bash(node scripts/audit-svg-hygiene.mjs)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(node scripts/audit-tokens.mjs)",
+      "Bash(node scripts/audit-strings.mjs)",
+      "Bash(node scripts/audit-directions.mjs)",
+      "Bash(node scripts/audit-review-records.mjs)",
+      "Bash(echo \"all exit: $?\")",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm build-storybook *)",
+      "Bash(pnpm typecheck *)",
+      "Bash(echo \"===gate exit: $?\")",
+      "Bash(pnpm build *)"
     ]
   },
   "enabledMcpjsonServers": [
