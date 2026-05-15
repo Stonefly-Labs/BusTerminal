@@ -50,3 +50,43 @@ export const States: Story = {
     </div>
   ),
 };
+
+/**
+ * `mono` switches the input to the monospace family for technical identifiers
+ * — queue / topic / subscription / namespace names, correlation IDs,
+ * connection strings (FR-009 / T102).
+ */
+export const Monospace: Story = {
+  render: () => (
+    <div className="flex w-96 flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="queue-name">Queue name</Label>
+        <Input
+          id="queue-name"
+          mono
+          defaultValue="orders.westus.priority"
+          aria-describedby="queue-name-hint"
+        />
+        <span id="queue-name-hint" className="text-xs text-foreground-muted">
+          Monospace renders queue names with unambiguous character widths.
+        </span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="correlation-id">Correlation ID</Label>
+        <Input
+          id="correlation-id"
+          mono
+          defaultValue="01H8XK4Y5Z9M2N6P3Q1R8T7V0W"
+        />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="connection-string">Connection string</Label>
+        <Input
+          id="connection-string"
+          mono
+          defaultValue="Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=…"
+        />
+      </div>
+    </div>
+  ),
+};

@@ -17,8 +17,14 @@ export type ToasterMountProps = Omit<ToasterProps, "theme">;
  */
 export function Toaster({ className, position = "bottom-right", ...rest }: ToasterMountProps) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
+  // `useSyncExternalStore` returns the server snapshot (`false`) during SSR
+  // and the client snapshot (`true`) on hydration — without calling setState
+  // inside an effect (avoids the `react-hooks/set-state-in-effect` rule).
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const theme: "light" | "dark" | "system" = mounted
     ? ((resolvedTheme as "light" | "dark" | undefined) ?? "system")
     : "system";

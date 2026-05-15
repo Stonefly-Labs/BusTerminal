@@ -74,13 +74,24 @@ export const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttr
   },
 );
 
-export const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttributes<HTMLTableCellElement>>(
-  function TableCell({ className, ...rest }, ref) {
+export interface TableCellProps
+  extends React.TdHTMLAttributes<HTMLTableCellElement> {
+  /**
+   * Render cell content with the monospace family (var(--font-mono)).
+   * Use for technical-identifier columns — queue/topic/subscription/
+   * namespace names, correlation IDs (FR-009).
+   */
+  readonly mono?: boolean;
+}
+
+export const TableCell = React.forwardRef<HTMLTableCellElement, TableCellProps>(
+  function TableCell({ className, mono = false, ...rest }, ref) {
     return (
       <td
         ref={ref}
         className={cn(
           "p-3 align-middle text-sm text-foreground-default [&:has([role=checkbox])]:w-12",
+          mono && "font-mono",
           className,
         )}
         {...rest}

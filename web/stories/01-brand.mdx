@@ -1,0 +1,198 @@
+import { Meta } from "@storybook/blocks";
+
+import wordmarkDark from "../brand/wordmark/wordmark-dark.svg";
+import wordmarkLight from "../brand/wordmark/wordmark-light.svg";
+import glyphDark from "../brand/glyph/glyph-dark.svg";
+import glyphLight from "../brand/glyph/glyph-light.svg";
+
+<Meta title="Foundation/01 — Brand" />
+
+# BusTerminal brand
+
+BusTerminal is operational tooling for the engineers, architects, and operators
+who run Azure Service Bus at scale. The brand reads like the products it sits
+beside on an operator's screen — modern cloud infrastructure tooling, dense
+but legible, never playful, never enterprise-template.
+
+This page exists so contributors and coding agents pick up the brand from one
+place and apply it without re-deriving it from screenshots.
+
+---
+
+## Voice
+
+The brand voice is **direct, technical, and operationally serious**.
+
+- **Write like an operator runbook**, not a marketing landing page.
+- **Be specific.** "Discovery job failed at 14:02 UTC" beats "Something went
+  wrong."
+- **Use the canonical Service Bus vocabulary** — Namespace, Queue, Topic,
+  Subscription, Dead-letter, Discovery Job, Environment, Topology. The
+  constitution and the data model define these terms; do not invent
+  synonyms.
+- **Stay quiet under success.** Surface confirmation; do not celebrate it.
+- **Stay matter-of-fact under failure.** State what happened, when, and what
+  the operator can do next. No apologies, no anthropomorphic copy.
+- **Prefer present tense + active voice.** "84% of premium quota used."
+- **Use sentence case** for UI copy and headings; reserve title case for the
+  product name and proper nouns.
+
+---
+
+## Traits
+
+| Trait | What it means in practice |
+|---|---|
+| **Technical** | Built for engineers; technical identifiers render in monospace; jargon is acceptable when it's correct. |
+| **Reliable** | Stable interaction patterns; no surprise behavior; flash-free first paint; consistent affordances across primitives. |
+| **Modern** | Cloud-native aesthetics — soft elevation, restrained motion, dark-mode primary, modern CSS without polyfills. |
+| **Precise** | Dense information presented clearly. Skeletons hold layout; no CLS. Color + icon + text for semantic states. |
+| **Efficient** | Keyboard-first; command palette is a first-class entry point; reduced-motion preferences are honored. |
+| **Operational** | Reads like infrastructure tooling — terminal-adjacent typography, structured tables, breadcrumbs, drawers. |
+| **Open** | Community-friendly open-source positioning. Brand asset originality is reviewed (FR-002a / FR-002b). |
+
+---
+
+## Anti-patterns
+
+The brand fails fast if any of the following slip in. Treat each as a defect.
+
+- **Playful or consumer-social aesthetics.** No emoji affordances, no bouncy
+  motion, no rounded illustrations.
+- **Enterprise vendor template.** No "modules," no gradient hero panels, no
+  generic admin-template chrome.
+- **Skeuomorphic surfaces.** Soft elevation is fine; texture, drop-shadow
+  stacks, and faux-3D are not.
+- **Excessive gradients or glassmorphism.** Surfaces are flat, with one
+  elevation step at a time.
+- **Neon / cyberpunk styling.** Semantic colors are operational, not edgy.
+- **Color-only meaning.** Every semantic state (success/warning/error/info)
+  ships icon + text + color (FR-026 / SC-007).
+- **Animation as decoration.** Motion clarifies state; it does not entertain.
+  Reduced-motion eliminates non-essential animation (FR-025 / SC-008).
+- **Hardcoded color/spacing/typography literals.** Every value flows through
+  the design-token system; `pnpm audit:tokens` enforces this (SC-003).
+- **Hardcoded English strings inside components.** Every user-facing string
+  flows through the i18n surface; `pnpm audit:strings` enforces this
+  (SC-012).
+- **Physical-direction utilities.** `ml-*` / `mr-*` / `left-*` / `right-*` /
+  `text-left` / `text-right` are forbidden outside `styles/tokens.css`;
+  use CSS logical properties (FR-022b / SC-011).
+
+---
+
+## Dark and light parity
+
+Dark mode is the **primary** operational experience because operators run
+BusTerminal for long sessions alongside terminals and observability dashboards.
+Light mode is a **fully-supported peer**, not a tinted derivative — it ships
+with the same tokens, the same elevation steps, and the same semantic
+contrast pairings, all WCAG 2.2 AA verified.
+
+Switching themes mid-flight (with a dialog, drawer, toast, and chart all
+open simultaneously) must repaint cleanly — no leaked colors, no broken
+focus rings, no stale chart colors. The Playwright spec at
+`web/tests/e2e/theme-switch.spec.ts` (T106) enforces this.
+
+### Wordmark — side-by-side parity
+
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+  <div
+    style={{
+      background: "var(--color-surface-canvas)",
+      padding: "1.5rem",
+      borderRadius: "var(--radius-md)",
+      border: "1px solid var(--color-border-default)",
+    }}
+  >
+    <p style={{ marginTop: 0, fontSize: "0.75rem", textTransform: "uppercase", color: "var(--color-foreground-muted)" }}>
+      Dark surface
+    </p>
+    <img src={wordmarkDark} alt="BusTerminal wordmark — dark variant" style={{ maxWidth: "100%" }} />
+  </div>
+  <div
+    style={{
+      background: "#ffffff",
+      padding: "1.5rem",
+      borderRadius: "var(--radius-md)",
+      border: "1px solid var(--color-border-default)",
+    }}
+  >
+    <p style={{ marginTop: 0, fontSize: "0.75rem", textTransform: "uppercase", color: "#5a6678" }}>
+      Light surface
+    </p>
+    <img src={wordmarkLight} alt="BusTerminal wordmark — light variant" style={{ maxWidth: "100%" }} />
+  </div>
+</div>
+
+### Glyph — side-by-side parity
+
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
+  <div
+    style={{
+      background: "var(--color-surface-canvas)",
+      padding: "1.5rem",
+      borderRadius: "var(--radius-md)",
+      border: "1px solid var(--color-border-default)",
+      display: "flex",
+      justifyContent: "center",
+    }}
+  >
+    <img src={glyphDark} alt="BusTerminal glyph — dark variant" style={{ width: "96px", height: "96px" }} />
+  </div>
+  <div
+    style={{
+      background: "#ffffff",
+      padding: "1.5rem",
+      borderRadius: "var(--radius-md)",
+      border: "1px solid var(--color-border-default)",
+      display: "flex",
+      justifyContent: "center",
+    }}
+  >
+    <img src={glyphLight} alt="BusTerminal glyph — light variant" style={{ width: "96px", height: "96px" }} />
+  </div>
+</div>
+
+---
+
+## Placeholder mark — hot-swap note
+
+The wordmark and glyph rendered above are **placeholders** committed during
+foundation work so primitive development can proceed without churning when
+the final asset lands. The placeholders are plain SVG (no AI tools, no
+embedded rasters) and are marked with a `placeholder.flag` file in each
+directory.
+
+The final assets replace the placeholders atomically in tasks **T141** and
+**T142** (see [`specs/001-brand-system-and-design-foundation/tasks.md`](https://github.com/cfh00892194/busterminal/blob/main/specs/001-brand-system-and-design-foundation/tasks.md)).
+The contract for the swap:
+
+- **Filenames are stable.** `wordmark-dark.svg`, `wordmark-light.svg`,
+  `glyph-dark.svg`, `glyph-light.svg` are the import paths — they do not
+  change at handoff. Consumers (`app/icon.tsx`, `app/opengraph-image.tsx`,
+  this MDX page) do not need to be touched.
+- **AI-assisted production requires a signed `REVIEW.md`** per
+  [`specs/001-brand-system-and-design-foundation/contracts/brand-asset-review.md`](https://github.com/cfh00892194/busterminal/blob/main/specs/001-brand-system-and-design-foundation/contracts/brand-asset-review.md).
+  `pnpm audit:review-records` enforces presence and approval (FR-002a /
+  FR-002b / SC-017).
+- **Plain SVG only.** `pnpm audit:svg-hygiene` fails if `<image>` tags or
+  base64 `data:` URIs appear in `web/brand/**` or `web/public/brand/**`.
+- **The `placeholder.flag` files are deleted at swap time.** While they
+  exist, `pnpm audit:review-records` treats the asset as in placeholder
+  state and does not require a `REVIEW.md`.
+
+---
+
+## Related documentation
+
+- [02 — Design tokens](?path=/docs/foundation-02-design-tokens--docs) — every
+  sanctioned color, spacing, radius, elevation, and motion token.
+- [03 — Typography](?path=/docs/foundation-03-typography--docs) — scale,
+  monospace usage rules, families chosen during foundation work.
+- [04 — Iconography](?path=/docs/foundation-04-iconography--docs) — single
+  Lucide family, domain-icon mapping.
+- [06 — Theming](?path=/docs/foundation-06-theming--docs) — flash-free first
+  paint, dark/light parity, theme-provider contract.
+- [07 — Contribution](?path=/docs/foundation-07-contribution--docs) — how to
+  add a primitive, a token, a string key without breaking the audits.

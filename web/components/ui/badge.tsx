@@ -1,4 +1,11 @@
 import * as React from "react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/design-system/cn";
 import { variants, type VariantPropsOf } from "@/lib/design-system/variants";
@@ -29,12 +36,43 @@ const badgeVariants = variants(
 
 export type BadgeVariants = VariantPropsOf<typeof badgeVariants>;
 
+/**
+ * Maps the four semantic intents to their default Lucide icon. Aligns with the
+ * Alert primitive (T060) so success/warning/error/info read identically wherever
+ * they appear — satisfies FR-026 (semantic states convey meaning via color +
+ * icon + text, not color alone).
+ */
+const SEMANTIC_ICONS: Record<"success" | "warning" | "error" | "info", LucideIcon> = {
+  success: CheckCircle2,
+  warning: AlertTriangle,
+  error: AlertCircle,
+  info: Info,
+};
+
 export interface BadgeProps
   extends React.HTMLAttributes<HTMLSpanElement>,
-    BadgeVariants {}
+    BadgeVariants {
+  /**
+   * Render an icon affordance alongside the badge label. Defaults to the
+   * canonical semantic icon for `success` / `warning` / `error` / `info`; pass
+   * a custom Lucide component to override, or `false` to suppress entirely.
+   * Neutral / accent / outline intents do not auto-render an icon.
+   */
+  readonly icon?: LucideIcon | false;
+}
 
-export function Badge({ className, intent, ...rest }: BadgeProps) {
-  return <span className={cn(badgeVariants({ intent }), className)} {...rest} />;
+export function Badge({ className, intent, icon, children, ...rest }: BadgeProps) {
+  const semanticIcon =
+    intent && intent !== "neutral" && intent !== "accent" && intent !== "outline"
+      ? SEMANTIC_ICONS[intent]
+      : undefined;
+  const Icon = icon === false ? undefined : icon ?? semanticIcon;
+  return (
+    <span className={cn(badgeVariants({ intent }), className)} {...rest}>
+      {Icon ? <Icon className="size-3" aria-hidden="true" /> : null}
+      {children}
+    </span>
+  );
 }
 
 export { badgeVariants };

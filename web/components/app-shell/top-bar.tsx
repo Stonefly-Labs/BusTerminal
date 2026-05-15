@@ -30,8 +30,14 @@ export function TopBar({ onSearchTrigger, className }: TopBarProps) {
   // until mount before rendering theme-dependent content. Without this gate,
   // the SSR HTML (Moon + "switch to dark") collides with the post-hydration
   // client output (Sun + "switch to light") and React throws a hydration error.
-  const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
+  // `useSyncExternalStore` returns the server snapshot (`false`) during SSR
+  // and the client snapshot (`true`) on hydration — without calling setState
+  // inside an effect (avoids the `react-hooks/set-state-in-effect` rule).
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
   const isDark = mounted ? resolvedTheme === "dark" : false;
   return (
     <header

@@ -4,10 +4,17 @@ import * as React from "react";
 
 import { cn } from "@/lib/design-system/cn";
 
-export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  /**
+   * Render the input value with the monospace family (var(--font-mono)).
+   * Use for technical identifiers — queue/topic/subscription/namespace
+   * names, correlation IDs, connection strings (FR-009).
+   */
+  readonly mono?: boolean;
+}
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  function Input({ className, type = "text", ...rest }, ref) {
+  function Input({ className, type = "text", mono = false, ...rest }, ref) {
     return (
       <input
         ref={ref}
@@ -20,6 +27,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "disabled:cursor-not-allowed disabled:bg-disabled-surface disabled:text-disabled-foreground",
           "aria-invalid:border-error-foreground aria-invalid:focus-visible:outline-error-foreground",
           "file:me-2 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground-default",
+          mono && "font-mono",
           className,
         )}
         {...rest}

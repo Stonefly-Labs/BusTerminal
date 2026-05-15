@@ -4,10 +4,18 @@ import * as React from "react";
 
 import { cn } from "@/lib/design-system/cn";
 
-export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
+export interface TextareaProps
+  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  /**
+   * Render the textarea value with the monospace family (var(--font-mono)).
+   * Use for technical content — JSON payloads, connection strings, SQL
+   * filters, structured message metadata (FR-009).
+   */
+  readonly mono?: boolean;
+}
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  function Textarea({ className, rows = 4, ...rest }, ref) {
+  function Textarea({ className, rows = 4, mono = false, ...rest }, ref) {
     return (
       <textarea
         ref={ref}
@@ -19,6 +27,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring-color)",
           "disabled:cursor-not-allowed disabled:bg-disabled-surface disabled:text-disabled-foreground",
           "aria-invalid:border-error-foreground aria-invalid:focus-visible:outline-error-foreground",
+          mono && "font-mono",
           className,
         )}
         {...rest}
