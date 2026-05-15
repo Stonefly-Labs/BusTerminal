@@ -1,0 +1,124 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundation/00 — Introduction" />
+
+# BusTerminal frontend foundation
+
+This Storybook is the operational documentation for the BusTerminal
+frontend foundation. It is the single source of truth for everything a
+contributor — human or coding agent — needs to scaffold an operational
+screen from foundation primitives only, without re-deriving styling,
+re-inventing accessibility behavior, or breaking the audits.
+
+The foundation is shipped by spec **001 — Brand System and Design
+Foundation**. Future feature specs build on top of it; they do not edit
+its tokens, primitives, or chrome.
+
+---
+
+## What lives in the foundation
+
+| Layer | What it provides |
+|---|---|
+| **Brand** | Wordmark, glyph, favicons, OG preview, voice + traits + anti-patterns. Currently in a hot-swap placeholder phase — final assets land via the FR-002a `REVIEW.md` gate. |
+| **Design tokens** | Color, spacing, radius, elevation, motion, typography, breakpoints, z-index, focus ring — all published as CSS variables with full dark + light bindings. `pnpm audit:tokens` fails the build on any hardcoded literal. |
+| **Theming** | `next-themes` class strategy with an inline anti-FOUC script. Flash-free first paint is contractual (SC-004). |
+| **Typography** | Geist Sans / Geist Mono via `next/font`, full scale with dedicated monospace steps for technical identifiers (queue / topic / subscription / namespace names, correlation IDs, JSON, connection strings). |
+| **Iconography** | Single Lucide family. Domain icons resolved through `lib/iconography/domain-icons.ts` — composites never reach for raw Lucide imports. |
+| **Primitives** | 27 themed shadcn/ui primitives — project-owned source under `web/components/ui/`. Each is `vitest-axe`-clean, story-covered, and renders in both themes + RTL. |
+| **Data table** | TanStack Table foundation with type-safe columns, sorting, filtering, column visibility, sticky headers, keyboard navigation, row selection, pagination / virtualization. |
+| **Forms** | React Hook Form + Zod with schema-driven validation, accessible required indication, inline errors, destructive-confirmation pattern, long-running progress integration. |
+| **Charts** | Thin Recharts wrappers — token-themed, reduced-motion-aware. |
+| **i18n surface** | Centralized English string registry (`t(key)`); locale-aware formatters for date / time / relative-time / duration / number / bytes. RTL-safe by construction. |
+| **Observability** | Pluggable `ObservabilityAdapter` (no-op default + Application Insights browser adapter). W3C Trace Context (`traceparent` / `tracestate`) on every UI-originated HTTP request — **regardless of adapter configuration** (FR-039 / SC-014). |
+| **Quality gates** | Vitest + RTL + `vitest-axe`, Storybook test-runner + `axe-playwright`, Playwright cross-browser + reduced-motion + RTL specs, `@next/bundle-analyzer` with a soft / hard target. |
+
+---
+
+## How to read this Storybook
+
+Pages are numbered so the reading order is the contributor's reading
+order. New contributors should read 00 → 09 once before scaffolding.
+
+| Page | What it answers |
+|---|---|
+| **00 — Introduction** | (this page) — what's in the foundation and how to navigate the docs |
+| **01 — Brand** | Voice, traits, anti-patterns, dark / light parity, placeholder hot-swap note |
+| **02 — Design tokens** | Every sanctioned color, spacing, radius, elevation, motion, typography token with usage guidance |
+| **03 — Typography** | Full scale + monospace rules for technical identifiers |
+| **04 — Iconography** | Single-family rationale, the domain-icon mapping table |
+| **05 — Accessibility** | Keyboard contract, ARIA approach, color-vs-icon affordances, reduced-motion, RTL strategy |
+| **06 — Theming** | Flash-free first paint, dark / light parity rules, theme-provider contract |
+| **07 — Contribution** | How to add a primitive, a token, a string key without breaking the audits |
+| **08 — Agentic coding** | MCP servers as development-time tooling only — never runtime dependencies |
+| **09 — Browser support** | Last-two-majors matrix; modern CSS features permitted without polyfills |
+
+Primitive and composite stories are grouped under their own sidebar
+sections (UI, App Shell, Data Display, Data Table, Forms, Feedback,
+Navigation, Charts, Domain). Each primitive ships default-state, all
+variants, all states, both themes, and an RTL toggle.
+
+---
+
+## Hard rules
+
+These are the rules most likely to bite. Every one is enforced by
+either a CI audit, an ESLint rule, or a test gate.
+
+- **No hardcoded color, spacing, radius, elevation, or motion
+  literals** inside primitive or composite source. Use design tokens.
+  `pnpm audit:tokens` (SC-003).
+- **No hardcoded user-facing strings** inside primitive or composite
+  source. Use `t(key)`. `pnpm audit:strings` (SC-012).
+- **No physical-direction utilities** (`ml-*`, `mr-*`, `pl-*`, `pr-*`,
+  `left-*`, `right-*`, `text-left`, `text-right`) outside
+  `web/styles/tokens.css`. Use CSS logical properties.
+  `pnpm audit:directions` (SC-011 / SC-012).
+- **No CSS-in-JS.** Tailwind v4 + CSS variables only.
+- **No second design system, no alternative component library, no
+  heavy chart suite, no graph/topology library, no drag-and-drop
+  library, no rich-text editor, no code-editor component** without an
+  ADR.
+- **No PII in telemetry by default.** Only correlation identifiers
+  propagate (FR-041).
+- **MCP servers are development-time tooling.** They must never be a
+  runtime dependency of the product (FR-032). See [Page 08 — Agentic
+  coding](?path=/docs/foundation-08-agentic-coding--docs).
+- **W3C Trace Context propagation is mandatory** on every UI-originated
+  HTTP request, regardless of observability adapter configuration
+  (FR-039 / SC-014).
+
+---
+
+## Where to look beyond Storybook
+
+- **Spec**: `specs/001-brand-system-and-design-foundation/spec.md` is
+  the authoritative description of every functional requirement and
+  success criterion referenced on these pages.
+- **Constitution**: `.specify/memory/constitution.md` is the governing
+  document for technology choices, decision priorities, and
+  architectural standards. The constitution wins over any other
+  document when they conflict.
+- **Tech stack reference**: `speckit-artifacts/tech-stack.md`
+  consolidates every approved dependency and infrastructure choice.
+- **`web/docs/`** holds the narrative companions to the MDX pages:
+  `theming.md`, `accessibility.md`, `agentic-coding.md`,
+  `browser-support.md`, `contributing-frontend.md`,
+  `performance-budget.md`.
+
+---
+
+## Quickstart
+
+```bash
+pnpm install
+pnpm -C web dev           # run the app at http://localhost:3000
+pnpm -C web storybook     # browse this documentation locally
+pnpm -C web test          # Vitest + RTL + vitest-axe
+pnpm -C web test:storybook # Storybook test-runner + axe-playwright
+pnpm -C web test:e2e      # Playwright (Chromium, Firefox, WebKit)
+pnpm -C web audit:tokens && pnpm -C web audit:strings && pnpm -C web audit:directions
+```
+
+A more thorough walkthrough lives in
+`specs/001-brand-system-and-design-foundation/quickstart.md`.

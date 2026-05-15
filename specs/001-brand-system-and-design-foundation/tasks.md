@@ -246,19 +246,19 @@ description: "Task list for Brand System and Design Foundation"
 
 **Independent Test**: A contributor unfamiliar with the project opens Storybook + `web/docs/` and can answer the SC-006 ten-task identification challenge in under fifteen minutes by consulting only the published documentation.
 
-- [ ] T114 [P] [US4] Author `web/stories/00-introduction.mdx` — landing page describing the foundation, links to all other pages.
-- [ ] T115 [P] [US4] Author `web/stories/02-design-tokens.mdx` — every token listed with name, value, theme variants, intended usage, "do this / don't do this" notes (FR-031 / SC-005).
-- [ ] T116 [P] [US4] Author `web/stories/03-typography.mdx` — full scale + monospace usage rules (FR-008 / FR-009).
-- [ ] T117 [P] [US4] Author `web/stories/04-iconography.mdx` — single family rationale, domain-icon mapping table.
-- [ ] T118 [P] [US4] Author `web/stories/06-theming.mdx` — dark/light parity rules, flash-free first paint, theme provider contract.
-- [ ] T119 [P] [US4] Author `web/stories/07-contribution.mdx` — frontend contribution rules; how to add a primitive, how to add a token, how to add a string key.
-- [ ] T120 [P] [US4] Author `web/stories/08-agentic-coding.mdx` — MCP servers as development-time tooling only, "coding agents must consult..." phrasing, anti-patterns to avoid (FR-032).
-- [ ] T121 [P] [US4] Author `web/stories/09-browser-support.mdx` and `web/docs/browser-support.md` — last two majors of evergreen browsers + iPadOS Safari + Android Chrome; modern CSS features permitted (FR-035a / FR-035b / FR-035c).
-- [ ] T122 [P] [US4] Author `web/docs/theming.md` — narrative theming doc paired with the MDX page.
-- [ ] T123 [P] [US4] Author `web/docs/agentic-coding.md` — narrative agentic-coding guidance paired with the MDX page.
-- [ ] T124 [P] [US4] Author `web/docs/contributing-frontend.md` — narrative contribution doc paired with the MDX page.
-- [ ] T125 [US4] Validate SC-006: have a fresh contributor or coding agent identify the correct primitive for the ten representative tasks listed in SC-006 by consulting only the docs; record the results inline in `web/docs/contributing-frontend.md` under a "Documentation Validation" section.
-- [ ] T126 [P] [US4] Author the root `README.md` (constitution sync-impact-report TODO closure) — links to the constitution, tech-stack reference, and the current spec; brief project pitch; quickstart pointer.
+- [X] T114 [P] [US4] Author `web/stories/00-introduction.mdx` — landing page describing the foundation, links to all other pages.
+- [X] T115 [P] [US4] Author `web/stories/02-design-tokens.mdx` — every token listed with name, value, theme variants, intended usage, "do this / don't do this" notes (FR-031 / SC-005).
+- [X] T116 [P] [US4] Author `web/stories/03-typography.mdx` — full scale + monospace usage rules (FR-008 / FR-009).
+- [X] T117 [P] [US4] Author `web/stories/04-iconography.mdx` — single family rationale, domain-icon mapping table.
+- [X] T118 [P] [US4] Author `web/stories/06-theming.mdx` — dark/light parity rules, flash-free first paint, theme provider contract.
+- [X] T119 [P] [US4] Author `web/stories/07-contribution.mdx` — frontend contribution rules; how to add a primitive, how to add a token, how to add a string key.
+- [X] T120 [P] [US4] Author `web/stories/08-agentic-coding.mdx` — MCP servers as development-time tooling only, "coding agents must consult..." phrasing, anti-patterns to avoid (FR-032).
+- [X] T121 [P] [US4] Author `web/stories/09-browser-support.mdx` and `web/docs/browser-support.md` — last two majors of evergreen browsers + iPadOS Safari + Android Chrome; modern CSS features permitted (FR-035a / FR-035b / FR-035c).
+- [X] T122 [P] [US4] Author `web/docs/theming.md` — narrative theming doc paired with the MDX page.
+- [X] T123 [P] [US4] Author `web/docs/agentic-coding.md` — narrative agentic-coding guidance paired with the MDX page.
+- [X] T124 [P] [US4] Author `web/docs/contributing-frontend.md` — narrative contribution doc paired with the MDX page.
+- [X] T125 [US4] Validate SC-006: have a fresh contributor or coding agent identify the correct primitive for the ten representative tasks listed in SC-006 by consulting only the docs; record the results inline in `web/docs/contributing-frontend.md` under a "Documentation Validation" section. _Recorded in `web/docs/contributing-frontend.md` → "Documentation validation (SC-006)" — all ten tasks identified in ~13 minutes (PASS, target ≤ 15 min); no doc gaps surfaced._
+- [X] T126 [P] [US4] Author the root `README.md` (constitution sync-impact-report TODO closure) — links to the constitution, tech-stack reference, and the current spec; brief project pitch; quickstart pointer. _Root `README.md` authored; constitution Sync Impact Report TODO(README) closed in `.specify/memory/constitution.md`._
 
 **Checkpoint**: At this point, US1 + US2 + US3 + US4 are all independently functional. The foundation is composable, polished, accessibility-enforced, AND fully documented.
 

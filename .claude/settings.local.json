@@ -50,7 +50,11 @@
       "Bash(pnpm audit:tokens)",
       "Bash(pnpm audit:strings)",
       "Bash(pnpm audit:directions)",
-      "Bash(pnpm audit:svg-hygiene)"
+      "Bash(pnpm audit:svg-hygiene)",
+      "Bash(pnpm -C web audit:directions)",
+      "Bash(pnpm -C web audit:strings)",
+      "Bash(pnpm -C web audit:tokens)",
+      "Bash(pnpm -C web lint)"
     ]
   },
   "enabledMcpjsonServers": [

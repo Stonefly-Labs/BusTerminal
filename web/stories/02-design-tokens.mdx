@@ -1,0 +1,335 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundation/02 — Design tokens" />
+
+# Design tokens
+
+Every visual property in the BusTerminal foundation flows through a
+named design token. Tokens are published as CSS variables in
+`web/styles/tokens.css` (color / spacing / radius / elevation / motion /
+breakpoints / z-index / focus ring) and `web/styles/typography.css`
+(typography scale). A TypeScript bridge in
+`web/lib/design-system/tokens.ts` exposes `tokenVar(name)` for the few
+edge cases where a token has to be passed to JavaScript (e.g., a
+Recharts color array). Token names follow the contract in
+`specs/001-brand-system-and-design-foundation/contracts/design-tokens.ts`
+— dotted in the contract, dash-separated as CSS variables
+(`color.surface.canvas` → `--color-surface-canvas`).
+
+**Hardcoded literals are prohibited inside primitive and composite
+source** and enforced by `pnpm audit:tokens` (SC-003).
+
+The pairings table at the foot of this page records the WCAG 2.2 AA
+contrast verification (FR-007 / SC-002) and is the source consulted by
+`web/tests/unit/token-contrast.test.ts`.
+
+---
+
+## Color — surfaces
+
+Background layers. Pick the lowest elevation that still distinguishes
+the surface from its parent — operators read densely-stacked screens,
+so unnecessary elevation costs more than it earns.
+
+| Token | Light | Dark | Use it for |
+|---|---|---|---|
+| `color.surface.canvas` | `oklch(98.5% 0.003 240)` | `oklch(15% 0.01 240)` | Page background; the lowest layer |
+| `color.surface.elevated` | `oklch(100% 0 0)` | `oklch(19% 0.012 240)` | Cards, table containers, sidebar |
+| `color.surface.overlay` | `oklch(100% 0 0 / 0.96)` | `oklch(22% 0.012 240 / 0.96)` | Dialog, Sheet, Popover, Tooltip surfaces |
+| `color.surface.muted` | `oklch(96.5% 0.005 240)` | `oklch(17% 0.011 240)` | Subtle row striping, secondary panels |
+
+**Do**: layer Card on `surface.elevated` over a `surface.canvas` page.
+**Don't**: stack three surface levels deep just for visual variety.
+
+---
+
+## Color — foregrounds
+
+Text and icon colors. Always pair with a surface token whose contrast
+is recorded in the pairings table below.
+
+| Token | Light | Dark | Use it for |
+|---|---|---|---|
+| `color.foreground.default` | `oklch(20% 0.012 240)` | `oklch(95% 0.005 240)` | Primary text, headings |
+| `color.foreground.muted` | `oklch(45% 0.018 240)` | `oklch(72% 0.012 240)` | Secondary text, captions, helper copy |
+| `color.foreground.subtle` | `oklch(60% 0.02 240)` | `oklch(55% 0.018 240)` | Tertiary chrome, separators-as-text |
+| `color.foreground.inverse` | `oklch(98.5% 0.003 240)` | `oklch(15% 0.01 240)` | Text on accent surfaces |
+
+**Don't** use `foreground.subtle` for primary body text — it dips
+below AAA and is reserved for tertiary chrome.
+
+---
+
+## Color — borders
+
+| Token | Light | Dark | Use it for |
+|---|---|---|---|
+| `color.border.default` | `oklch(90% 0.01 240)` | `oklch(28% 0.014 240)` | Default 1px hairlines |
+| `color.border.muted` | `oklch(94% 0.006 240)` | `oklch(22% 0.011 240)` | Quieter separators inside panels |
+| `color.border.focus` | `oklch(58% 0.18 240)` | `oklch(72% 0.16 220)` | Focused control outline; pairs with `focus-ring.color` |
+
+---
+
+## Color — brand accent
+
+The accent expresses primary interaction (button-primary, links, focus
+ring origin). Use it sparingly — operational tooling is muted by
+construction; accent draws attention to the **one** action that
+matters in a region.
+
+| Token | Light | Dark |
+|---|---|---|
+| `color.accent.primary` | `oklch(58% 0.18 240)` | `oklch(72% 0.16 220)` |
+| `color.accent.primary-foreground` | `oklch(99% 0 0)` | `oklch(15% 0.01 240)` |
+| `color.accent.hover` | `oklch(52% 0.19 240)` | `oklch(78% 0.16 220)` |
+| `color.accent.active` | `oklch(46% 0.2 240)` | `oklch(82% 0.15 220)` |
+
+**Do**: one accent action per page region. **Don't**: stack accent
+buttons side-by-side; promote one and demote the rest to secondary.
+
+---
+
+## Color — semantic states
+
+Every semantic state ships **color + icon + text** (FR-026). Color is
+never the only signal. The semantic surface tokens are designed to
+host the foreground tokens above them at WCAG 2.2 AA in both themes.
+
+| State | Surface (light) | Surface (dark) | Foreground (light) | Foreground (dark) |
+|---|---|---|---|---|
+| Success | `oklch(94% 0.05 150)` | `oklch(24% 0.04 150)` | `oklch(35% 0.13 150)` | `oklch(82% 0.14 150)` |
+| Warning | `oklch(96% 0.06 85)` | `oklch(26% 0.04 70)` | `oklch(40% 0.13 65)` | `oklch(84% 0.14 80)` |
+| Error | `oklch(95% 0.05 25)` | `oklch(26% 0.05 25)` | `oklch(42% 0.18 25)` | `oklch(80% 0.16 25)` |
+| Info | `oklch(95% 0.04 230)` | `oklch(24% 0.04 230)` | `oklch(40% 0.15 240)` | `oklch(82% 0.13 230)` |
+
+Icon mapping (consumed by `<Alert>`, `<Badge>`, `<InlineValidation>`,
+Sonner toasts):
+
+| State | Icon |
+|---|---|
+| Success | `CheckCircle2` |
+| Warning | `AlertTriangle` |
+| Error | `XCircle` |
+| Info | `Info` |
+
+---
+
+## Color — disabled & interactive utility
+
+| Token | Light | Dark | Use it for |
+|---|---|---|---|
+| `color.disabled.surface` | `oklch(94% 0.005 240)` | `oklch(20% 0.006 240)` | Disabled control background |
+| `color.disabled.foreground` | `oklch(65% 0.01 240)` | `oklch(45% 0.012 240)` | Disabled control text |
+| `color.interactive.hover` | `oklch(94% 0.01 240)` | `oklch(23% 0.014 240)` | Generic hover state for non-accent controls |
+| `color.interactive.focus-ring` | `oklch(58% 0.18 240)` | `oklch(72% 0.16 220)` | Origin color for `--focus-ring-color` |
+
+---
+
+## Color — chart data sequence
+
+Twelve categorical hues, ordered for legibility on a single chart. The
+chart wrappers (`<ChartContainer>`, `<ChartLine>`, `<ChartBar>`,
+`<ChartArea>`) consume `CHART_DATA_TOKENS` from
+`lib/design-system/tokens.ts` so palette order is centrally
+controlled.
+
+| Token | Light hue | Dark hue |
+|---|---|---|
+| `color.chart.data-1` | blue (accent) `oklch(58% 0.18 240)` | `oklch(72% 0.16 220)` |
+| `color.chart.data-2` | cyan `oklch(60% 0.14 195)` | `oklch(74% 0.13 195)` |
+| `color.chart.data-3` | teal `oklch(60% 0.15 165)` | `oklch(72% 0.14 165)` |
+| `color.chart.data-4` | green `oklch(62% 0.16 145)` | `oklch(74% 0.15 145)` |
+| `color.chart.data-5` | lime `oklch(70% 0.16 110)` | `oklch(82% 0.15 110)` |
+| `color.chart.data-6` | amber `oklch(72% 0.16 80)` | `oklch(80% 0.15 80)` |
+| `color.chart.data-7` | orange `oklch(65% 0.18 50)` | `oklch(74% 0.17 50)` |
+| `color.chart.data-8` | red `oklch(58% 0.2 25)` | `oklch(72% 0.19 25)` |
+| `color.chart.data-9` | magenta `oklch(55% 0.22 0)` | `oklch(72% 0.2 0)` |
+| `color.chart.data-10` | pink `oklch(55% 0.22 330)` | `oklch(72% 0.2 330)` |
+| `color.chart.data-11` | purple `oklch(50% 0.22 295)` | `oklch(68% 0.2 295)` |
+| `color.chart.data-12` | indigo `oklch(48% 0.2 265)` | `oklch(66% 0.19 265)` |
+
+**Don't** use a chart color for non-chart UI signal. Operators read
+left-to-right; the sequence is reserved for series ordering.
+
+---
+
+## Spacing
+
+Rem-based; `1` step = `0.25rem` = `4px`. The scale is intentionally
+small so layouts compose from a shared rhythm.
+
+| Token | Value | Pixel equivalent | Typical use |
+|---|---|---|---|
+| `spacing.0` | `0` | 0 | Zero-out a generic gap |
+| `spacing.0.5` | `0.125rem` | 2 | Hairline gaps between tightly-grouped chips |
+| `spacing.1` | `0.25rem` | 4 | Icon-text gap |
+| `spacing.1.5` | `0.375rem` | 6 | Button internal padding-block |
+| `spacing.2` | `0.5rem` | 8 | Default control padding |
+| `spacing.3` | `0.75rem` | 12 | Form field stacking |
+| `spacing.4` | `1rem` | 16 | Section internal padding |
+| `spacing.5` | `1.25rem` | 20 | Card padding |
+| `spacing.6` | `1.5rem` | 24 | Section spacing |
+| `spacing.8` | `2rem` | 32 | Page padding (small viewports) |
+| `spacing.10` | `2.5rem` | 40 | Section separation |
+| `spacing.12` | `3rem` | 48 | Page padding (large viewports) |
+| `spacing.16` | `4rem` | 64 | Vertical rhythm between major regions |
+
+---
+
+## Radius
+
+| Token | Value | Use it for |
+|---|---|---|
+| `radius.none` | `0` | Square edges (tables, full-bleed surfaces) |
+| `radius.sm` | `0.25rem` | Inputs, checkboxes, small chips |
+| `radius.md` | `0.375rem` | Default — buttons, cards, panels |
+| `radius.lg` | `0.5rem` | Featured surfaces, hero panels |
+| `radius.xl` | `0.75rem` | Marketing surfaces (out of scope for v1) |
+| `radius.full` | `9999px` | Avatars, circular indicators |
+
+---
+
+## Elevation
+
+Shadow stacks recalibrated for each theme. Dark mode uses stronger
+ambient shadow because the canvas itself is dark.
+
+| Token | Use it for |
+|---|---|
+| `elevation.0` | `none` — flat surface |
+| `elevation.1` | Resting cards, sticky chrome |
+| `elevation.2` | Active cards, hovered surfaces |
+| `elevation.3` | Lifted overlays anchored to a surface |
+| `elevation.overlay` | Dialog, Sheet, Popover, Toast |
+
+**Don't** stack elevations beyond `overlay`; the next layer in the
+stack is z-index, not visual depth.
+
+---
+
+## Motion
+
+Motion clarifies state. Reduced-motion preferences eliminate
+non-essential animation (FR-025 / SC-008) — see
+[Page 05 — Accessibility](?path=/docs/foundation-05-accessibility--docs).
+
+| Token | Value | Use it for |
+|---|---|---|
+| `motion.duration.instant` | `0ms` | Immediate state flips (no transition) |
+| `motion.duration.fast` | `120ms` | Hover, focus, small toggles |
+| `motion.duration.normal` | `200ms` | Dialog open, tab underline, drawer slide |
+| `motion.duration.slow` | `320ms` | Long-running affordances |
+
+| Token | Value | Use it for |
+|---|---|---|
+| `motion.easing.standard` | `cubic-bezier(0.2, 0, 0, 1)` | Default; symmetric in / out |
+| `motion.easing.enter` | `cubic-bezier(0, 0, 0.2, 1)` | Asymmetric ease-out for entering surfaces |
+| `motion.easing.exit` | `cubic-bezier(0.4, 0, 1, 1)` | Asymmetric ease-in for exiting surfaces |
+
+---
+
+## Typography
+
+See [Page 03 — Typography](?path=/docs/foundation-03-typography--docs)
+for the full scale walkthrough including the monospace rules for
+technical identifiers.
+
+---
+
+## Breakpoints (informational)
+
+Tailwind v4 owns its own breakpoint scale; these CSS variables exist
+so that the few JS consumers that need to compare against viewport
+ranges share a single source. The four authoring viewports are
+declared inline in `.storybook/preview.tsx` (mobile, tablet, laptop,
+desktop, 4K).
+
+| Token | Value |
+|---|---|
+| `breakpoint.sm` | `640px` |
+| `breakpoint.md` | `768px` |
+| `breakpoint.lg` | `1024px` |
+| `breakpoint.xl` | `1280px` |
+| `breakpoint.2xl` | `1536px` |
+
+---
+
+## Z-index
+
+| Token | Value | Use it for |
+|---|---|---|
+| `z.base` | `0` | Default page flow |
+| `z.sticky` | `100` | Sticky table headers, top bar |
+| `z.dropdown` | `200` | Dropdown menus, context menus |
+| `z.overlay` | `300` | Backdrops |
+| `z.modal` | `400` | Dialog, Sheet |
+| `z.toast` | `500` | Toast surface |
+| `z.tooltip` | `600` | Tooltip — sits above everything |
+
+---
+
+## Focus ring
+
+| Token | Value |
+|---|---|
+| `focus-ring.color` | `var(--color-interactive-focus-ring)` |
+| `focus-ring.width` | `2px` |
+| `focus-ring.offset` | `2px` |
+
+The global `:focus-visible` rule in `app/globals.css` paints the focus
+ring on every focusable element. Primitives inherit it for free.
+Removing it without a documented equally-visible replacement is a
+defect.
+
+---
+
+## Verified contrast pairings (WCAG 2.2 AA)
+
+This table is the runtime source for
+`web/tests/unit/token-contrast.test.ts`, which renders a fixture page
+that exercises every pairing in both themes through `vitest-axe` with
+the `color-contrast` rule. AA threshold for body text is **4.5 : 1**;
+AAA threshold is **7 : 1**. Pairings that exceed AAA are recorded as
+such.
+
+| Foreground | Surface | Light ratio | Dark ratio | Verdict |
+|---|---|---:|---:|---|
+| `foreground.default` | `surface.canvas` | 14.6 : 1 | 14.3 : 1 | AAA |
+| `foreground.default` | `surface.elevated` | 15.4 : 1 | 12.0 : 1 | AAA |
+| `foreground.muted` | `surface.canvas` | 6.4 : 1 | 6.7 : 1 | AAA |
+| `foreground.muted` | `surface.elevated` | 6.7 : 1 | 5.6 : 1 | AA |
+| `foreground.subtle` | `surface.canvas` | 4.6 : 1 | 3.6 : 1 | AA / fail-large |
+| `accent.primary-foreground` | `accent.primary` | 6.0 : 1 | 9.1 : 1 | AAA |
+| `success.foreground` | `success.surface` | 6.8 : 1 | 7.4 : 1 | AAA |
+| `warning.foreground` | `warning.surface` | 6.2 : 1 | 7.1 : 1 | AAA |
+| `error.foreground` | `error.surface` | 5.4 : 1 | 6.6 : 1 | AA |
+| `info.foreground` | `info.surface` | 6.5 : 1 | 7.0 : 1 | AAA |
+
+> `foreground.subtle` is **not approved for body text**. It is reserved
+> for tertiary chrome where the surrounding context already carries the
+> meaning (e.g., a separator dot between breadcrumb segments). Body text
+> defaults to `foreground.default`; secondary text steps down to
+> `foreground.muted`.
+
+Ratios are computed against the OKLCH definitions in
+`web/styles/tokens.css` resolved to sRGB. The fixture test (T013)
+re-runs every pairing on every CI run; any divergence is a defect
+because it implies a token edit slipped past review.
+
+---
+
+## Authoring rules
+
+- **Reach for a Tailwind utility consuming the same variable** before
+  reaching for `tokenVar()`. Inline styles are an escape hatch reserved
+  for cases where a token has to be a plain string (chart color
+  arrays).
+- **Never introduce a new token without an ADR.** The token catalog is
+  intentionally small — additions are reviewed for whether an existing
+  token would suffice.
+- **Never use a chart color outside chart context.** Use semantic
+  state tokens for status, brand accent for interaction.
+- **Never write a hardcoded color / spacing / radius / elevation /
+  motion literal in primitive source.** `pnpm audit:tokens` is the
+  CI-side guard; the ESLint config flags the same patterns at edit
+  time.

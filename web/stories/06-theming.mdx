@@ -1,0 +1,172 @@
+import { Meta } from "@storybook/blocks";
+
+<Meta title="Foundation/06 — Theming" />
+
+# Theming
+
+BusTerminal ships **dark mode as the primary operational experience**
+and **light mode as a fully-supported peer** (not a tinted derivative).
+Both themes are complete bindings of the same token surface — every
+semantic foreground / surface pair is contrast-verified at WCAG 2.2 AA
+in both themes (FR-005 / FR-007). Switching between them must repaint
+cleanly with no leaked colors, no broken focus rings, and no stale
+chart hues.
+
+---
+
+## Why dark is primary
+
+Operators run BusTerminal in long sessions alongside terminals,
+observability dashboards, and editor windows that are also dark.
+Defaulting to light would force them to alt-tab between a bright app
+and a dark stack all day. Dark is the primary experience because that
+is where most reading happens — but light is not a tint or a
+poor-cousin: it is independently maintained, independently verified,
+and independently tested.
+
+---
+
+## How theme resolution works
+
+Theme management is `next-themes` with the **class strategy** on the
+`<html>` element. The contract is captured in
+`specs/001-brand-system-and-design-foundation/contracts/theme-provider.ts`.
+
+| Hook point | What it does |
+|---|---|
+| `app/layout.tsx` | Sets `<html lang>` and `<html dir>` for the active locale; injects the inline anti-FOUC script in `<head>` (`strategy="beforeInteractive"`); mounts `<Providers>` |
+| `app/providers.tsx` | Renders `<ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="bt:theme" disableTransitionOnChange>` |
+| `web/lib/theme-provider-constants.ts` | Single source of truth for the `bt:theme` storage key — shared between the RSC layout and the client provider |
+
+`next-themes` resolves the theme at first paint in this order:
+
+1. **Persisted preference.** If `localStorage["bt:theme"]` is `"light"`
+   or `"dark"`, that wins.
+2. **System preference.** Otherwise the value of
+   `prefers-color-scheme` (resolved synchronously in the anti-FOUC
+   script).
+3. **Default fallback.** If neither is available, `"light"`.
+
+The resolved theme is written to `document.documentElement.classList`
+(`.dark` for dark) and `document.documentElement.style.colorScheme`
+**before paint**. This is what makes first paint flash-free
+(SC-004) — the user-agent paints the dark background under
+`color-scheme: dark` before React hydrates, so no white flash leaks
+through. The Playwright spec
+`tests/e2e/theme-flash.spec.ts` (T105) asserts this end-to-end.
+
+---
+
+## The anti-FOUC script in detail
+
+```ts
+// app/layout.tsx — synchronous, runs in <head> before any rendered HTML
+(function () {
+  try {
+    var storageKey = "bt:theme";
+    var stored = window.localStorage.getItem(storageKey);
+    var systemDark =
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    var theme =
+      stored === "light" || stored === "dark"
+        ? stored
+        : systemDark
+        ? "dark"
+        : "light";
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+    document.documentElement.style.colorScheme = theme;
+  } catch (err) {
+    /* no-op; ThemeProvider resolves on hydration */
+  }
+})();
+```
+
+Three properties matter:
+
+1. **`strategy="beforeInteractive"`** on the `<Script>` tag — Next.js
+   guarantees this script runs before any rendered HTML paints.
+2. **Synchronous body** — no `await`, no top-level Promise. A single
+   tick later and the white flash leaks through.
+3. **Try / catch wrap** — in private-mode browsers that throw on
+   `localStorage`, the script silently bails and React's
+   `ThemeProvider` resolves on hydration. The user sees a tiny flash
+   in that path; the operational majority sees none.
+
+---
+
+## Storage key
+
+`bt:theme` — declared once in `web/lib/theme-provider-constants.ts`.
+The prefix `bt:` is reserved for foundation-owned persistent keys
+(`bt:foundation:*` is reserved for table-foundation column-visibility
+preferences). **Do not reuse the prefix** for feature-spec keys; pick
+a feature-scoped prefix instead.
+
+---
+
+## Switching theme at runtime
+
+```tsx
+import { useTheme } from "next-themes";
+
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const next = resolvedTheme === "dark" ? "light" : "dark";
+  return (
+    <Button onClick={() => setTheme(next)}>
+      {next === "dark"
+        ? t("appshell.topbar.themeToggle.toDark")
+        : t("appshell.topbar.themeToggle.toLight")}
+    </Button>
+  );
+}
+```
+
+`disableTransitionOnChange` is `true` on the provider so toggling
+does not blur tokens through a stale transition — the new theme
+paints in one frame.
+
+The edge case worth knowing about: with a Dialog, a Sheet, a Toast,
+and a Chart all open simultaneously, toggling theme must still repaint
+cleanly. The Playwright spec `tests/e2e/theme-switch.spec.ts` (T106)
+asserts no leaked dark / light values, no broken focus rings, and no
+stale chart colors under that condition.
+
+---
+
+## Authoring rules — dark / light parity
+
+- **Use only token references** in primitive and composite source.
+  Both themes route the same token through to different OKLCH values
+  — if you reach for a hex literal, parity is gone instantly.
+- **Don't author against the `:root.dark` selector** in primitive
+  source. The token system already handles the binding. The only
+  files that should target `:root.dark` are
+  `web/styles/tokens.css` (the token table) and
+  `web/app/globals.css` (the base layer).
+- **Test in both themes.** Every primitive story ships a `theme:
+  light` and `theme: dark` parameter via `addon-themes` so the
+  Storybook test-runner scans both. CI fails if either theme has a
+  WCAG violation that the other does not.
+- **Don't theme through `prefers-color-scheme` media queries.** Use
+  the `.dark` class strategy — it is what `next-themes` controls and
+  what the anti-FOUC script writes. Media queries can desync from
+  the persisted preference.
+- **No tinting.** Light is not "darken everything 20%" and dark is
+  not "lighten everything 20%". Both are independently designed
+  around their own surface family.
+
+---
+
+## Where to look beyond this page
+
+- [02 — Design tokens](?path=/docs/foundation-02-design-tokens--docs)
+  — the full token catalog with contrast-verified pairings.
+- [05 — Accessibility](?path=/docs/foundation-05-accessibility--docs)
+  — focus-ring contract, color-vs-icon affordances.
+- `web/docs/theming.md` — narrative companion paired with this page;
+  the two stay in sync.
+- `specs/001-brand-system-and-design-foundation/contracts/theme-provider.ts`
+  — the contract the implementation conforms to.
