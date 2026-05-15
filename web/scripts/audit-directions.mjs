@@ -25,9 +25,16 @@ const INCLUDE_PATTERNS = [
 
 const EXCLUDE_DIRS = ["node_modules", ".next", "styles"];
 
+// Storybook stories and Vitest specs are demo content; physical-direction
+// utilities are still discouraged but excluded from the gate so primitive
+// authors can showcase legacy patterns when explicitly demonstrating RTL.
+const EXCLUDE_FILE_PATTERNS = [/\.stories\.tsx$/, /\.test\.tsx$/, /\.test\.ts$/, /\.spec\.tsx$/, /\.spec\.ts$/];
+
 function isExempt(file) {
   if (file.endsWith("app/globals.css")) return true;
-  return EXCLUDE_DIRS.some((dir) => file.startsWith(`${dir}/`) || file.includes(`/${dir}/`));
+  const normalized = file.replaceAll("\\", "/");
+  if (EXCLUDE_FILE_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
+  return EXCLUDE_DIRS.some((dir) => normalized.startsWith(`${dir}/`) || normalized.includes(`/${dir}/`));
 }
 
 const PHYSICAL_PATTERNS = [

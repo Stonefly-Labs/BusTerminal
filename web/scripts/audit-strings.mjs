@@ -31,8 +31,14 @@ const EXCLUDE_DIRS = [
   "app/_showcase",
 ];
 
+// Storybook stories and Vitest specs are demo / verification content. Their
+// hardcoded labels exist to exercise primitives, not to ship to users.
+const EXCLUDE_FILE_PATTERNS = [/\.stories\.tsx$/, /\.test\.tsx$/, /\.spec\.tsx$/];
+
 function isExempt(file) {
-  return EXCLUDE_DIRS.some((dir) => file.startsWith(`${dir}/`) || file.includes(`/${dir}/`));
+  const normalized = file.replaceAll("\\", "/");
+  if (EXCLUDE_FILE_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
+  return EXCLUDE_DIRS.some((dir) => normalized.startsWith(`${dir}/`) || normalized.includes(`/${dir}/`));
 }
 
 const JSX_TEXT = />[\s\S]{3,}?</g;

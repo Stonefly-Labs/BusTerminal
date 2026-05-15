@@ -72,9 +72,14 @@ const EXCLUDE_FILES = new Set([
   "app/opengraph-image.tsx",
 ]);
 
+// Stories and unit tests can occasionally need raw demo values to exercise
+// edge cases; they don't ship to users.
+const EXCLUDE_FILE_PATTERNS = [/\.stories\.tsx$/, /\.test\.tsx$/, /\.test\.ts$/, /\.spec\.tsx$/, /\.spec\.ts$/];
+
 function isExempt(file) {
   const normalized = file.replaceAll("\\", "/");
   if (EXCLUDE_FILES.has(normalized)) return true;
+  if (EXCLUDE_FILE_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
   return EXCLUDE_DIRS.some(
     (dir) => normalized.startsWith(`${dir}/`) || normalized.includes(`/${dir}/`),
   );

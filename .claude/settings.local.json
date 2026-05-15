@@ -34,7 +34,17 @@
       "Bash(pnpm build-storybook *)",
       "Bash(pnpm typecheck *)",
       "Bash(echo \"===gate exit: $?\")",
-      "Bash(pnpm build *)"
+      "Bash(pnpm build *)",
+      "Bash(.specify/scripts/powershell/check-prerequisites.ps1 *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\lib\\\\i18n\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(Get-ChildItem \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\lib\\\\observability\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(New-Item *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm -s audit:tokens)",
+      "Bash(pnpm -s audit:strings)",
+      "Bash(pnpm -s audit:directions)",
+      "Bash(pnpm -s typecheck)"
     ]
   },
   "enabledMcpjsonServers": [

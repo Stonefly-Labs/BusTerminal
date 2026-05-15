@@ -121,84 +121,84 @@ description: "Task list for Brand System and Design Foundation"
 
 > Each task below: run `pnpm dlx shadcn@latest add <name>`, then in the generated file replace hardcoded literals with token references, replace user-facing strings with `t(key)`, author `<name>.stories.tsx` covering default/all-variants/all-states/both-themes/RTL, and author `<name>.test.tsx` with a `vitest-axe` assertion. (FR-014 / FR-022a / FR-023 – FR-027 / SC-002 / SC-005 / SC-012.)
 
-- [ ] T044 [P] [US1] Add and theme the `Button` primitive in `web/components/ui/button.{tsx,stories.tsx,test.tsx}`.
-- [ ] T045 [P] [US1] Add and theme the `Input` primitive in `web/components/ui/input.{tsx,stories.tsx,test.tsx}`.
-- [ ] T046 [P] [US1] Add and theme the `Textarea` primitive in `web/components/ui/textarea.{tsx,stories.tsx,test.tsx}`.
-- [ ] T047 [P] [US1] Add and theme the `Select` primitive in `web/components/ui/select.{tsx,stories.tsx,test.tsx}`.
-- [ ] T048 [P] [US1] Add and theme the `Checkbox` primitive in `web/components/ui/checkbox.{tsx,stories.tsx,test.tsx}`.
-- [ ] T049 [P] [US1] Add and theme the `RadioGroup` primitive in `web/components/ui/radio-group.{tsx,stories.tsx,test.tsx}`.
-- [ ] T050 [P] [US1] Add and theme the `Switch` primitive in `web/components/ui/switch.{tsx,stories.tsx,test.tsx}`.
-- [ ] T051 [P] [US1] Add and theme the `Label` primitive in `web/components/ui/label.{tsx,stories.tsx,test.tsx}`.
-- [ ] T052 [P] [US1] Add and theme the `Dialog` primitive in `web/components/ui/dialog.{tsx,stories.tsx,test.tsx}` — focus-trap, Esc to close, focus return contract.
-- [ ] T053 [P] [US1] Add and theme the `Sheet` primitive (the canonical name for the side-overlay primitive; "Drawer" is reserved for the app-shell composition pattern that uses `Sheet`) in `web/components/ui/sheet.{tsx,stories.tsx,test.tsx}`.
-- [ ] T054 [P] [US1] Add and theme the `DropdownMenu` primitive in `web/components/ui/dropdown-menu.{tsx,stories.tsx,test.tsx}`.
-- [ ] T055 [P] [US1] Add and theme the `ContextMenu` primitive in `web/components/ui/context-menu.{tsx,stories.tsx,test.tsx}`.
-- [ ] T056 [P] [US1] Add and theme the `Command` (palette) primitive in `web/components/ui/command.{tsx,stories.tsx,test.tsx}`.
-- [ ] T057 [P] [US1] Add and theme the `Tabs` primitive in `web/components/ui/tabs.{tsx,stories.tsx,test.tsx}`.
-- [ ] T058 [P] [US1] Add and theme the `Card` primitive in `web/components/ui/card.{tsx,stories.tsx,test.tsx}`.
-- [ ] T059 [P] [US1] Add and theme the `Badge` primitive in `web/components/ui/badge.{tsx,stories.tsx,test.tsx}`.
-- [ ] T060 [P] [US1] Add and theme the `Alert` primitive in `web/components/ui/alert.{tsx,stories.tsx,test.tsx}` — color + icon + text per FR-026.
-- [ ] T061 [P] [US1] Add and theme the `Toast` surface (Sonner) in `web/components/ui/toast.{tsx,stories.tsx,test.tsx}` plus the `useToast` hook in `web/hooks/use-toast.ts`.
-- [ ] T062 [P] [US1] Add and theme the `Tooltip` primitive in `web/components/ui/tooltip.{tsx,stories.tsx,test.tsx}`.
-- [ ] T063 [P] [US1] Add and theme the `Popover` primitive in `web/components/ui/popover.{tsx,stories.tsx,test.tsx}`.
-- [ ] T064 [P] [US1] Add and theme the `Separator` primitive in `web/components/ui/separator.{tsx,stories.tsx,test.tsx}`.
-- [ ] T065 [P] [US1] Add and theme the `Skeleton` primitive in `web/components/ui/skeleton.{tsx,stories.tsx,test.tsx}` — preserves layout stability (FR-019 / SC-019 CLS).
-- [ ] T066 [P] [US1] Add and theme the basic `Table` primitive (markup-only) in `web/components/ui/table.{tsx,stories.tsx,test.tsx}` — consumed by the DataTable foundation (T071 below).
-- [ ] T067 [P] [US1] Add and theme the `Breadcrumb` primitive in `web/components/ui/breadcrumb.{tsx,stories.tsx,test.tsx}`.
-- [ ] T068 [P] [US1] Add and theme the `ScrollArea` primitive in `web/components/ui/scroll-area.{tsx,stories.tsx,test.tsx}`.
-- [ ] T069 [P] [US1] Add and theme the `Resizable` panels primitive in `web/components/ui/resizable.{tsx,stories.tsx,test.tsx}` — Esc cancels drag, sizes persisted via the table-foundation persistence key prefix.
-- [ ] T070 [P] [US1] Add and theme the shadcn `Form` wrapper in `web/components/ui/form.{tsx,stories.tsx,test.tsx}` — the low-level RHF + Zod glue consumed by the higher-level form composites in T076 – T079.
+- [X] T044 [P] [US1] Add and theme the `Button` primitive in `web/components/ui/button.{tsx,stories.tsx,test.tsx}`.
+- [X] T045 [P] [US1] Add and theme the `Input` primitive in `web/components/ui/input.{tsx,stories.tsx,test.tsx}`.
+- [X] T046 [P] [US1] Add and theme the `Textarea` primitive in `web/components/ui/textarea.{tsx,stories.tsx,test.tsx}`.
+- [X] T047 [P] [US1] Add and theme the `Select` primitive in `web/components/ui/select.{tsx,stories.tsx,test.tsx}`.
+- [X] T048 [P] [US1] Add and theme the `Checkbox` primitive in `web/components/ui/checkbox.{tsx,stories.tsx,test.tsx}`.
+- [X] T049 [P] [US1] Add and theme the `RadioGroup` primitive in `web/components/ui/radio-group.{tsx,stories.tsx,test.tsx}`.
+- [X] T050 [P] [US1] Add and theme the `Switch` primitive in `web/components/ui/switch.{tsx,stories.tsx,test.tsx}`.
+- [X] T051 [P] [US1] Add and theme the `Label` primitive in `web/components/ui/label.{tsx,stories.tsx,test.tsx}`.
+- [X] T052 [P] [US1] Add and theme the `Dialog` primitive in `web/components/ui/dialog.{tsx,stories.tsx,test.tsx}` — focus-trap, Esc to close, focus return contract.
+- [X] T053 [P] [US1] Add and theme the `Sheet` primitive (the canonical name for the side-overlay primitive; "Drawer" is reserved for the app-shell composition pattern that uses `Sheet`) in `web/components/ui/sheet.{tsx,stories.tsx,test.tsx}`.
+- [X] T054 [P] [US1] Add and theme the `DropdownMenu` primitive in `web/components/ui/dropdown-menu.{tsx,stories.tsx,test.tsx}`.
+- [X] T055 [P] [US1] Add and theme the `ContextMenu` primitive in `web/components/ui/context-menu.{tsx,stories.tsx,test.tsx}`.
+- [X] T056 [P] [US1] Add and theme the `Command` (palette) primitive in `web/components/ui/command.{tsx,stories.tsx,test.tsx}`.
+- [X] T057 [P] [US1] Add and theme the `Tabs` primitive in `web/components/ui/tabs.{tsx,stories.tsx,test.tsx}`.
+- [X] T058 [P] [US1] Add and theme the `Card` primitive in `web/components/ui/card.{tsx,stories.tsx,test.tsx}`.
+- [X] T059 [P] [US1] Add and theme the `Badge` primitive in `web/components/ui/badge.{tsx,stories.tsx,test.tsx}`.
+- [X] T060 [P] [US1] Add and theme the `Alert` primitive in `web/components/ui/alert.{tsx,stories.tsx,test.tsx}` — color + icon + text per FR-026.
+- [X] T061 [P] [US1] Add and theme the `Toast` surface (Sonner) in `web/components/ui/toast.{tsx,stories.tsx,test.tsx}` plus the `useToast` hook in `web/hooks/use-toast.ts`.
+- [X] T062 [P] [US1] Add and theme the `Tooltip` primitive in `web/components/ui/tooltip.{tsx,stories.tsx,test.tsx}`.
+- [X] T063 [P] [US1] Add and theme the `Popover` primitive in `web/components/ui/popover.{tsx,stories.tsx,test.tsx}`.
+- [X] T064 [P] [US1] Add and theme the `Separator` primitive in `web/components/ui/separator.{tsx,stories.tsx,test.tsx}`.
+- [X] T065 [P] [US1] Add and theme the `Skeleton` primitive in `web/components/ui/skeleton.{tsx,stories.tsx,test.tsx}` — preserves layout stability (FR-019 / SC-019 CLS).
+- [X] T066 [P] [US1] Add and theme the basic `Table` primitive (markup-only) in `web/components/ui/table.{tsx,stories.tsx,test.tsx}` — consumed by the DataTable foundation (T071 below).
+- [X] T067 [P] [US1] Add and theme the `Breadcrumb` primitive in `web/components/ui/breadcrumb.{tsx,stories.tsx,test.tsx}`.
+- [X] T068 [P] [US1] Add and theme the `ScrollArea` primitive in `web/components/ui/scroll-area.{tsx,stories.tsx,test.tsx}`.
+- [X] T069 [P] [US1] Add and theme the `Resizable` panels primitive in `web/components/ui/resizable.{tsx,stories.tsx,test.tsx}` — Esc cancels drag, sizes persisted via the table-foundation persistence key prefix.
+- [X] T070 [P] [US1] Add and theme the shadcn `Form` wrapper in `web/components/ui/form.{tsx,stories.tsx,test.tsx}` — the low-level RHF + Zod glue consumed by the higher-level form composites in T076 – T079.
 
 ### Data table foundation (FR-015 / FR-016)
 
-- [ ] T071 [US1] Implement `DataTable<TData, TValue>` in `web/components/data-table/data-table.tsx` per [`contracts/table-foundation.ts`](./contracts/table-foundation.ts) — type-safe columns, sorting, filtering, column visibility, sticky header, keyboard navigation, row selection (multi-select gated by `enableMultiSelect`), pagination OR virtualization based on `paginationMode`, empty/loading/error states, responsive overflow.
-- [ ] T072 [P] [US1] Implement the table toolbar in `web/components/data-table/toolbar.tsx` — search input, column visibility menu, bulk-action menu, custom toolbar slot.
-- [ ] T073 [P] [US1] Implement table pagination in `web/components/data-table/pagination.tsx`.
-- [ ] T074 [P] [US1] Implement the table empty/error/loading states in `web/components/data-table/empty-state.tsx`, `error-state.tsx`, `loading-state.tsx` (skeleton-based — FR-019).
-- [ ] T075 [P] [US1] Author DataTable stories in `web/components/data-table/data-table.stories.tsx` and a `vitest-axe` test in `web/components/data-table/data-table.test.tsx` covering keyboard navigation (`ArrowUp`/`ArrowDown` row navigation, `Space` toggles selection), all states, both themes, RTL.
+- [X] T071 [US1] Implement `DataTable<TData, TValue>` in `web/components/data-table/data-table.tsx` per [`contracts/table-foundation.ts`](./contracts/table-foundation.ts) — type-safe columns, sorting, filtering, column visibility, sticky header, keyboard navigation, row selection (multi-select gated by `enableMultiSelect`), pagination OR virtualization based on `paginationMode`, empty/loading/error states, responsive overflow.
+- [X] T072 [P] [US1] Implement the table toolbar in `web/components/data-table/toolbar.tsx` — search input, column visibility menu, bulk-action menu, custom toolbar slot.
+- [X] T073 [P] [US1] Implement table pagination in `web/components/data-table/pagination.tsx`.
+- [X] T074 [P] [US1] Implement the table empty/error/loading states in `web/components/data-table/empty-state.tsx`, `error-state.tsx`, `loading-state.tsx` (skeleton-based — FR-019).
+- [X] T075 [P] [US1] Author DataTable stories in `web/components/data-table/data-table.stories.tsx` and a `vitest-axe` test in `web/components/data-table/data-table.test.tsx` covering keyboard navigation (`ArrowUp`/`ArrowDown` row navigation, `Space` toggles selection), all states, both themes, RTL.
 
 ### Form foundation (FR-017 / FR-018)
 
-- [ ] T076 [US1] Implement the high-level `<Form>` composite in `web/components/forms/form.tsx` per [`contracts/form-foundation.ts`](./contracts/form-foundation.ts) — Zod schema-driven, `preventDoubleSubmit` default true, accessible name sourced from i18n.
-- [ ] T077 [P] [US1] Implement `<Field>` composite in `web/components/forms/field.tsx` — wires label, description, error-message, required-indication, `aria-describedby` linkage.
-- [ ] T078 [P] [US1] Implement `useDestructiveConfirm` in `web/components/forms/destructive-confirm.tsx` — opens the Dialog primitive with destructive variant + required confirmation copy from i18n.
-- [ ] T079 [P] [US1] Implement `useLongRunningSubmit` in `web/components/forms/long-running-submit.ts` — wraps `SubmitHandler` with progress toast surface integration (FR-018).
-- [ ] T080 [P] [US1] Implement reusable Zod helpers in `web/lib/validation/zod-helpers.ts` (required-string, optional-bounded-string, enum-from-tuple, etc.).
-- [ ] T081 [P] [US1] Author Form composite stories in `web/components/forms/form.stories.tsx` and the corresponding `vitest-axe` test — covers required indication, inline error display, submit-pending state, destructive confirmation, both themes, RTL.
+- [X] T076 [US1] Implement the high-level `<Form>` composite in `web/components/forms/form.tsx` per [`contracts/form-foundation.ts`](./contracts/form-foundation.ts) — Zod schema-driven, `preventDoubleSubmit` default true, accessible name sourced from i18n.
+- [X] T077 [P] [US1] Implement `<Field>` composite in `web/components/forms/field.tsx` — wires label, description, error-message, required-indication, `aria-describedby` linkage.
+- [X] T078 [P] [US1] Implement `useDestructiveConfirm` in `web/components/forms/destructive-confirm.tsx` — opens the Dialog primitive with destructive variant + required confirmation copy from i18n.
+- [X] T079 [P] [US1] Implement `useLongRunningSubmit` in `web/components/forms/long-running-submit.ts` — wraps `SubmitHandler` with progress toast surface integration (FR-018).
+- [X] T080 [P] [US1] Implement reusable Zod helpers in `web/lib/validation/zod-helpers.ts` (required-string, optional-bounded-string, enum-from-tuple, etc.).
+- [X] T081 [P] [US1] Author Form composite stories in `web/components/forms/form.stories.tsx` and the corresponding `vitest-axe` test — covers required indication, inline error display, submit-pending state, destructive confirmation, both themes, RTL.
 
 ### Feedback primitives (FR-019 / FR-020)
 
-- [ ] T082 [P] [US1] Implement `<EmptyState>` in `web/components/feedback/empty-state.tsx` — icon + title + description + optional action; copy sourced from i18n.
-- [ ] T083 [P] [US1] Implement `<ErrorState>` and `<RetryAffordance>` in `web/components/feedback/error-state.tsx` and `web/components/feedback/retry-affordance.tsx`.
-- [ ] T084 [P] [US1] Implement `<InlineValidation>` in `web/components/feedback/inline-validation.tsx` for non-form contexts.
+- [X] T082 [P] [US1] Implement `<EmptyState>` in `web/components/feedback/empty-state.tsx` — icon + title + description + optional action; copy sourced from i18n.
+- [X] T083 [P] [US1] Implement `<ErrorState>` and `<RetryAffordance>` in `web/components/feedback/error-state.tsx` and `web/components/feedback/retry-affordance.tsx`.
+- [X] T084 [P] [US1] Implement `<InlineValidation>` in `web/components/feedback/inline-validation.tsx` for non-form contexts.
 
 ### Navigation primitives
 
-- [ ] T085 [P] [US1] Implement the global Command Palette in `web/components/navigation/command-palette.tsx` — composes the `Command` primitive, keyboard shortcut `Cmd/Ctrl+K`, registers a default action set.
-- [ ] T086 [P] [US1] Implement the BusTerminal breadcrumb composite in `web/components/navigation/breadcrumb.tsx` — wraps the Breadcrumb primitive with route-aware items.
-- [ ] T087 [P] [US1] Implement pagination composite in `web/components/navigation/pagination.tsx`.
+- [X] T085 [P] [US1] Implement the global Command Palette in `web/components/navigation/command-palette.tsx` — composes the `Command` primitive, keyboard shortcut `Cmd/Ctrl+K`, registers a default action set.
+- [X] T086 [P] [US1] Implement the BusTerminal breadcrumb composite in `web/components/navigation/breadcrumb.tsx` — wraps the Breadcrumb primitive with route-aware items.
+- [X] T087 [P] [US1] Implement pagination composite in `web/components/navigation/pagination.tsx`.
 
 ### Application shell & layout regions (FR-010 / FR-011 / FR-012)
 
-- [ ] T088 [US1] Implement `<AppShell>` in `web/components/app-shell/app-shell.tsx` with `sidebar`, `topBar`, `main`, `footer` slots per [data-model.md → Layout Region](./data-model.md#5-layout-region).
-- [ ] T089 [P] [US1] Implement `<Sidebar>` in `web/components/app-shell/sidebar.tsx` — collapsed/expanded states, `Cmd/Ctrl+B` toggle, focus preserved across collapse; collapsed = 56px, expanded = 280px at `≥lg`.
-- [ ] T090 [P] [US1] Implement `<TopBar>` in `web/components/app-shell/top-bar.tsx` — global search trigger, theme toggle, user menu placeholder.
-- [ ] T091 [P] [US1] Implement `<PageContainer>` and `<SectionContainer>` in `web/components/app-shell/page-container.tsx` and `section-container.tsx`.
-- [ ] T092 [P] [US1] Implement `<PageHeader>` in `web/components/app-shell/page-header.tsx` — title, breadcrumb slot, actions slot.
-- [ ] T093 [P] [US1] Implement `<Footer>` in `web/components/app-shell/footer.tsx`.
-- [ ] T094 [P] [US1] Implement `<SplitPanel>` and `<ResizablePanel>` in `web/components/app-shell/split-panel.tsx` and `resizable-panel.tsx` wrapping the `Resizable` primitive (T069).
-- [ ] T095 [US1] Compose `web/app/(app)/layout.tsx` from AppShell + Sidebar + TopBar + PageContainer + Footer; add `web/app/(app)/error.tsx` (consumes the top-level error boundary, on-brand surface — SC-015) and `web/app/(app)/loading.tsx` (skeleton-based — FR-019).
+- [X] T088 [US1] Implement `<AppShell>` in `web/components/app-shell/app-shell.tsx` with `sidebar`, `topBar`, `main`, `footer` slots per [data-model.md → Layout Region](./data-model.md#5-layout-region).
+- [X] T089 [P] [US1] Implement `<Sidebar>` in `web/components/app-shell/sidebar.tsx` — collapsed/expanded states, `Cmd/Ctrl+B` toggle, focus preserved across collapse; collapsed = 56px, expanded = 280px at `≥lg`.
+- [X] T090 [P] [US1] Implement `<TopBar>` in `web/components/app-shell/top-bar.tsx` — global search trigger, theme toggle, user menu placeholder.
+- [X] T091 [P] [US1] Implement `<PageContainer>` and `<SectionContainer>` in `web/components/app-shell/page-container.tsx` and `section-container.tsx`.
+- [X] T092 [P] [US1] Implement `<PageHeader>` in `web/components/app-shell/page-header.tsx` — title, breadcrumb slot, actions slot.
+- [X] T093 [P] [US1] Implement `<Footer>` in `web/components/app-shell/footer.tsx`.
+- [X] T094 [P] [US1] Implement `<SplitPanel>` and `<ResizablePanel>` in `web/components/app-shell/split-panel.tsx` and `resizable-panel.tsx` wrapping the `Resizable` primitive (T069).
+- [X] T095 [US1] Compose `web/app/(app)/layout.tsx` from AppShell + Sidebar + TopBar + PageContainer + Footer; add `web/app/(app)/error.tsx` (consumes the top-level error boundary, on-brand surface — SC-015) and `web/app/(app)/loading.tsx` (skeleton-based — FR-019).
 
 ### Chart wrapper layer (FR-029)
 
-- [ ] T096 [P] [US1] Implement `<ChartContainer>` in `web/components/charts/chart-container.tsx` — injects token-derived chart colors from `CHART_DATA_TOKENS`, disables enter/update animations when `prefers-reduced-motion` is set (FR-025).
-- [ ] T097 [P] [US1] Implement `<ChartLine>`, `<ChartBar>`, `<ChartArea>` wrappers in `web/components/charts/chart-line.tsx`, `chart-bar.tsx`, `chart-area.tsx` — each accepts strongly-typed data and exposes accessible labels per FR-026.
-- [ ] T098 [P] [US1] Author chart wrapper stories in `web/components/charts/charts.stories.tsx` plus a `vitest-axe` smoke test.
+- [X] T096 [P] [US1] Implement `<ChartContainer>` in `web/components/charts/chart-container.tsx` — injects token-derived chart colors from `CHART_DATA_TOKENS`, disables enter/update animations when `prefers-reduced-motion` is set (FR-025).
+- [X] T097 [P] [US1] Implement `<ChartLine>`, `<ChartBar>`, `<ChartArea>` wrappers in `web/components/charts/chart-line.tsx`, `chart-bar.tsx`, `chart-area.tsx` — each accepts strongly-typed data and exposes accessible labels per FR-026.
+- [X] T098 [P] [US1] Author chart wrapper stories in `web/components/charts/charts.stories.tsx` plus a `vitest-axe` smoke test.
 
 ### Representative composed demo screen (SC-001)
 
-- [ ] T099 [US1] Implement the representative composed demo screen at `web/app/(app)/page.tsx` exercising sidebar + top bar + page header + sortable/filterable DataTable + entity detail Drawer + Form (RHF + Zod) + Toast on save — using foundation primitives ONLY. Reset audit scripts (`audit:tokens`, `audit:strings`, `audit:directions`) MUST report zero violations.
-- [ ] T100 [P] [US1] Provide sample data + Zod schemas + column definitions in `web/app/(app)/_showcase/showcase-data.ts` and `web/app/(app)/_showcase/showcase-schemas.ts` to drive the demo.
+- [X] T099 [US1] Implement the representative composed demo screen at `web/app/(app)/page.tsx` exercising sidebar + top bar + page header + sortable/filterable DataTable + entity detail Drawer + Form (RHF + Zod) + Toast on save — using foundation primitives ONLY. Reset audit scripts (`audit:tokens`, `audit:strings`, `audit:directions`) MUST report zero violations.
+- [X] T100 [P] [US1] Provide sample data + Zod schemas + column definitions in `web/app/(app)/_showcase/showcase-data.ts` and `web/app/(app)/_showcase/showcase-schemas.ts` to drive the demo.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. A new operational screen can be assembled from the foundation using only its primitives and design tokens — `pnpm audit:tokens`, `pnpm audit:strings`, and `pnpm audit:directions` all report zero violations (SC-001).
 
