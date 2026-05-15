@@ -4,8 +4,13 @@ import type { StorybookConfig } from "@storybook/nextjs";
  * Storybook 10.x configuration for BusTerminal (T041).
  *
  * Framework: `@storybook/nextjs` (Next.js 16 App Router compatibility).
- * Addons: `@storybook/addon-a11y` (axe-core per story; FR-027), and
- * `@storybook/addon-themes` (dark/light toggle + side-by-side preview).
+ * Addons:
+ *   - `@storybook/addon-docs` — MDX + doc blocks. Required in v10 because
+ *     MDX handling and `<Meta>` / `<Canvas>` blocks moved out of core into
+ *     this addon. Without it, the webpack pipeline has no loader for the
+ *     `.mdx` files under `stories/`.
+ *   - `@storybook/addon-a11y` — axe-core per story (FR-027).
+ *   - `@storybook/addon-themes` — dark/light toggle + side-by-side preview.
  *
  * Note: Storybook 9+ folds `@storybook/test`, `@storybook/addon-interactions`,
  * and `@storybook/addon-viewport` into the core `storybook` package — they
@@ -29,6 +34,7 @@ const config: StorybookConfig = {
     "../app/**/*.stories.@(ts|tsx)",
   ],
   addons: [
+    "@storybook/addon-docs",
     "@storybook/addon-a11y",
     "@storybook/addon-themes",
   ],

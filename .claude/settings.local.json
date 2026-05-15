@@ -54,7 +54,12 @@
       "Bash(pnpm -C web audit:directions)",
       "Bash(pnpm -C web audit:strings)",
       "Bash(pnpm -C web audit:tokens)",
-      "Bash(pnpm -C web lint)"
+      "Bash(pnpm -C web lint)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(pnpm -C web add -D \"@storybook/addon-docs@^10.3.6\")",
+      "Bash(pnpm -C web build-storybook)",
+      "Bash(pnpm -C web typecheck)"
     ]
   },
   "enabledMcpjsonServers": [
