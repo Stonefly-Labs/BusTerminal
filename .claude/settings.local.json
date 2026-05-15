@@ -5,7 +5,11 @@
       "PowerShell(& \"C:\\\\Projects\\\\BusTerminal\\\\.specify\\\\scripts\\\\powershell\\\\setup-plan.ps1\" -Json)",
       "PowerShell(.specify/scripts/powershell/setup-plan.ps1 -Json)",
       "PowerShell(.specify/scripts/powershell/setup-tasks.ps1 -Json)",
-      "PowerShell(.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)"
+      "PowerShell(.specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(corepack *)",
+      "PowerShell(Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\"; \"---\"; Get-ChildItem \"C:\\\\Projects\\\\BusTerminal\\\\web\" -Force | Select-Object Mode, Name | Format-Table -AutoSize; \"---\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\node_modules\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\package.json\"; Test-Path \"C:\\\\Projects\\\\BusTerminal\\\\web\\\\app\")",
+      "PowerShell(pnpm *)"
     ]
   },
   "enabledMcpjsonServers": [
