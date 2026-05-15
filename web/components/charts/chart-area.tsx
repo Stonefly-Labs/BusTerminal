@@ -2,6 +2,8 @@
 
 import { Area, AreaChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+
 import { ChartContainer, chartSeriesColor } from "./chart-container";
 
 export interface ChartAreaSeries<TData> {
@@ -25,6 +27,7 @@ export function ChartArea<TData extends Record<string, unknown>>({
   accessibleLabel,
   height,
 }: ChartAreaProps<TData>) {
+  const reducedMotion = useReducedMotion();
   return (
     <ChartContainer accessibleLabel={accessibleLabel} {...(height !== undefined ? { height } : {})}>
       <AreaChart data={data as TData[]}>
@@ -47,6 +50,7 @@ export function ChartArea<TData extends Record<string, unknown>>({
             stroke={chartSeriesColor(index)}
             fill={chartSeriesColor(index)}
             fillOpacity={0.2}
+            isAnimationActive={!reducedMotion}
           />
         ))}
       </AreaChart>

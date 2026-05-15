@@ -18,9 +18,14 @@ export interface ChartContainerProps {
  * token-derived chart palette via CSS variables, and exposes an accessible
  * name for screen readers (T096 / FR-029).
  *
- * Reduced-motion is enforced globally via `app/globals.css`; consumers can
- * still pass `isAnimationActive={false}` to individual series for explicit
- * opt-out.
+ * Reduced-motion enforcement is layered:
+ *   1. `app/globals.css` collapses CSS-driven animation under
+ *      `prefers-reduced-motion: reduce`.
+ *   2. Recharts series enter/update tweens are JS-scheduled and are NOT
+ *      governed by the CSS rule. The `ChartLine`, `ChartBar`, and
+ *      `ChartArea` wrappers consume `useReducedMotion()` (T108) and pass
+ *      `isAnimationActive={false}` to each series when the user has
+ *      requested reduced motion (FR-025 / SC-008).
  */
 export function ChartContainer({
   children,

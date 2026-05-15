@@ -44,7 +44,13 @@
       "Bash(pnpm -s audit:tokens)",
       "Bash(pnpm -s audit:strings)",
       "Bash(pnpm -s audit:directions)",
-      "Bash(pnpm -s typecheck)"
+      "Bash(pnpm -s typecheck)",
+      "Bash(node -e \"console.log\\(new Intl.RelativeTimeFormat\\('ar-EG', { numeric: 'always' }\\).format\\(2, 'day'\\)\\)\")",
+      "Bash(node -e \"console.log\\(new Intl.RelativeTimeFormat\\('ar-EG'\\).format\\(5, 'day'\\)\\)\")",
+      "Bash(pnpm audit:tokens)",
+      "Bash(pnpm audit:strings)",
+      "Bash(pnpm audit:directions)",
+      "Bash(pnpm audit:svg-hygiene)"
     ]
   },
   "enabledMcpjsonServers": [

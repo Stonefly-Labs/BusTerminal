@@ -57,3 +57,36 @@ export const Area: Story = {
     />
   ),
 };
+
+/**
+ * Reduced-motion contract (T108 / FR-025 / SC-008).
+ *
+ * Toggle `prefers-reduced-motion: reduce` in DevTools (or the OS setting)
+ * and reload. The series will mount fully drawn with no enter/update
+ * tween. The `useReducedMotion` hook inside the chart wrappers reads the
+ * media query and forwards `isAnimationActive={false}` to every Recharts
+ * series. The Playwright spec `tests/e2e/reduced-motion.spec.ts` asserts
+ * this behavior end-to-end.
+ */
+export const ReducedMotionContract: Story = {
+  name: "Reduced motion (contract)",
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "When the user has `prefers-reduced-motion: reduce`, the Chart wrappers pass `isAnimationActive={false}` to each series. Toggle the OS setting and reload to verify.",
+      },
+    },
+  },
+  render: () => (
+    <ChartLine
+      data={TIMELINE}
+      xKey="hour"
+      series={[
+        { id: "queue", accessor: "queue", label: "Active" },
+        { id: "dl", accessor: "dl", label: "Dead-letter" },
+      ]}
+      accessibleLabel="Queue depth chart respecting reduced-motion preference"
+    />
+  ),
+};

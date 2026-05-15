@@ -2,6 +2,8 @@
 
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+
 import { ChartContainer, chartSeriesColor } from "./chart-container";
 
 export interface ChartBarSeries<TData> {
@@ -25,6 +27,7 @@ export function ChartBar<TData extends Record<string, unknown>>({
   accessibleLabel,
   height,
 }: ChartBarProps<TData>) {
+  const reducedMotion = useReducedMotion();
   return (
     <ChartContainer accessibleLabel={accessibleLabel} {...(height !== undefined ? { height } : {})}>
       <BarChart data={data as TData[]}>
@@ -45,6 +48,7 @@ export function ChartBar<TData extends Record<string, unknown>>({
             name={s.label}
             fill={chartSeriesColor(index)}
             radius={[4, 4, 0, 0]}
+            isAnimationActive={!reducedMotion}
           />
         ))}
       </BarChart>

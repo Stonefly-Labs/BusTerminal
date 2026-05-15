@@ -3,6 +3,8 @@
 import * as React from "react";
 import { CartesianGrid, Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+
 import { ChartContainer, chartSeriesColor } from "./chart-container";
 
 export interface ChartLineSeries<TData> {
@@ -26,6 +28,7 @@ export function ChartLine<TData extends Record<string, unknown>>({
   accessibleLabel,
   height,
 }: ChartLineProps<TData>) {
+  const reducedMotion = useReducedMotion();
   return (
     <ChartContainer accessibleLabel={accessibleLabel} {...(height !== undefined ? { height } : {})}>
       <LineChart data={data as TData[]}>
@@ -48,6 +51,7 @@ export function ChartLine<TData extends Record<string, unknown>>({
             stroke={chartSeriesColor(index)}
             strokeWidth={2}
             dot={false}
+            isAnimationActive={!reducedMotion}
           />
         ))}
       </LineChart>
