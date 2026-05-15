@@ -16,8 +16,37 @@ import { SectionContainer } from "@/components/app-shell/section-container";
 import { ChartLine } from "@/components/charts/chart-line";
 import { useToast } from "@/hooks/use-toast";
 
+import { AzureResourceLink } from "@/components/domain/azure-resource-link";
+import { DeadLetterIndicator } from "@/components/domain/dead-letter-indicator";
+import { DiscoveryJobStatus } from "@/components/domain/discovery-job-status";
+import { EntityRelationshipBadge } from "@/components/domain/entity-relationship-badge";
+import { EnvironmentBadge } from "@/components/domain/environment-badge";
+import { HealthSummaryIndicator } from "@/components/domain/health-summary-indicator";
+import { MessageCountIndicator } from "@/components/domain/message-count-indicator";
+import { MetadataKeyValuePanel } from "@/components/domain/metadata-key-value-panel";
+import { NamespaceCard } from "@/components/domain/namespace-card";
+import { QueueCard } from "@/components/domain/queue-card";
+import { QueueRow as QueueDomainRow } from "@/components/domain/queue-row";
+import { SubscriptionCard } from "@/components/domain/subscription-card";
+import { SubscriptionRow as SubscriptionDomainRow } from "@/components/domain/subscription-row";
+import { TopicCard } from "@/components/domain/topic-card";
+import { TopicRow as TopicDomainRow } from "@/components/domain/topic-row";
+import { TopologyMiniMapPlaceholder } from "@/components/domain/topology-mini-map-placeholder";
+
 import { SHOWCASE_COLUMNS, SHOWCASE_QUEUES, type QueueRow } from "./_showcase/showcase-data";
 import { newQueueSchema, type NewQueueValues } from "./_showcase/showcase-schemas";
+import {
+  SHOWCASE_AZURE_RESOURCE_ID,
+  SHOWCASE_DOMAIN_QUEUE,
+  SHOWCASE_DOMAIN_QUEUE_DLQ,
+  SHOWCASE_JOB_STARTED_AT,
+  SHOWCASE_METADATA,
+  SHOWCASE_NAMESPACE,
+  SHOWCASE_NOW,
+  SHOWCASE_PORTAL_URL,
+  SHOWCASE_SUBSCRIPTION,
+  SHOWCASE_TOPIC,
+} from "./_showcase/domain-showcase-data";
 
 const TIMELINE = [
   { hour: "00:00", active: 12, dl: 0 },
@@ -141,6 +170,61 @@ export default function FoundationDemoPage() {
             )}
           </Form>
         </div>
+      </SectionContainer>
+
+      <SectionContainer>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground-muted">
+          Domain composites
+        </h2>
+        <p className="text-xs text-foreground-muted">
+          Every BusTerminal-specific composite from FR-028 rendered with realistic sample data.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <NamespaceCard namespace={SHOWCASE_NAMESPACE} />
+          <QueueCard queue={SHOWCASE_DOMAIN_QUEUE} />
+          <QueueCard queue={SHOWCASE_DOMAIN_QUEUE_DLQ} />
+          <TopicCard topic={SHOWCASE_TOPIC} />
+          <SubscriptionCard subscription={SHOWCASE_SUBSCRIPTION} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <QueueDomainRow queue={SHOWCASE_DOMAIN_QUEUE} />
+          <QueueDomainRow queue={SHOWCASE_DOMAIN_QUEUE_DLQ} />
+          <TopicDomainRow topic={SHOWCASE_TOPIC} />
+          <SubscriptionDomainRow subscription={SHOWCASE_SUBSCRIPTION} />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <EnvironmentBadge environment="dev" />
+          <EnvironmentBadge environment="test" />
+          <EnvironmentBadge environment="staging" />
+          <EnvironmentBadge environment="prod" />
+          <DeadLetterIndicator count={0} />
+          <DeadLetterIndicator count={14} />
+          <MessageCountIndicator count={1_240} />
+          <HealthSummaryIndicator counts={{ healthy: 18, degraded: 3, unhealthy: 0 }} />
+          <DiscoveryJobStatus
+            state="running"
+            startedAt={SHOWCASE_JOB_STARTED_AT}
+            now={SHOWCASE_NOW}
+          />
+          <EntityRelationshipBadge
+            kind="subscribes"
+            from="billing-pipeline"
+            to="orders.events"
+          />
+        </div>
+
+        <AzureResourceLink
+          resourceId={SHOWCASE_AZURE_RESOURCE_ID}
+          label="orders-westus"
+          portalUrl={SHOWCASE_PORTAL_URL}
+        />
+
+        <MetadataKeyValuePanel entries={[...SHOWCASE_METADATA]} />
+
+        <TopologyMiniMapPlaceholder />
       </SectionContainer>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>

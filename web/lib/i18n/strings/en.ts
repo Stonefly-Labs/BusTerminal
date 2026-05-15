@@ -304,9 +304,54 @@ const REGISTRY = {
     description: "Display label for the Service Bus namespace concept.",
     interpolations: {},
   },
+  "domain.namespace.tier.basic": {
+    englishValue: "Basic",
+    description: "Service Bus pricing tier label — Basic.",
+    interpolations: {},
+  },
+  "domain.namespace.tier.standard": {
+    englishValue: "Standard",
+    description: "Service Bus pricing tier label — Standard.",
+    interpolations: {},
+  },
+  "domain.namespace.tier.premium": {
+    englishValue: "Premium",
+    description: "Service Bus pricing tier label — Premium.",
+    interpolations: {},
+  },
+  "domain.namespace.stats.queues": {
+    englishValue: "Queues",
+    description: "Summary stat label for the queue count on a namespace card.",
+    interpolations: {},
+  },
+  "domain.namespace.stats.topics": {
+    englishValue: "Topics",
+    description: "Summary stat label for the topic count on a namespace card.",
+    interpolations: {},
+  },
   "domain.queue.label": {
     englishValue: "Queue",
     description: "Display label for the Service Bus queue concept.",
+    interpolations: {},
+  },
+  "domain.entity.status.active": {
+    englishValue: "Active",
+    description: "Status label for an actively flowing entity (queue/topic/subscription).",
+    interpolations: {},
+  },
+  "domain.entity.status.idle": {
+    englishValue: "Idle",
+    description: "Status label for an idle entity (queue/topic/subscription).",
+    interpolations: {},
+  },
+  "domain.entity.status.error": {
+    englishValue: "Error",
+    description: "Status label for an entity in an error state.",
+    interpolations: {},
+  },
+  "domain.entity.status.deadLettered": {
+    englishValue: "Dead-lettered",
+    description: "Status label for an entity with dead-lettered messages.",
     interpolations: {},
   },
   "domain.topic.label": {
@@ -314,9 +359,19 @@ const REGISTRY = {
     description: "Display label for the Service Bus topic concept.",
     interpolations: {},
   },
+  "domain.topic.subscriptionCount": {
+    englishValue: "{count} subscriptions",
+    description: "Aggregate label showing how many subscriptions a topic has.",
+    interpolations: { count: "number" },
+  },
   "domain.subscription.label": {
     englishValue: "Subscription",
     description: "Display label for the Service Bus subscription concept.",
+    interpolations: {},
+  },
+  "domain.subscription.parentTopic": {
+    englishValue: "Topic",
+    description: "Label for the parent-topic field on a subscription composite.",
     interpolations: {},
   },
   "domain.deadLetter.label": {
@@ -333,6 +388,11 @@ const REGISTRY = {
     englishValue: "{count} messages",
     description: "Message-count indicator copy.",
     interpolations: { count: "number" },
+  },
+  "domain.messageCount.heading": {
+    englishValue: "Messages",
+    description: "Heading label for the message-count column or stat.",
+    interpolations: {},
   },
   "domain.health.healthy": {
     englishValue: "Healthy",
@@ -417,6 +477,36 @@ const REGISTRY = {
   "domain.topology.placeholder": {
     englishValue: "Topology visualization will be added by a future spec.",
     description: "Inert placeholder copy for the topology mini-map.",
+    interpolations: {},
+  },
+  "domain.topology.placeholderTitle": {
+    englishValue: "Topology preview",
+    description: "Inert placeholder heading for the topology mini-map.",
+    interpolations: {},
+  },
+  "domain.relationship.forwards": {
+    englishValue: "Forwards to",
+    description: "Entity relationship label — message forwarding.",
+    interpolations: {},
+  },
+  "domain.relationship.subscribes": {
+    englishValue: "Subscribes to",
+    description: "Entity relationship label — subscription binding.",
+    interpolations: {},
+  },
+  "domain.relationship.deadLetters": {
+    englishValue: "Dead-letters to",
+    description: "Entity relationship label — dead-letter forwarding.",
+    interpolations: {},
+  },
+  "domain.relationship.publishes": {
+    englishValue: "Publishes to",
+    description: "Entity relationship label — publish binding.",
+    interpolations: {},
+  },
+  "domain.relationship.parentOf": {
+    englishValue: "Parent of",
+    description: "Entity relationship label — namespace owns child entity.",
     interpolations: {},
   },
 
