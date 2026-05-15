@@ -63,7 +63,9 @@
       "Bash(npm --version)",
       "Bash(corepack --version)",
       "Bash(corepack enable *)",
-      "Bash(pnpm --version)"
+      "Bash(pnpm --version)",
+      "Bash(curl -s https://registry.npmjs.org/pnpm/latest)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('version:', d['version']\\)\")"
     ]
   },
   "enabledMcpjsonServers": [
