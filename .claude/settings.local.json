@@ -108,7 +108,22 @@
       "Bash(mkdir -p /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/checklists)",
       "Bash(cp /Users/christopherhouse/projects/BusTerminal/.specify/templates/spec-template.md /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/spec.md)",
       "mcp__microsoft-learn__microsoft_docs_search",
-      "Bash(brew list *)"
+      "Bash(brew list *)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet new sln *)",
+      "Bash(dotnet new webapi *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet new xunit *)",
+      "Bash(dotnet add *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet new *)",
+      "Bash(dotnet tool *)",
+      "Bash(chmod +x /Users/christopherhouse/projects/BusTerminal/scripts/bootstrap.sh /Users/christopherhouse/projects/BusTerminal/scripts/bootstrap.ps1)",
+      "Bash(bash /Users/christopherhouse/projects/BusTerminal/scripts/bootstrap.sh)",
+      "Bash(gitleaks --version)",
+      "Bash(tflint --version)",
+      "Bash(dotnet test *)"
     ]
   },
   "enabledMcpjsonServers": [
