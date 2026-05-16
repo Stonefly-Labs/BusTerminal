@@ -37,7 +37,7 @@ Per `plan.md` § Project Structure:
 
 **Purpose**: Project initialization and the top-level layout decided in `plan.md`.
 
-- [ ] T001 Create the new top-level directory skeleton at the repository root (`api/`, `iac/`, `.github/workflows/`, `scripts/`, `docs/`). Add a `.gitkeep` only where the directory would otherwise be empty until later tasks populate it.
+- [X] T001 Create the new top-level directory skeleton at the repository root (`api/`, `iac/`, `.github/workflows/`, `scripts/`, `docs/`). Add a `.gitkeep` only where the directory would otherwise be empty until later tasks populate it.
 - [ ] T002 [P] Create the .NET solution and backend project: `dotnet new sln -o api -n BusTerminal` then `dotnet new webapi --use-minimal-apis --auth None --framework net10.0 -o api/BusTerminal.Api -n BusTerminal.Api` and add to the solution. Set `<Nullable>enable</Nullable>` and `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in the `.csproj`.
 - [ ] T003 [P] Create the backend test project: `dotnet new xunit -o api/BusTerminal.Api.Tests -n BusTerminal.Api.Tests --framework net10.0`, add `Microsoft.AspNetCore.Mvc.Testing` and `FluentAssertions` packages, reference `BusTerminal.Api`, and add to the solution.
 - [ ] T004 [P] Add `.editorconfig` at repo root with `dotnet_diagnostic.*` rules aligning .NET style with the existing TypeScript style; ensure C# uses 4-space indent and file-scoped namespaces.

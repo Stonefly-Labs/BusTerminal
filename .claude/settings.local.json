@@ -107,7 +107,8 @@
       "Bash(GIT_BRANCH_NAME=feature/002-solution-foundation bash *)",
       "Bash(mkdir -p /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/checklists)",
       "Bash(cp /Users/christopherhouse/projects/BusTerminal/.specify/templates/spec-template.md /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/spec.md)",
-      "mcp__microsoft-learn__microsoft_docs_search"
+      "mcp__microsoft-learn__microsoft_docs_search",
+      "Bash(brew list *)"
     ]
   },
   "enabledMcpjsonServers": [
