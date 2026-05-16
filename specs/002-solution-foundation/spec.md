@@ -18,6 +18,18 @@ In short: when this slice is complete, **every later feature can begin its work 
 
 ---
 
+## Clarifications
+
+### Session 2026-05-16
+
+- Q: Which Azure environments are provisioned end-to-end in this slice? → A: `dev` only. `test` and `prod` are scaffolded (folder structure + parameter file templates) but their resources are not provisioned in this slice. Adding them later must be a configuration change, not a redesign.
+- Q: What is the backend API's ingress posture for the `dev` environment? → A: External ingress on the public internet; every request MUST present a valid Microsoft Entra ID bearer token (no anonymous access). Internal callers (frontend) and external callers (future API consumers) share the same authenticated public surface.
+- Q: What does the deployed frontend actually render for an authenticated user in this slice? → A: A navigation shell (header with logo, theme toggle, user menu/sign-out; sidebar/nav placeholder) plus one authenticated "platform status" page that calls the backend's `whoami` endpoint and surfaces correlation IDs. The shell consumes design tokens and primitives from slice 001 (no new design work).
+- Q: How is OpenTofu remote state bootstrapped? → A: A dedicated one-time `platform-bootstrap` OpenTofu module provisions the state storage account, container, state locking, and the GitHub Actions federated identity. All shared/CI usage (every environment) uses that remote state. Local developer workflows use local state (no remote-state dependency on a dev's machine). Documentation MUST cover BOTH (a) how to run the one-time bootstrap module and (b) a step-by-step manual procedure (e.g., via `az` CLI / portal) that produces an equivalent backend for developers who would rather not run the module.
+- Q: What is the authorization scope for this slice? → A: Authenticated-vs-unauthenticated only. Any signed-in Microsoft Entra ID user may call any protected endpoint. No app roles, no group claims, no role enforcement logic in this slice. Role-based access control ships in a later slice when domain functionality gives roles semantic meaning.
+
+---
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 — New developer can run the whole solution locally on first day (Priority: P1)
@@ -48,7 +60,7 @@ A maintainer merges to the main branch. A CI/CD pipeline builds container images
 **Acceptance Scenarios**:
 
 1. **Given** the main branch has a fresh commit, **When** the deployment pipeline runs, **Then** it builds container images, runs security scans, validates infrastructure-as-code, applies infrastructure changes, and rolls out new container revisions without manual steps.
-2. **Given** the pipeline has completed successfully, **When** a user navigates to the deployed frontend URL, **Then** the application loads, exchanges identity tokens with Microsoft Entra ID, and reaches the backend successfully.
+2. **Given** the pipeline has completed successfully, **When** a user navigates to the deployed frontend URL, **Then** the application loads the navigation shell, redirects unauthenticated users through Microsoft Entra ID sign-in, and — once signed in — the platform-status page successfully calls the backend's `whoami` endpoint and renders the user's identity plus the request correlation identifier.
 3. **Given** a deployed environment, **When** an operator runs the pipeline a second time without code changes, **Then** infrastructure remains stable (idempotent), no orphaned resources are created, and the deployment completes without errors.
 4. **Given** the pipeline authenticates to Azure, **When** the authentication step runs, **Then** it uses workload identity federation with no static cloud credentials stored in the repository or in pipeline secrets.
 
@@ -143,10 +155,13 @@ An infrastructure engineer needs a `test` environment in addition to `dev`. They
 - **FR-022**: The frontend MUST propagate W3C Trace Context (`traceparent`/`tracestate`) on every outbound HTTP request regardless of which telemetry adapter is active.
 - **FR-023**: The frontend MUST integrate with a pluggable observability adapter (default no-op) capable of being switched to the production telemetry sink via environment configuration only — no code change required.
 - **FR-024**: The frontend MUST enforce that protected routes redirect unauthenticated users through the configured identity provider sign-in flow.
+- **FR-025**: The frontend MUST render a navigation shell — header (product logo, theme toggle, signed-in user menu with sign-out), and a sidebar/nav region that future features will populate — consuming the design tokens and primitives produced by the brand and design foundation slice (`001-brand-system-and-design-foundation`). No new design work is introduced in this slice.
+- **FR-026**: The frontend MUST include one authenticated "platform status" page that calls the backend's identity/health endpoint on the user's behalf and surfaces the round-trip's correlation identifier on screen, providing a visible end-to-end proof that sign-in, token exchange, backend call, and trace propagation all work in the deployed environment.
 
 #### Backend Capabilities
 
 - **FR-030**: The backend MUST expose a public, machine-readable API description (OpenAPI specification) generated from the running implementation.
+- **FR-030a**: The backend MUST expose an authenticated identity/health endpoint (e.g., `whoami`) that returns the calling principal's display identity and echoes the inbound correlation identifier, enabling the frontend's platform-status page to demonstrate end-to-end sign-in + token validation + trace propagation.
 - **FR-031**: The backend MUST organize endpoints by feature area following the vertical-slice architectural style required by the constitution.
 - **FR-032**: The backend MUST validate bearer tokens issued by the configured identity provider and reject unauthorized requests with appropriate, non-leaky responses.
 - **FR-033**: The backend MUST emit structured logs, distributed traces, and metrics to the centralized telemetry destination, accepting and propagating W3C Trace Context from upstream callers.
@@ -170,7 +185,7 @@ An infrastructure engineer needs a `test` environment in addition to `dev`. They
 
 - **FR-060**: Both the frontend and the backend MUST be deployed as containers to the chosen managed container hosting platform.
 - **FR-061**: Workloads MUST support configurable minimum/maximum replicas, scale-to-zero where appropriate, and HTTP-based scaling.
-- **FR-062**: The frontend MUST expose external ingress; the backend ingress MUST be controllable (initially restricted to documented callers).
+- **FR-062**: The frontend MUST expose external ingress. The backend MUST expose external ingress on the public internet, with every request requiring a valid Microsoft Entra ID bearer token; unauthenticated requests MUST be rejected before reaching application logic.
 - **FR-063**: Every workload MUST expose distinct liveness, readiness, and startup health endpoints conforming to the hosting platform's probe semantics.
 
 #### Observability
@@ -185,7 +200,9 @@ An infrastructure engineer needs a `test` environment in addition to `dev`. They
 
 - **FR-080**: All Azure infrastructure for the platform MUST be defined as infrastructure-as-code using OpenTofu, with no alternative IaC technology introduced.
 - **FR-081**: Infrastructure modules MUST be composable across environments and parameterizable for environment-specific values.
-- **FR-082**: State MUST be stored remotely with state locking enabled; environments MUST have isolated state.
+- **FR-082**: For all shared/CI usage (every deployed environment), OpenTofu state MUST be stored remotely with state locking enabled; environments MUST have isolated remote state. Local developer workflows MAY use local state and MUST NOT require remote-state access from a developer's machine.
+- **FR-082a**: A dedicated one-time `platform-bootstrap` OpenTofu module MUST exist that provisions: the remote-state storage account, the state container, state-locking configuration, and the GitHub Actions federated identity used by the pipeline. This module MUST be idempotent and re-runnable.
+- **FR-082b**: The repository MUST document the bootstrap setup TWO ways: (a) running the one-time `platform-bootstrap` OpenTofu module, and (b) a step-by-step manual procedure (e.g., `az` CLI commands or portal walkthrough) that produces a functionally equivalent backend. Both paths MUST end in a working remote-state configuration usable by the pipeline.
 - **FR-083**: Environment-specific values MUST be parameterized — no hardcoded environment values in module source.
 - **FR-084**: Infrastructure MUST be idempotent: re-applying with no source change produces no changes.
 
@@ -233,14 +250,16 @@ An infrastructure engineer needs a `test` environment in addition to `dev`. They
 ## Assumptions
 
 - **Sequencing**: The brand system and design foundation slice (`001-brand-system-and-design-foundation`) is the design substrate; this slice consumes those tokens and primitives rather than redefining them. Where the two slices overlap, the design foundation wins for visual decisions and this slice wins for runtime/operational decisions.
-- **Environment scope for this slice**: The deliverable target is the `dev` environment provisioned end-to-end. The `test` and `prod` environment definitions are scaffolded (folder structure, parameter files) and the pattern is proven, but their resources are not necessarily provisioned in this slice. They MUST be addable later without re-architecting.
-- **Identity scope for this slice**: Interactive sign-in works end-to-end against a real Microsoft Entra ID tenant. Application roles, group-based RBAC enforcement, and fine-grained authorization rules are out of scope (covered by a later slice).
+- **Environment scope for this slice**: The `dev` environment is provisioned end-to-end. The `test` and `prod` environment definitions are scaffolded (folder structure, parameter file templates) and the pattern is proven, but their resources are NOT provisioned in this slice. Adding them later MUST be a configuration change only — no re-architecting, no module changes. (See Clarifications, 2026-05-16.)
+- **Identity scope for this slice**: Interactive sign-in works end-to-end against a real Microsoft Entra ID tenant. Authorization is binary (authenticated vs. unauthenticated) — any signed-in user can access any protected endpoint. Application roles, group claims, group-based RBAC enforcement, and fine-grained authorization rules are explicitly out of scope and covered by a later slice. (See Clarifications, 2026-05-16.)
 - **Hosting choice**: The hosting platform is Azure Container Apps, fixed by the constitution; the spec does not re-derive it.
 - **IaC choice**: OpenTofu is the only IaC technology, fixed by the constitution; alternatives are prohibited without an ADR.
 - **Custom domains / TLS**: The development environment uses the hosting platform's default domain. Custom domain + certificate management is out of scope for this slice but the design MUST NOT preclude adding them later.
 - **CI/CD provider**: GitHub Actions, per the constitution.
 - **Browser support**: Last two major versions of Chrome/Edge/Firefox/Safari (desktop) plus iPadOS Safari and Android Chrome, per the constitution's browser policy.
 - **Telemetry adapter default**: The frontend ships with the no-op observability adapter active by default in local development. The Azure-native adapter is activated via environment configuration in the deployed environment.
+- **Frontend → backend calling pattern**: Because the backend has public, token-protected ingress, the frontend may call it from either server components (using a delegated/on-behalf-of token) or — when justified — from client-side code with the user's access token attached. The planning phase chooses the default pattern; both must be supportable.
+- **OpenTofu state strategy**: Shared/CI work uses remote state (bootstrapped by the `platform-bootstrap` module); local developer workflows use local state for any local `tofu` runs and MUST NOT require access to the remote backend. Devs are not expected to apply OpenTofu against shared environments from their machines.
 - **No domain functionality**: No Service Bus registry features, no ingestion, no AI capabilities, no advanced RBAC, no multi-tenant isolation, no message brokering — these are explicit non-goals of the source artifact and remain non-goals here.
 - **Dev shell**: Local dev scripts are provided for PowerShell (primary) and bash (secondary) per the project's platform conventions.
 
@@ -262,7 +281,7 @@ The following are explicit non-goals of this slice and MUST NOT be implemented h
 - Service Bus registry, discovery, governance, or observability features
 - Ingestion of Azure Service Bus topology data
 - AI capabilities of any kind
-- Fine-grained role-based access control enforcement (beyond authenticated/unauthenticated)
+- Role-based access control of any kind — app roles, group claims, role-to-permission mapping, role-gated endpoints, or any authorization beyond the binary authenticated/unauthenticated check
 - Production-scale tuning, autoscaling policy refinement, capacity planning
 - Multi-region failover or geo-redundancy
 - Tenant isolation / multi-tenant architecture
