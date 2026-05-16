@@ -2,27 +2,38 @@
 /**
  * bundle-diff (T040 / FR-035e / SC-020).
  *
- * Compares the latest `@next/bundle-analyzer` JSON output against the
- * committed baseline at `web/docs/performance-budget.json`. Posts a PR
- * comment with red/green status against the 180 KB soft target and the
- * 200 KB hard alert threshold. Fails the PR check when:
+ * Compares the gzipped First Load JS of the `/` route against the committed
+ * baseline at `web/docs/performance-budget.json`. Posts a PR comment with
+ * red/green status against the soft / hard thresholds from the env vars
+ * (`BUNDLE_SOFT_TARGET_KB`, `BUNDLE_HARD_ALERT_KB`).
+ *
+ * Fails the PR check when:
  *
  *   - First Load JS grew by > +10% relative to the recorded baseline, OR
- *   - First Load JS crossed the 200 KB hard alert threshold.
+ *   - First Load JS crossed the hard alert threshold.
+ *
+ * Input source: `.next/diagnostics/route-bundle-stats.json`, produced by
+ * every `next build` on Next.js ≥ 16 regardless of bundler. The older
+ * `@next/bundle-analyzer` JSON output is webpack-only and is not produced
+ * under Turbopack (Next 16's default builder).
  *
  * Inputs are read by path so the script runs the same way locally and in CI.
  */
 
 import { readFile, writeFile } from "node:fs/promises";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import { resolve, relative } from "node:path";
 
+const gzipP = promisify(gzip);
+
 const ROOT = resolve(import.meta.dirname, "..");
-const ANALYZE_JSON = resolve(ROOT, ".next/analyze/__bundle_analysis.json");
+const ROUTE_STATS = resolve(ROOT, ".next/diagnostics/route-bundle-stats.json");
 const BUDGET_JSON = resolve(ROOT, "docs/performance-budget.json");
 
 const SOFT_TARGET_KB = Number(process.env.BUNDLE_SOFT_TARGET_KB ?? "180");
 const HARD_ALERT_KB = Number(process.env.BUNDLE_HARD_ALERT_KB ?? "200");
-const REGRESSION_PCT = 10; // % growth that fails CI
+const REGRESSION_PCT = 10;
 
 function bytesToKb(bytes) {
   return Math.round((bytes / 1024) * 10) / 10;
@@ -37,30 +48,44 @@ async function readJson(path) {
   }
 }
 
+async function gzippedSize(absPath) {
+  const buf = await readFile(absPath);
+  const compressed = await gzipP(buf, { level: 9 });
+  return compressed.length;
+}
+
 async function main() {
-  const analyze = await readJson(ANALYZE_JSON);
-  if (!analyze) {
+  const stats = await readJson(ROUTE_STATS);
+  if (!stats) {
     process.stdout.write(
-      `bundle-diff: no analyze output found at ${relative(process.cwd(), ANALYZE_JSON)} — run \`pnpm analyze\` first.\n`,
+      `bundle-diff: no route-bundle-stats found at ${relative(process.cwd(), ROUTE_STATS)} — run \`pnpm analyze\` (or any \`next build\`) first.\n`,
     );
     process.exit(2);
   }
 
-  // `@next/bundle-analyzer` produces a top-level array of pages; the
-  // First Load JS metric we track is the root authenticated route. The
-  // structure has changed across Next major versions; tolerate either.
-  const rootEntry =
-    analyze.find?.((entry) => entry.route === "/") ??
-    analyze.pages?.["/"] ??
-    null;
+  const rootEntry = stats.find?.((entry) => entry.route === "/");
   if (!rootEntry) {
-    process.stdout.write("bundle-diff: could not locate the `/` route in analyzer output.\n");
+    process.stdout.write("bundle-diff: could not locate the `/` route in route-bundle-stats.json.\n");
     process.exit(2);
   }
-  const firstLoadKb =
-    typeof rootEntry.firstLoadJs === "number"
-      ? bytesToKb(rootEntry.firstLoadJs)
-      : Number(rootEntry.firstLoad ?? rootEntry.size ?? 0);
+
+  const chunks = rootEntry.firstLoadChunkPaths ?? [];
+  let totalGzipBytes = 0;
+  const missing = [];
+  for (const rel of chunks) {
+    const abs = resolve(ROOT, rel);
+    try {
+      totalGzipBytes += await gzippedSize(abs);
+    } catch {
+      missing.push(rel);
+    }
+  }
+  if (missing.length > 0) {
+    process.stdout.write(
+      `bundle-diff: ${missing.length} of ${chunks.length} chunk files missing on disk — measurement may underreport.\n`,
+    );
+  }
+  const firstLoadKb = bytesToKb(totalGzipBytes);
 
   const budget = await readJson(BUDGET_JSON);
   const baselineKb = budget?.firstLoadJsKb ?? null;
@@ -98,7 +123,6 @@ async function main() {
   const report = lines.join("\n");
   process.stdout.write(`${report}\n`);
 
-  // Surface the report to GitHub Actions when running in CI.
   const githubOutput = process.env.GITHUB_STEP_SUMMARY;
   if (githubOutput) {
     await writeFile(githubOutput, `\n### Bundle diff\n\n${report}\n`, { flag: "a" });

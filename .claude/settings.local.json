@@ -98,7 +98,11 @@
       "Bash(CI=1 PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm test:e2e --project=firefox tests/e2e/theme-switch.spec.ts tests/e2e/keyboard-only.spec.ts --reporter=list)",
       "Bash(CI=1 PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm test:e2e --project=firefox tests/e2e/keyboard-only.spec.ts --reporter=list)",
       "Bash(CI=1 PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm test:e2e --project=webkit tests/e2e/keyboard-only.spec.ts tests/e2e/theme-switch.spec.ts --reporter=list)",
-      "Bash(CI=1 PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm test:e2e --project=webkit tests/e2e/keyboard-only.spec.ts --reporter=list)"
+      "Bash(CI=1 PLAYWRIGHT_SKIP_WEB_SERVER=1 pnpm test:e2e --project=webkit tests/e2e/keyboard-only.spec.ts --reporter=list)",
+      "Bash(python3 -m json.tool)",
+      "Bash(node *)",
+      "Bash(BUNDLE_SOFT_TARGET_KB=420 BUNDLE_HARD_ALERT_KB=450 node /Users/christopherhouse/projects/BusTerminal/web/scripts/bundle-diff.mjs)",
+      "Bash(echo \"exit=$?\")"
     ]
   },
   "enabledMcpjsonServers": [

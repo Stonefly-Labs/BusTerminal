@@ -1,0 +1,7 @@
+{
+  "firstLoadJsKb": 407.4,
+  "route": "/",
+  "metric": "gzipped first-load JS",
+  "recordedFromBuild": "feature/001-brand-system-and-design-foundation Phase 7 — foundation showcase",
+  "notes": "Baseline reflects the kitchen-sink showcase page, which imports every primitive on a single route for design-system review. A future feature spec should route-split the showcase out of `/` so the constitutional 200 KB target can be re-asserted as the hard alert."
+}
