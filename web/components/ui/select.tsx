@@ -19,11 +19,11 @@ export const SelectTrigger = React.forwardRef<
       ref={ref}
       className={cn(
         "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border-default bg-surface-elevated px-3 py-2 text-sm",
-        "text-foreground-default placeholder:text-foreground-subtle",
+        "text-foreground-default placeholder:text-foreground-muted",
         "transition-colors",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring-color)",
         "disabled:cursor-not-allowed disabled:bg-disabled-surface disabled:text-disabled-foreground",
-        "data-[placeholder]:text-foreground-subtle",
+        "data-[placeholder]:text-foreground-muted",
         "[&>span]:truncate",
         className,
       )}

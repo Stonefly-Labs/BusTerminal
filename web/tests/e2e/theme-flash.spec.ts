@@ -62,11 +62,24 @@ async function seedThemePersistence(page: Page, value: "light" | "dark"): Promis
 async function getBodyBackgroundLuminance(page: Page): Promise<number> {
   return page.evaluate(() => {
     const bg = window.getComputedStyle(document.body).backgroundColor;
-    const match = bg.match(/rgba?\(([^)]+)\)/);
-    if (!match) return -1;
-    const parts = match[1]!.split(",").map((s) => Number.parseFloat(s.trim()));
-    const [r = 0, g = 0, b = 0] = parts;
-    // Rec. 601 luma approximation; we only need a coarse dark-vs-light bucket.
+    // Use a 1×1 canvas to let the browser convert ANY CSS color format
+    // (rgb/rgba, lab, oklch, hsl, hex, named) to sRGB bytes. Chrome ≥109
+    // preserves the source format in getComputedStyle (e.g. `lab(...)` or
+    // `oklch(...)`) when tokens are authored in those spaces, so a plain
+    // rgba regex no longer suffices.
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return -1;
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, 1, 1);
+    const pixel = ctx.getImageData(0, 0, 1, 1).data;
+    const r = pixel[0] ?? 0;
+    const g = pixel[1] ?? 0;
+    const b = pixel[2] ?? 0;
+    const a = pixel[3] ?? 0;
+    if (a === 0) return -1;
     return 0.299 * r + 0.587 * g + 0.114 * b;
   });
 }

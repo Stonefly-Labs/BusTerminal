@@ -90,6 +90,28 @@
  * design tokens. Token references only; no hardcoded color / spacing literals
  * (SC-003).
  */
+/*
+ * Visible, token-driven focus ring for every keyboard-focused element.
+ * Components opt out via `:focus:not(:focus-visible)` where needed.
+ *
+ * Declared OUTSIDE any `@layer` so it wins over Tailwind utilities.
+ * Tailwind v4's `outline-N` utility resolves `outline-style` from the
+ * `--tw-outline-style` CSS variable. Primitives that combine `outline-none`
+ * (to suppress the default browser outline) with
+ * `focus-visible:outline-2 focus-visible:outline-(--focus-ring-color)`
+ * end up with `--tw-outline-style: none` at focus time — the variable from
+ * `outline-none` wins because it sits in the utilities layer. We rebind
+ * the variable to `solid` from this unlayered rule (unlayered declarations
+ * beat layered ones per CSS Cascade Level 5), and also set the outline
+ * shorthand as a belt-and-braces for elements that don't carry the
+ * focus-visible utility classes at all.
+ */
+:focus-visible {
+  --tw-outline-style: solid;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
 @layer base {
   *,
   *::before,
@@ -119,13 +141,6 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-  }
-
-  /* Visible, token-driven focus ring for every keyboard-focused element.    */
-  /* Components opt out via :focus:not(:focus-visible) where needed.         */
-  :focus-visible {
-    outline: var(--focus-ring-width) solid var(--focus-ring-color);
-    outline-offset: var(--focus-ring-offset);
   }
 
   /* Honor user motion preference globally; primitives still gate           */

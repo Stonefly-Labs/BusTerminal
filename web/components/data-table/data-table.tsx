@@ -9,6 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type ColumnFiltersState,
   type RowSelectionState,
   type SortingState,
   type VisibilityState,
@@ -112,6 +113,7 @@ export function DataTable<TData, TValue = unknown>(props: DataTableProps<TData, 
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
     () => loadPersisted<VisibilityState>(persistenceKey ? `${persistenceKey}:cols` : undefined, {}),
   );
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
   React.useEffect(() => {
     persist(persistenceKey ? `${persistenceKey}:sort` : undefined, sorting);
@@ -127,10 +129,11 @@ export function DataTable<TData, TValue = unknown>(props: DataTableProps<TData, 
     getRowId,
     enableRowSelection: enableMultiSelect,
     enableMultiRowSelection: enableMultiSelect,
-    state: { sorting, rowSelection, columnVisibility },
+    state: { sorting, rowSelection, columnVisibility, columnFilters },
     onSortingChange: setSorting,
     onRowSelectionChange: setRowSelection,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     ...(enableSorting ? { getSortedRowModel: getSortedRowModel() } : {}),
     ...(enableColumnFilters ? { getFilteredRowModel: getFilteredRowModel() } : {}),
@@ -201,7 +204,7 @@ export function DataTable<TData, TValue = unknown>(props: DataTableProps<TData, 
                         {sortable ? (
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-foreground-muted hover:text-foreground-default"
+                            className="inline-flex items-center gap-1 rounded-sm text-xs font-semibold uppercase tracking-wide text-foreground-muted hover:text-foreground-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring-color)"
                             onClick={() => header.column.toggleSorting(sorted === "asc")}
                           >
                             {flexRender(header.column.columnDef.header, header.getContext())}

@@ -51,7 +51,7 @@ export const CommandInput = React.forwardRef<
         placeholder={placeholder ?? t("command.placeholder")}
         className={cn(
           "flex h-10 w-full bg-transparent py-3 text-sm outline-none",
-          "text-foreground-default placeholder:text-foreground-subtle",
+          "text-foreground-default placeholder:text-foreground-muted",
           "disabled:cursor-not-allowed disabled:opacity-60",
           className,
         )}
@@ -138,7 +138,7 @@ export const CommandItem = React.forwardRef<
 export function CommandShortcut({ className, ...rest }: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn("ms-auto text-xs tracking-widest text-foreground-subtle", className)}
+      className={cn("ms-auto text-xs tracking-widest text-foreground-muted", className)}
       {...rest}
     />
   );

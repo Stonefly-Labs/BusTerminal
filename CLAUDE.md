@@ -4,6 +4,40 @@ shell commands, and other important information, read the current plan at
 `specs/001-brand-system-and-design-foundation/plan.md`.
 <!-- SPECKIT END -->
 
+# Tools
+## MCP Servers & Tools Available
+
+Claude Code MUST consult the relevant MCP/tool rather than relying on training data when working in these domains:
+
+### shadcn/ui MCP
+- **Use when**: adding any shadcn primitive, customizing variants, looking up component APIs, or theming components
+- **Touchpoints**: /plan (component inventory), /tasks (primitive scaffolding), /implement (every primitive task)
+- **Rule**: Never hand-write shadcn component code from memory. Always pull current source via the MCP — shadcn changes, and stale patterns waste time.
+
+### Next.js DevTools MCP
+- **Use when**: working with App Router, route handlers, layouts, middleware, server actions, caching, or build configuration
+- **Touchpoints**: /plan (architecture decisions), /implement (any `app/` directory work, `next.config.ts`, route definitions)
+- **Rule**: Next.js conventions shift between minor versions. Consult the MCP for current App Router patterns rather than assuming.
+
+### Context7 MCP
+- **Use when**: working with any third-party library — pinned versions matter
+- **Touchpoints**: /plan (library evaluation), /implement (any task that imports an external package)
+- **Rule**: For libraries pinned in `web/package.json` (Tailwind v4, next-themes, TanStack Table, React Hook Form, Zod, Recharts, Framer Motion, etc.), pull version-specific docs via Context7 before writing code. Do not rely on training data for library APIs.
+
+### Microsoft Learn MCP
+- **Use when**: working with anything Azure, .NET, Application Insights, or Microsoft tooling
+- **Touchpoints**: /plan (observability + infra decisions), /implement (Application Insights adapter, Azure resource references, any MS SDK usage)
+- **Rule**: For Application Insights, Azure resources, or any MS SDK — query MS Learn for current API surface before coding. AI SDKs in particular evolve fast.
+
+### Claude Design Plugin
+- **Use when**: designing or refining any UI component, layout, color/spacing decision, or visual review
+- **Touchpoints**: /plan (design-system decisions), /implement (every primitive, every composite, every story file), /analyze (visual + a11y review)
+- **Rule**: Treat the design plugin as a first-class reviewer for UI work — don't just generate components, generate-then-review.
+
+## MCP Consultation Default
+
+When multiple sources of truth conflict (training data vs MCP vs local code), **the MCP wins**. When a task touches any domain above and Claude Code hasn't consulted the relevant MCP, that's a process failure — flag it and consult before proceeding.
+
 # BusTerminal — Project Context
 
 BusTerminal is an open-source operational registry, discovery, governance, and observability platform for **Azure Service Bus** messaging infrastructure. It is the authoritative source for messaging topology — namespaces, queues, topics, subscriptions, rules, forwarding relationships, ownership metadata, contracts/schemas, and dependency graphs — built for the engineers, architects, and operators who run Azure messaging at scale.

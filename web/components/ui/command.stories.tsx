@@ -14,7 +14,21 @@ import {
 const meta: Meta<typeof Command> = {
   title: "Primitives/Command",
   component: Command,
-  parameters: { layout: "centered" },
+  parameters: {
+    layout: "centered",
+    // cmdk wraps the listbox content in role-less `cmdk-list-sizer` and forces
+    // `role="presentation"` on its Group wrapper. axe's `aria-required-children`
+    // doesn't traverse that wrapper chain and reports the listbox as having no
+    // option/group children — even though the rendered options carry
+    // `role="option"` and the inner `cmdk-group-items` carries `role="group"`
+    // with proper `aria-labelledby`. Keyboard nav and AT semantics are intact.
+    // Tracked upstream: https://github.com/pacocoursey/cmdk/issues/280
+    a11y: {
+      config: {
+        rules: [{ id: "aria-required-children", enabled: false }],
+      },
+    },
+  },
 };
 
 export default meta;

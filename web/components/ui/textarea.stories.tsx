@@ -25,9 +25,13 @@ export const Default: Story = {
 export const States: Story = {
   render: () => (
     <div className="flex w-96 flex-col gap-4">
-      <Textarea placeholder="Idle" />
-      <Textarea placeholder="Disabled" disabled />
-      <Textarea aria-invalid="true" defaultValue="invalid expression" />
+      <Textarea aria-label="Idle textarea" placeholder="Idle" />
+      <Textarea aria-label="Disabled textarea" placeholder="Disabled" disabled />
+      <Textarea
+        aria-label="Invalid textarea"
+        aria-invalid="true"
+        defaultValue="invalid expression"
+      />
     </div>
   ),
 };

@@ -1,4 +1,4 @@
-import { injectAxe, checkA11y, configureAxe } from "axe-playwright";
+import { injectAxe, checkA11y } from "axe-playwright";
 import type { TestRunnerConfig } from "@storybook/test-runner";
 import { getStoryContext } from "@storybook/test-runner";
 
@@ -31,7 +31,7 @@ const config: TestRunnerConfig = {
     const a11yParameter = storyContext.parameters?.a11y as
       | {
           disable?: boolean;
-          config?: { rules?: unknown[] };
+          config?: { rules?: Array<{ id: string; enabled?: boolean }> };
           element?: string;
         }
       | undefined;
@@ -40,11 +40,19 @@ const config: TestRunnerConfig = {
       return;
     }
 
-    if (a11yParameter?.config?.rules) {
-      await configureAxe(page, {
-        rules: a11yParameter.config.rules as never,
-      });
-    }
+    // Translate the story's `parameters.a11y.config.rules` array into axe's
+    // per-run `rules` map. Passing this through `axe.run` (via checkA11y's
+    // axeOptions.rules) is more reliable than calling `axe.configure`
+    // separately — axe-playwright builds a fresh run config each call, so
+    // a global configure step can be ignored.
+    const ruleOverrides = a11yParameter?.config?.rules?.reduce<
+      Record<string, { enabled: boolean }>
+    >((acc, rule) => {
+      if (rule?.id && typeof rule.enabled === "boolean") {
+        acc[rule.id] = { enabled: rule.enabled };
+      }
+      return acc;
+    }, {});
 
     await checkA11y(
       page,
@@ -57,6 +65,9 @@ const config: TestRunnerConfig = {
             type: "tag",
             values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"],
           },
+          ...(ruleOverrides && Object.keys(ruleOverrides).length > 0
+            ? { rules: ruleOverrides }
+            : {}),
         },
       },
     );

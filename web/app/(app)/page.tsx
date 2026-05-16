@@ -227,7 +227,7 @@ export default function FoundationDemoPage() {
         <TopologyMiniMapPlaceholder />
       </SectionContainer>
 
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen} modal={false}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>{activeRow?.name ?? "Queue"}</SheetTitle>

@@ -27,7 +27,7 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-async function tabUntil(page: Page, predicate: () => Promise<boolean>, max = 25): Promise<void> {
+async function tabUntil(page: Page, predicate: () => Promise<boolean>, max = 60): Promise<void> {
   for (let i = 0; i < max; i++) {
     if (await predicate()) return;
     await page.keyboard.press("Tab");
@@ -63,10 +63,26 @@ async function focusedHasVisibleOutline(page: Page): Promise<boolean> {
 }
 
 test.describe("keyboard-only walkthrough (T109 / SC-007)", () => {
+  // Playwright's WebKit build does not enable Safari's "Full Keyboard
+  // Access" preference (system-level on macOS, off by default in the test
+  // binary), so Tab only reaches links + form controls, not all buttons.
+  // Real Safari users get the same UX as Chrome/Firefox once the OS pref
+  // is enabled. We rely on the Chromium + Firefox projects to assert the
+  // keyboard-nav invariants and skip WebKit here.
+  test.skip(
+    ({ browserName }) => browserName === "webkit",
+    "Playwright's WebKit lacks Safari's Full Keyboard Access preference; covered by chromium + firefox",
+  );
   test("complete every interaction on the demo screen without a pointing device", async ({
     page,
   }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/", { waitUntil: "load" });
+    // Wait until React has hydrated before keyboard interaction — typing
+    // into the search input pre-hydration updates the native value but no
+    // React onChange fires, so the DataTable filter state never updates.
+    // The "Refresh" page-header button is a client-only handler that only
+    // exists post-hydration.
+    await page.getByRole("button", { name: "Refresh" }).waitFor({ state: "visible" });
     // Move focus into the document so subsequent Tabs land on real
     // interactive elements rather than the URL bar (browser-dependent).
     await page.evaluate(() => {
@@ -85,8 +101,11 @@ test.describe("keyboard-only walkthrough (T109 / SC-007)", () => {
       return (await focusedTagName(page)) === "input";
     });
     await page.keyboard.type("orders");
-    await expect(page.getByText("orders.in")).toBeVisible();
-    await expect(page.getByText("billing.errors")).toHaveCount(0);
+    // Scope to the table — `orders.in` also appears in the closed Sheet's
+    // heading and truncated-name-trigger, which would trip strict-mode.
+    const table = page.getByRole("table");
+    await expect(table.getByText("orders.in")).toBeVisible();
+    await expect(table.getByText("billing.errors")).toHaveCount(0);
 
     // 3) Clear the filter via keyboard.
     await page.keyboard.press("Control+A");
