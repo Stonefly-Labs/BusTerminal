@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" role="img" aria-label="BusTerminal placeholder wordmark, light variant">
+  <title>BusTerminal placeholder wordmark — light variant</title>
+  <desc>Hand-authored placeholder. Replaced by the reviewed final asset in T141.</desc>
+  <g fill="none" stroke="#1f2937" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="8" y="14" width="36" height="36" rx="6" />
+    <path d="M16 32 H36" />
+    <path d="M24 24 V40" />
+  </g>
+  <g fill="#1f2937" font-family="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26" font-weight="600" letter-spacing="-0.5">
+    <text x="58" y="40">BusTerminal</text>
+  </g>
+  <g fill="#6b7280" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" letter-spacing="1">
+    <text x="58" y="54">PLACEHOLDER</text>
+  </g>
+</svg>

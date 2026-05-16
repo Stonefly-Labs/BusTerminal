@@ -1,0 +1,231 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundation/07 — Contribution" />
+
+# Contributing to the foundation
+
+The BusTerminal frontend foundation is **shared infrastructure**. A
+change to a primitive, a token, or the string surface ripples through
+every feature spec that builds on top of it. This page documents the
+contract for contributing safely — how to add a primitive, how to add
+a token, how to add a string key — without breaking the audits or the
+downstream consumers.
+
+The narrative companion is `web/docs/contributing-frontend.md`. The
+two pages stay in sync.
+
+---
+
+## Before you start
+
+- Read the spec for context:
+  `specs/001-brand-system-and-design-foundation/spec.md`.
+- Read the constitution: `.specify/memory/constitution.md`. It is the
+  governing document — the constitution wins over any other document
+  when they conflict.
+- Read [Page 00 — Introduction](?path=/docs/foundation-00-introduction--docs)
+  for the hard-rules list. Everything below assumes you've internalized
+  them.
+
+Foundation changes happen via **spec-driven development**: large work
+flows through `/speckit-specify` → `/speckit-clarify` →
+`/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. Small
+hot-fixes that don't change the contract surface (e.g., adding a new
+i18n key, polishing a story state) can land directly on a feature
+branch named `feature/<NNN>-<slug>`.
+
+---
+
+## Adding a primitive
+
+> Scope check: every primitive listed in FR-013 is **already shipped**.
+> You should rarely be adding a new primitive — most "new" UI is a
+> domain composite that builds on the existing set. Confirm with the
+> spec author before opening this PR.
+
+The shape of a primitive PR:
+
+1. **Add via `shadcn`**: `pnpm dlx shadcn@latest add <name>`. This
+   places the source under `web/components/ui/<name>.tsx` — the
+   project owns it from that point on.
+2. **Replace hardcoded literals with token references.** No colors,
+   spacings, radii, elevations, motions, font-sizes, or
+   line-heights survive the import. Reach for Tailwind utilities
+   that consume the underlying CSS variables.
+3. **Replace user-facing strings with `t(key)`.** Add the keys to
+   `web/lib/i18n/strings/en.ts`. `pnpm audit:strings` is the
+   CI-side guard.
+4. **Use CSS logical properties only.** No `ml-*`, `mr-*`, `pl-*`,
+   `pr-*`, `left-*`, `right-*`, `text-left`, `text-right`. Use the
+   `-start` / `-end` equivalents. `pnpm audit:directions` flags
+   regressions.
+5. **Author `<name>.stories.tsx`** covering: default state, every
+   variant, every state, dark + light themes, RTL toggle.
+6. **Author `<name>.test.tsx`** with a `vitest-axe` assertion on the
+   default render and any state that diverges in markup (e.g., the
+   disabled state).
+7. **Run the local gate** before pushing:
+   ```bash
+   pnpm -C web lint
+   pnpm -C web typecheck
+   pnpm -C web test
+   pnpm -C web audit:tokens
+   pnpm -C web audit:strings
+   pnpm -C web audit:directions
+   pnpm -C web build-storybook
+   pnpm -C web test:storybook
+   ```
+
+---
+
+## Adding a token
+
+> Scope check: the token catalog is **intentionally small**. Most
+> "I need a new token" requests resolve to an existing one. Confirm
+> with the spec author first.
+
+Procedure:
+
+1. **Add the CSS variable to both bindings** in
+   `web/styles/tokens.css` (or `typography.css` for type tokens).
+   Both `:root` and `:root.dark` blocks. Theme-agnostic values are
+   declared once in `:root` and inherited.
+2. **Extend the contract** in
+   `specs/001-brand-system-and-design-foundation/contracts/design-tokens.ts`
+   — add the union member, add the entry to `ALL_TOKEN_NAMES` if
+   that array is exported.
+3. **Update the doc table** on [Page 02 — Design tokens](?path=/docs/foundation-02-design-tokens--docs)
+   with the value, theme variants, and intended usage. If the token
+   is a foreground / surface pair, add a row to the WCAG pairings
+   table and update
+   `web/tests/unit/token-contrast.test.ts` accordingly.
+4. **Verify contrast** in both themes. `pnpm test` runs the contrast
+   suite; do not merge if it fails.
+5. **Plan the migration** for any primitive that used a hardcoded
+   literal that the new token replaces. (Hardcoded literals are
+   already prohibited — this step is for the rare case where the
+   audit was incomplete or the token covers a previously-uncovered
+   surface.)
+
+---
+
+## Adding an i18n string key
+
+This is the **most common foundation change** — feature specs
+introduce new copy as they ship new screens.
+
+1. **Add the entry to `web/lib/i18n/strings/en.ts`** under a
+   namespaced key (`<surface>.<element>.<role>` — dotted, lower-camel).
+   ```ts
+   "domain.queue.tooltip": {
+     englishValue: "Click to open the queue detail drawer.",
+     description: "Tooltip on the queue row.",
+     interpolations: {},
+   },
+   ```
+2. **Use it via `t("domain.queue.tooltip")`** in the consuming primitive
+   or composite.
+3. **Declare interpolations explicitly.** If a value substitutes
+   variables (e.g., `"{count} dead-lettered"`), list each slot in
+   `interpolations` with its type — the compiler then enforces that
+   callers pass matching `vars`.
+4. **For dates / times / numbers / bytes / durations**, do **not**
+   format inside the string. Use
+   `web/lib/i18n/format.ts` (`formatDate`, `formatTime`,
+   `formatRelativeTime`, `formatDuration`, `formatNumber`,
+   `formatBytes`) at the call site and pass the formatted string in.
+   This is what keeps the string surface locale-neutral.
+
+`pnpm audit:strings` fails on any raw user-facing string in primitive
+or composite source. The failure message points at the literal.
+
+---
+
+## Adding an icon
+
+See [Page 04 — Iconography](?path=/docs/foundation-04-iconography--docs).
+TL;DR:
+
+- Add the entry to `DOMAIN_ICONS` in
+  `web/lib/iconography/domain-icons.ts`, `strokeWidth: 1.5`.
+- Add the accessible label key under `domain.<name>.label` in
+  `web/lib/i18n/strings/en.ts`.
+- Add a story rendering the icon at 12 / 14 / 16 / 20 / 24 in both
+  themes.
+
+---
+
+## Adding a domain composite
+
+Domain composites live under `web/components/domain/<name>.tsx`. The
+authoring template is:
+
+1. Compose from foundation primitives only — never re-author markup
+   that a primitive already provides.
+2. Resolve every icon through `getDomainIcon(name)`. No raw
+   `lucide-react` imports.
+3. Source every user-facing string through `t(key)`.
+4. Token-reference every color, spacing, radius, elevation, motion,
+   font-size, line-height.
+5. Use CSS logical properties only.
+6. Author `<name>.stories.tsx` covering every state, both themes, RTL.
+7. Author `<name>.test.tsx` with a `vitest-axe` assertion plus any
+   state-specific assertions (e.g., the truncation + tooltip
+   assertion required for entity-name composites).
+
+---
+
+## Local gate (pre-push)
+
+Run this exact set before opening a PR. It mirrors what CI runs and
+is the fastest way to catch a regression before review.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm -C web lint
+pnpm -C web typecheck
+pnpm -C web audit:tokens
+pnpm -C web audit:strings
+pnpm -C web audit:directions
+pnpm -C web audit:svg-hygiene
+pnpm -C web audit:review-records
+pnpm -C web test
+pnpm -C web build-storybook
+pnpm -C web test:storybook
+pnpm -C web exec playwright install
+pnpm -C web test:e2e
+pnpm -C web analyze
+```
+
+The full handoff gate (T151) runs the same sequence.
+
+---
+
+## PR review checklist
+
+Reviewers verify the following against the diff:
+
+- [ ] No hardcoded color / spacing / radius / elevation / motion /
+      font-size / line-height literal in primitive or composite source.
+- [ ] No hardcoded user-facing string in primitive or composite source.
+- [ ] No `ml-*`, `mr-*`, `pl-*`, `pr-*`, `left-*`, `right-*`,
+      `text-left`, `text-right` outside `web/styles/tokens.css`.
+- [ ] Stories cover default, all variants, all states, both themes, RTL.
+- [ ] `vitest-axe` assertion present on the primitive's test file.
+- [ ] No second design system, no alternative component library, no
+      heavy chart suite, no graph / topology / drag-drop / rich-text /
+      code-editor library introduced.
+- [ ] No PII in any new telemetry attribute (FR-041).
+- [ ] No MCP server appears as a runtime dependency (FR-032).
+- [ ] Constitution + tech-stack reference cite path is unchanged or
+      updated in sync with a new durable rule.
+
+---
+
+## When something doesn't fit
+
+If a change does not fit the contract on this page — a new
+dependency, a token rename, a structural refactor — open an ADR
+under `docs/adr/` describing the deviation, the rationale, and the
+alternatives rejected. The constitution requires ADR coverage for
+material additions (`docs/adr/README.md` is the index).

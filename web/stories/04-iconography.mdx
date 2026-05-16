@@ -1,0 +1,141 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundation/04 — Iconography" />
+
+# Iconography
+
+BusTerminal uses **a single icon family across the entire foundation**
+(FR-021). The family is `lucide-react`; nothing else is sanctioned.
+Domain icons resolve through `web/lib/iconography/domain-icons.ts`
+(FR-022). Composites consume that module — they never reach for raw
+`lucide-react` imports.
+
+---
+
+## Why a single family
+
+Mixing icon families wrecks visual rhythm immediately. Stroke weights
+disagree, corner radii disagree, optical sizing disagrees, and the
+screen reads as a stitched-together admin template instead of
+infrastructure tooling. The single-family rule is the difference
+between BusTerminal reading as **one product** and reading as **a
+component library demo**.
+
+Concretely:
+
+- Every icon ships with **stroke-width `1.5`** by default.
+- Sizes follow the typography scale via `lucide-react`'s `size` prop
+  — `14` paired with `typography.label`, `16` paired with
+  `typography.body`, `20` paired with `typography.h6`, and so on.
+- The default `lucide-react` `viewBox` is `0 0 24 24` — icons are
+  authored on a 24px grid, so use `size` multiples of 4 to keep
+  glyphs on whole pixels.
+
+---
+
+## Domain icon mapping
+
+The mapping is curated rather than free-form (Research R9). Domain
+composites import `getDomainIcon(name)` and receive both the
+`lucide-react` component and the i18n key for the accessible label.
+
+| Domain name | Icon | Accessible label key |
+|---|---|---|
+| `queue` | `Inbox` | `domain.queue.label` |
+| `topic` | `Megaphone` | `domain.topic.label` |
+| `subscription` | `BellRing` | `domain.subscription.label` |
+| `dead-letter` | `MailWarning` | `domain.deadLetter.label` |
+| `namespace` | `Boxes` | `domain.namespace.label` |
+| `message-flow` | `ArrowRightLeft` | _(decorative)_ |
+| `topology` | `Network` | _(decorative)_ |
+| `discovery` | `ScanSearch` | _(decorative)_ |
+| `relay` | `Repeat` | _(decorative)_ |
+| `environment` | `Globe` | _(decorative)_ |
+| `azure-resource` | `Cloud` | _(decorative)_ |
+
+`AlertGlyph` is also re-exported from the same module
+(`AlertOctagon`) — composites that need a generic alert / error glyph
+reach for it instead of importing a second icon name.
+
+---
+
+## Decorative vs. non-decorative usage
+
+Icons fall into two access categories. The category drives the
+markup.
+
+### Decorative (the icon reinforces text that's already present)
+
+```tsx
+<Inbox size={16} aria-hidden focusable={false} />
+<span>{t("domain.queue.label")}</span>
+```
+
+- `aria-hidden="true"` and `focusable={false}` are required so the
+  screen reader doesn't double-announce.
+- The text next to the icon must name the concept (FR-026 — color is
+  never the only signal; nor is icon-alone). The text fulfills the
+  accessible name, the icon reinforces it.
+
+### Non-decorative (the icon stands alone as the accessible name)
+
+```tsx
+const { icon: Icon, accessibleLabelKey } = getDomainIcon("queue");
+
+<button aria-label={accessibleLabelKey ? t(accessibleLabelKey) : undefined}>
+  <Icon size={16} aria-hidden focusable={false} />
+</button>
+```
+
+- The icon stays `aria-hidden` — the **wrapping interactive element**
+  carries the accessible name via `aria-label`.
+- Never put `aria-label` directly on the SVG; assistive technology
+  trees that wrong in some browsers.
+- If the icon does not have a sanctioned `accessibleLabelKey` in the
+  mapping (e.g., `message-flow`, `topology`), it must be paired with
+  visible text — it is not approved for standalone icon-only use.
+
+---
+
+## Authoring rules
+
+- **Always import through `getDomainIcon(name)`** in domain composites
+  — never reach for `lucide-react` directly for a domain glyph. This
+  keeps the family consistent and lets the mapping evolve without
+  touching every composite.
+- **Default `strokeWidth` is `1.5`.** Override only when an icon has
+  to read at a denser visual weight (rare; usually a sign that the
+  size step is wrong).
+- **Size in multiples of 4.** `12`, `14`, `16`, `20`, `24` cover
+  essentially every operational case.
+- **Never colorize icons with a fixed value.** Inherit `currentColor`
+  (the `lucide-react` default) and let the token-driven foreground
+  cascade in.
+- **Never add a second icon family**, including `@radix-ui/react-icons`,
+  Heroicons, Material Icons, Phosphor, etc. The single-family rule is
+  non-negotiable.
+- **Never use emoji as an icon affordance.** Emoji are not in scope
+  for the foundation's icon system.
+
+---
+
+## Adding a new domain icon
+
+The domain-icon mapping is intentionally small; additions happen via
+spec-driven work, not ad-hoc imports.
+
+1. Pick a `lucide-react` icon that pairs with the concept by visual
+   metaphor, not by literal subject matter (the queue icon is
+   `Inbox`, not a literal queue line).
+2. Add the entry to `DOMAIN_ICONS` in
+   `web/lib/iconography/domain-icons.ts`, keeping `strokeWidth: 1.5`.
+3. Add the corresponding i18n key under `domain.<name>.label` in
+   `web/lib/i18n/strings/en.ts` — even if the first consumer marks
+   the icon as decorative, the key future-proofs against a later
+   surface that uses it standalone.
+4. Add a story that renders the icon at the standard sizes (12 / 14 /
+   16 / 20 / 24) in both themes. Storybook test-runner will scan it
+   for a11y violations automatically.
+5. Document the addition in [Page 07 — Contribution](?path=/docs/foundation-07-contribution--docs)
+   if the concept is new (most are not — the domain vocabulary is
+   inherited from the constitution).

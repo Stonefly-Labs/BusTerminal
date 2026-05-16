@@ -1,0 +1,20 @@
+[mcp_servers.context7]
+url = "https://mcp.context7.com/mcp"
+
+[mcp_servers.microsoft-learn]
+url = "https://learn.microsoft.com/api/mcp"
+
+[mcp_servers.next-devtools]
+args = [
+    "-y",
+    "next-devtools-mcp@latest",
+]
+command = "npx"
+
+[mcp_servers.shadcn]
+args = [
+    "-y",
+    "shadcn@latest",
+    "mcp",
+]
+command = "npx"

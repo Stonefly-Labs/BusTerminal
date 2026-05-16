@@ -43,12 +43,10 @@ Templates requiring updates:
     scaffold; no edits required).
   - .specify/extensions.yml ✅ aligned (git auto-commit hooks support the
     spec-driven workflow).
-  - README.md ⚠ pending — no project README exists yet; create one referencing
-    this constitution when the foundational repo scaffolding lands.
+  - README.md ✅ aligned (top-level README authored during spec 001 — see
+    T126; links to this constitution and summarizes the technology stack).
 
 Deferred items / follow-up TODOs:
-  - TODO(README): Author a top-level README.md that links to this constitution
-    and summarizes the technology stack.
   - TODO(ADR): Establish an `docs/adr/` location for Architectural Decision
     Records once the first deviation (e.g., an AVM exception) is recorded.
 -->

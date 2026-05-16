@@ -1,0 +1,140 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundation/09 — Browser support" />
+
+# Browser support
+
+BusTerminal targets the browsers that operators actually run while
+working with cloud infrastructure. The matrix is intentionally narrow
+so the foundation can use modern CSS and modern web APIs without
+polyfill overhead — that overhead is what causes operational tools to
+feel slow.
+
+The narrative companion is `web/docs/browser-support.md`.
+
+---
+
+## Supported browsers (FR-035a)
+
+| Browser | Versions |
+|---|---|
+| Google Chrome (desktop) | last two major versions |
+| Microsoft Edge (desktop, Chromium) | last two major versions |
+| Mozilla Firefox (desktop) | last two major versions |
+| Apple Safari (desktop, macOS) | last two major versions |
+| Apple Safari (iPadOS) | last two major versions |
+| Google Chrome (Android) | last two major versions |
+
+"Last two major versions" tracks the official release cadence of each
+vendor — typically a six-to-eight-week window. Browsers older than the
+last two majors **render but are not tested**; defects against
+out-of-matrix browsers are closed as `wont-fix` unless the bug
+reproduces inside the matrix.
+
+---
+
+## Explicitly out of scope
+
+- Internet Explorer (any version).
+- Legacy non-Chromium Edge (EdgeHTML).
+- Embedded webviews older than the supported mobile-OS release windows.
+- Opera Mini, UC Browser, or other proxy / "data-saver" browsers that
+  strip modern JS / CSS.
+- Server-side rendering for non-browser user agents (search-engine
+  crawlers, social previewers) is best-effort; the only required
+  surfaces are `app/opengraph-image.tsx` and the favicon set.
+
+Defects exclusive to these targets are out of scope.
+
+---
+
+## Modern CSS permitted without polyfills (FR-035b)
+
+Because the matrix is narrow, the foundation uses modern CSS features
+that are widely supported across the in-matrix browsers:
+
+| Feature | Why it's used |
+|---|---|
+| CSS nesting | Cleaner authoring inside `:focus-visible` / `:hover` / media queries |
+| `:has()` | Selector-level container state (e.g., a card that knows when it wraps a destructive button) |
+| `color-mix()` | Token-level color derivation without a JS dance |
+| `@property` | Typed custom properties — needed for animated CSS variables |
+| Container queries | Composites that adapt to their container, not the viewport |
+| OKLCH color space | All token color values; perceptually uniform contrast tuning |
+| CSS logical properties | `margin-inline-start`, `padding-inline-end`, `text-start`, `inset-inline-end`, etc. — the foundation is RTL-safe by construction |
+
+Authors do **not** add polyfills for these features. If a CSS feature
+ships outside this set, an ADR is required before depending on it.
+
+---
+
+## Modern JS permitted without polyfills
+
+| API | Why it's used |
+|---|---|
+| `Intl.DateTimeFormat`, `Intl.RelativeTimeFormat`, `Intl.NumberFormat` | Locale-aware formatters in `web/lib/i18n/format.ts` (FR-022c) |
+| `crypto.randomUUID()` / `crypto.getRandomValues()` | W3C Trace Context generation in `web/lib/http/trace-context.ts` (FR-039) |
+| `structuredClone()` | Deep copies in audit scripts and tests |
+| `AbortController` / `AbortSignal` | Fetch cancellation in `web/lib/http/client.ts` |
+| `useSyncExternalStore` | Reduced-motion subscription in `web/hooks/use-reduced-motion.ts` (T108) |
+| Async-iterable response streams | Future-spec streaming — already in the matrix |
+| ES2022 syntax (top-level `await`, `??`, `?.`, error cause) | Tooling and tests |
+
+The Next.js compiler targets ES2022 output. The build does not ship a
+legacy bundle.
+
+---
+
+## What this means for primitive authors
+
+- **Reach for modern selectors and APIs first.** If a `:has()`
+  selector solves a layout cleanly, use it.
+- **Don't add Babel plugins or transforms** for ES features inside
+  the matrix. The Next.js compiler covers what's needed.
+- **Don't add a polyfill** for anything in the lists above. If you
+  think you need one, the matrix is being misread — re-check against
+  the supported-versions list.
+- **Test in WebKit.** The Playwright cross-browser smoke
+  (`tests/e2e/cross-browser-smoke.spec.ts`, T145) runs Chromium,
+  Firefox, and WebKit. WebKit catches the most modern-CSS regressions
+  because it ships the smallest set of newly-stabilized features.
+
+---
+
+## Mobile / tablet read paths (FR-012)
+
+The composed demo screen verifies, at the mobile viewport (390×844 —
+iPhone 13), that primary read paths render without information loss:
+
+- Entity list renders without horizontal scroll.
+- Entity detail drawer opens and renders without truncation.
+- Page header remains visible and accessible.
+- Primary navigation remains reachable (collapsed sidebar / drawer
+  composition pattern).
+
+Write paths (forms, destructive confirmations) are best-effort at the
+mobile viewport — the foundation does not commit to optimal mobile
+form ergonomics in v1.
+
+---
+
+## Very wide and very narrow viewports
+
+The cross-browser smoke also exercises:
+
+- **4K workstation (3840×2160)** — the composed screen does not
+  collapse into mostly-whitespace columns; information density
+  adapts (Spec Edge Cases).
+- **1366×768 (13" laptop)** — the foundation reference viewport. No
+  horizontal scroll on any region (SC-010).
+
+---
+
+## Where to look beyond this page
+
+- `web/docs/browser-support.md` — narrative companion.
+- `web/docs/performance-budget.md` — the bundle target + Core Web
+  Vitals thresholds, measured on the reference viewport.
+- `specs/001-brand-system-and-design-foundation/spec.md` — FR-035a /
+  FR-035b / FR-035c / FR-035d / FR-035e for the underlying
+  requirements.

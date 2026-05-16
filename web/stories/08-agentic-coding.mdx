@@ -1,0 +1,160 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundation/08 — Agentic coding" />
+
+# Agentic coding
+
+BusTerminal is developed with coding agents — Claude Code, Cursor,
+and other tools that pair with the project via the **Model Context
+Protocol (MCP)**. This page is the contract for how those tools fit
+into BusTerminal: they are **development-time aids for humans and
+agents writing code**. They are **never** a runtime dependency of the
+product. The same rule from the constitution applies here: phrase
+documentation and code as *"coding agents must consult X at edit
+time"*, never as *"BusTerminal integrates with X"* (FR-032).
+
+The narrative companion is `web/docs/agentic-coding.md`.
+
+---
+
+## What MCP is, and what it isn't here
+
+The Model Context Protocol gives editor-side coding agents a typed
+channel to consult external information sources — documentation,
+APIs, registries, search indices — while the human (or the agent)
+is authoring code. The agent calls an MCP tool, receives structured
+content, and folds it into its next response.
+
+In BusTerminal, MCP servers are used to:
+
+| Server | Used at edit time for |
+|---|---|
+| `context7` | Fetching current docs for libraries — React, Next.js, Tailwind, Prisma, Zod, TanStack Table, RHF, Recharts. Always preferred over web search for library questions. |
+| `microsoft-learn` | Official Microsoft + Azure documentation — Service Bus, Application Insights, Container Apps, OpenTelemetry, Entra ID. |
+| `next-devtools` | Next.js docs + project introspection for App Router patterns. |
+| `shadcn` | Component-registry lookups when adding or auditing a primitive. |
+
+**None of these servers appear in `package.json` as a runtime
+dependency.** None of them are imported by any module under `web/`.
+None of them are called from production code paths. They are
+configured in the agent's environment — not the product's.
+
+---
+
+## The rule, restated
+
+> **MCP servers are development-time tooling for humans and coding
+> agents. The product MUST NEVER depend on an MCP server at runtime.**
+> (FR-032 / Constitution Engineering Workflow & Quality)
+
+Anti-patterns that violate the rule:
+
+- A runtime fetch from a frontend module to an MCP server's endpoint.
+- An import of an MCP client library in `web/lib/**` or
+  `web/components/**`.
+- A scheduled job in production that calls an MCP tool.
+- A feature description framed as "BusTerminal queries the
+  Microsoft Learn MCP server to fetch …" — even if it doesn't, the
+  framing leaks the dev-time tool into the product surface.
+
+Conforming phrasings:
+
+- *"Coding agents must consult `context7` for Next.js docs before
+  authoring routing changes."*
+- *"When adding a primitive, the agent should query the `shadcn` MCP
+  to confirm the registry contract."*
+- *"`microsoft-learn` is the canonical source for Service Bus API
+  documentation at edit time."*
+
+---
+
+## Conventions for prompts that mention MCP servers
+
+When you (or an agent) write a prompt that asks Claude or another
+agent to consult an MCP server, keep the framing on the **edit-time
+task**, not on the **product behavior**.
+
+Good:
+
+> Consult the `microsoft-learn` MCP for the latest Application
+> Insights browser SDK options, then update
+> `web/lib/observability/app-insights-adapter.ts` to use the
+> documented connection-string-based init.
+
+Bad:
+
+> Add a route that proxies the `microsoft-learn` MCP so the BusTerminal
+> UI can show Azure docs inline.
+
+The first treats the MCP as a dev-time consultant; the second
+proposes baking it into the product surface. The second framing is
+prohibited by FR-032, full stop.
+
+---
+
+## When to consult an MCP server vs. when to read the code
+
+Consult an MCP server when:
+
+- The question is about **a library's current API surface** —
+  signatures, options, deprecations, migration notes.
+- The question is about **official Microsoft / Azure docs** —
+  Service Bus semantics, OpenTelemetry attributes, Entra ID flows.
+- The question is about **a registry-owned artifact** — e.g., the
+  shape of a shadcn registry entry.
+
+Read the project code when:
+
+- The question is about **BusTerminal's own conventions** —
+  primitive layout, token names, file structure. The constitution
+  and the foundation specs are authoritative here, not external
+  docs.
+- The question is about **the foundation contract** — read the
+  contracts under
+  `specs/001-brand-system-and-design-foundation/contracts/` and the
+  spec itself.
+- The question is about **a specific behavior of a primitive** —
+  read the primitive source and its stories. Stories are
+  authoritative.
+
+Don't ask an MCP server about BusTerminal-internal conventions.
+They don't know — the project is the source of truth for itself.
+
+---
+
+## Project guidance the agent should already follow
+
+The following rules are encoded in `CLAUDE.md`, but they bear
+repeating here because they constrain agentic edits to the frontend
+foundation:
+
+- **Spec-Driven Development.** Significant changes start with a
+  spec. The flow is `/speckit-specify` → `/speckit-clarify` →
+  `/speckit-plan` → `/speckit-tasks` → `/speckit-implement`. Agents
+  should not "freelance" new primitives or tokens.
+- **Constitution wins.** When a spec or this page conflicts with the
+  constitution, the constitution is correct and the document is out
+  of date.
+- **No second design system.** Don't suggest adding Mantine,
+  Chakra, MUI, etc. The constitution prohibits it.
+- **No additional UI library** without an ADR — no alternative
+  component libraries, heavy chart suites, graph/topology libraries,
+  drag-and-drop libraries, rich-text editors, code-editor components.
+- **Minimal APIs over Controllers** in any future backend work.
+  App Router only, not Pages Router. OpenTofu, not Bicep.
+- **Managed Identity over secrets** for service-to-service auth.
+- **W3C Trace Context propagation** is mandatory on UI-originated
+  HTTP — agents should never propose stripping the `traceparent`
+  header for any reason.
+
+---
+
+## Where to read more
+
+- `web/docs/agentic-coding.md` — narrative companion to this page.
+- `.specify/memory/constitution.md` — governing document; the
+  Engineering Workflow & Quality section names the AI tooling /
+  MCP usage rule explicitly.
+- `CLAUDE.md` at the repo root — project context for coding agents.
+- `specs/001-brand-system-and-design-foundation/spec.md` — FR-032
+  in particular for the runtime-dependency prohibition.

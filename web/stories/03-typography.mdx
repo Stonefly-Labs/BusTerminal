@@ -1,0 +1,136 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundation/03 — Typography" />
+
+# Typography
+
+BusTerminal reads like infrastructure tooling — dense, technical, and
+legible at small sizes. The typography scale is small on purpose so
+operators can hold large amounts of state on a single screen without
+scrolling. Two families are loaded via `next/font` in
+`web/app/layout.tsx`:
+
+| Family | Font | Used for |
+|---|---|---|
+| `--font-sans` | **Geist Sans** (Vercel) | All UI text, headings, labels, body |
+| `--font-mono` | **Geist Mono** (Vercel) | Technical identifiers — queue / topic / subscription / namespace names, correlation IDs, JSON payloads, connection strings, message metadata |
+
+Both families are self-hosted with `display: 'swap'` and preconnect
+hints courtesy of `next/font`. Fallback stacks are declared in
+`web/styles/typography.css` so the foundation renders correctly before
+the font payload arrives. Token definitions live there and follow the
+contract in
+`specs/001-brand-system-and-design-foundation/contracts/design-tokens.ts`.
+
+---
+
+## Why monospace for identifiers
+
+> **FR-009**: Technical identifiers MUST render in a monospace family
+> across every primitive that displays them.
+
+Operators scan identifiers for differences — one wrong character in a
+queue name or a connection string changes meaning. Proportional fonts
+hide that signal because each character takes a different width. The
+monospace family makes glyphs scan in fixed columns, so the eye can
+catch the difference between `qa-orders-v2-eu` and `qa-orders-v2-uk`
+at a glance.
+
+Monospace is **already wired** through the foundation:
+
+- `<Input mono>` and `<Textarea mono>` switch the input to
+  `var(--font-mono)`.
+- `<TableCell mono>` renders the cell in monospace — used in the
+  showcase for queue names and correlation IDs.
+- `<MetadataKeyValuePanel>` renders values in monospace by default
+  because metadata is overwhelmingly technical.
+
+Consume the prop or apply `var(--font-mono)` via a Tailwind utility
+that consumes the same variable (`font-mono` resolves to
+`var(--font-mono)`). **Never** hardcode `"Menlo, Consolas, …"` in
+component source — `pnpm audit:tokens` will flag it.
+
+---
+
+## The scale
+
+Sizes use `rem` so they scale with the user's browser font-size
+preference (accessibility win — operators frequently bump browser
+default size). Each step bundles `size`, `line-height`,
+`letter-spacing`, and `weight` so consumers can apply the bundle as a
+single set of CSS variables.
+
+### Display & headings
+
+| Step | Size | Line height | Letter spacing | Weight | Typical use |
+|---|---|---|---|---|---|
+| `typography.display` | 56px | 1.05 | -0.02em | 600 | Marketing / hero only — not used on operational screens |
+| `typography.h1` | 36px | 1.15 | -0.02em | 600 | Page title in `<PageHeader>` |
+| `typography.h2` | 28px | 1.2 | -0.015em | 600 | Section heading |
+| `typography.h3` | 24px | 1.25 | -0.01em | 600 | Subsection heading |
+| `typography.h4` | 20px | 1.3 | -0.005em | 600 | Card title |
+| `typography.h5` | 18px | 1.35 | 0 | 600 | Field group title, drawer heading |
+| `typography.h6` | 16px | 1.4 | 0 | 600 | Inline group label |
+
+> **Don't** skip steps to make a heading "stand out." Promote the
+> region, not the type weight. If H2 doesn't read as authoritative
+> enough, the surrounding layout is the problem.
+
+### Body & utility
+
+| Step | Size | Line height | Letter spacing | Weight | Typical use |
+|---|---|---|---|---|---|
+| `typography.body` | 16px | 1.5 | 0 | 400 | Body copy, dialog descriptions |
+| `typography.body-sm` | 14px | 1.45 | 0 | 400 | Dense lists, secondary descriptions |
+| `typography.caption` | 12px | 1.4 | 0.01em | 400 | Captions, helper text, footnotes |
+| `typography.label` | 13px | 1.3 | 0.005em | 500 | Form labels, badge text, table column headers |
+| `typography.table` | 14px | 1.35 | 0 | 400 | Table body cells (consumed by `<Table>` foundation) |
+
+### Monospace
+
+| Step | Size | Line height | Letter spacing | Weight | Typical use |
+|---|---|---|---|---|---|
+| `typography.mono` | 14px | 1.5 | 0 | 400 | Identifiers in table cells, drawer body, JSON viewer |
+| `typography.mono-sm` | 12px | 1.45 | 0 | 400 | Inline identifiers in metadata panels, badges |
+
+---
+
+## When to use monospace
+
+Use the monospace family for any **value an operator could plausibly
+need to copy / search for / diff against another instance**. Concretely:
+
+- Service Bus entity names — `namespace`, `queue`, `topic`,
+  `subscription`, `rule`.
+- Correlation IDs, trace IDs, span IDs, message IDs, session IDs.
+- Connection strings, SAS tokens (truncated), resource IDs.
+- JSON payloads, headers, raw message bodies.
+- Code fragments inline in documentation.
+
+**Don't** use monospace for:
+
+- Display copy that happens to mention a name in prose (use the
+  default family; render the name in monospace inline where it
+  appears).
+- Numeric counts that are not identifiers (use `formatNumber` and the
+  default family).
+- Status labels (use `<Badge>` with the default family).
+
+---
+
+## Authoring rules
+
+- **Apply the bundle, not individual properties.** When a primitive
+  needs `h3`, pull `--typography-h3-size`, `--typography-h3-line-height`,
+  `--typography-h3-letter-spacing`, and `--typography-h3-weight` —
+  don't cherry-pick. The bundle is tuned together.
+- **Never hardcode a font-size or line-height literal** in primitive
+  source. `pnpm audit:tokens` will fail the build.
+- **Never use `text-left` / `text-right` in primitive or composite
+  source.** Use `text-start` / `text-end`. CSS logical properties
+  flip automatically under `dir="rtl"`. `pnpm audit:directions` is
+  the CI-side guard.
+- **Never define a new font family** without an ADR. The foundation
+  ships two families on purpose.
+- **Use sentence case** for UI copy and headings. Reserve title case
+  for proper nouns and the product name. (See [Page 01 — Brand](?path=/docs/foundation-01-brand--docs).)
