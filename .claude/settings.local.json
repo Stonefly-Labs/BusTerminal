@@ -106,7 +106,8 @@
       "Bash(GIT_BRANCH_NAME=feature/002-solution-foundation .specify/extensions/git/scripts/bash/create-new-feature.sh *)",
       "Bash(GIT_BRANCH_NAME=feature/002-solution-foundation bash *)",
       "Bash(mkdir -p /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/checklists)",
-      "Bash(cp /Users/christopherhouse/projects/BusTerminal/.specify/templates/spec-template.md /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/spec.md)"
+      "Bash(cp /Users/christopherhouse/projects/BusTerminal/.specify/templates/spec-template.md /Users/christopherhouse/projects/BusTerminal/specs/002-solution-foundation/spec.md)",
+      "mcp__microsoft-learn__microsoft_docs_search"
     ]
   },
   "enabledMcpjsonServers": [
