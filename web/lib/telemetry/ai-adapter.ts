@@ -19,14 +19,14 @@ export function usePageView(): void {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const previousRoute = useRef<string | null>(null);
-  const lastChangeAt = useRef<number>(performance.now());
+  const lastChangeAt = useRef<number | null>(null);
 
   useEffect(() => {
     const query = searchParams?.toString();
     const toRoute = query ? `${pathname}?${query}` : pathname ?? "";
     const fromRoute = previousRoute.current ?? toRoute;
     const now = performance.now();
-    const durationMs = Math.max(0, Math.round(now - lastChangeAt.current));
+    const durationMs = Math.max(0, Math.round(now - (lastChangeAt.current ?? now)));
 
     const adapter = getAdapter();
     adapter.capture({
