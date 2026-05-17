@@ -1,0 +1,14 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.AspNetCore": "Information"
+    }
+  },
+  "AzureAd": {
+    "Instance": "https://login.microsoftonline.com/",
+    "TenantId": "development",
+    "ClientId": "00000000-0000-0000-0000-000000000000",
+    "Audience": "api://busterminal-dev"
+  }
+}
