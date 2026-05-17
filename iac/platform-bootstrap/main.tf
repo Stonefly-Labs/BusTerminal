@@ -24,10 +24,10 @@ locals {
   tfstate_resource_group_name = "rg-busterminal-tfstate"
   tfstate_container_name      = "tfstate"
   shared_tags = {
-    application   = "BusTerminal"
-    component     = "platform-bootstrap"
-    managed-by    = "opentofu"
-    cost-center   = "platform"
+    application = "BusTerminal"
+    component   = "platform-bootstrap"
+    managed-by  = "opentofu"
+    cost-center = "platform"
   }
 }
 
@@ -64,8 +64,7 @@ module "tfstate_storage" {
 
   containers = {
     tfstate = {
-      name                  = local.tfstate_container_name
-      container_access_type = "private"
+      name = local.tfstate_container_name
     }
   }
 

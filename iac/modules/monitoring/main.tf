@@ -13,17 +13,17 @@ module "log_analytics" {
   source  = "Azure/avm-res-operationalinsights-workspace/azurerm"
   version = "0.4.2"
 
-  name                = var.log_analytics_workspace_name
-  resource_group_name = var.resource_group_name
-  location            = var.location
+  name                                      = var.log_analytics_workspace_name
+  resource_group_name                       = var.resource_group_name
+  location                                  = var.location
   log_analytics_workspace_retention_in_days = var.retention_in_days
   log_analytics_workspace_sku               = "PerGB2018"
-  tags                = var.tags
+  tags                                      = var.tags
 }
 
 module "application_insights" {
   source  = "Azure/avm-res-insights-component/azurerm"
-  version = "0.1.7"
+  version = "0.3.0"
 
   name                = var.application_insights_name
   resource_group_name = var.resource_group_name

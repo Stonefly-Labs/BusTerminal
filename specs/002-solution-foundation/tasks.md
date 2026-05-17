@@ -86,16 +86,16 @@ Per `plan.md` § Project Structure:
 
 ### IaC foundation (modules + bootstrap)
 
-- [ ] T031 Create `iac/platform-bootstrap/main.tf` provisioning: a dedicated resource group (`rg-busterminal-tfstate`), an Azure Storage Account with versioning + soft-delete + HTTPS-only + TLS1.2 minimum, a blob container `tfstate`, a user-assigned managed identity per environment passed in as input, and a federated identity credential on each with the subject template `repo:<org>/BusTerminal:environment:<env>`. Use AVM where coverage exists (`Azure/avm-res-storage-storageaccount/azurerm`, `Azure/avm-res-managedidentity-userassignedidentity/azurerm`) with pinned versions.
-- [ ] T032 Create `iac/platform-bootstrap/variables.tf` declaring `github_org_repo` (string), `environments` (set of strings, default `["dev"]`), `location` (default `eastus2`), `subscription_id`.
-- [ ] T033 Create `iac/platform-bootstrap/outputs.tf` emitting the values needed as GitHub repository variables: per-environment `AZURE_CLIENT_ID`, plus shared `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `TFSTATE_STORAGE_ACCOUNT_NAME`, `TFSTATE_RESOURCE_GROUP`, `TFSTATE_CONTAINER_NAME`.
-- [ ] T034 Write `iac/platform-bootstrap/README.md` documenting how to run the module (`tofu init -backend=false && tofu apply -var-file=...`) plus the equivalent manual `az` CLI walkthrough required by FR-082b. Include the GitHub repository-variable mapping table.
-- [ ] T035 [P] Create `iac/modules/identity/` (workload-MI provisioning + role-assignment helpers) consuming the AVM user-assigned-identity module.
-- [ ] T036 [P] Create `iac/modules/monitoring/` (Log Analytics Workspace + Application Insights connected to the workspace + a `key_vault_secret` resource that exposes the App Insights connection string for workload consumption).
-- [ ] T037 [P] Create `iac/modules/keyvault/` (Key Vault using RBAC authorization, no access policies, diagnostic settings to the LAW from `monitoring`).
-- [ ] T038 [P] Create `iac/modules/container-registry/` (ACR with admin disabled, diagnostic settings to LAW, an output for the login server).
-- [ ] T039 [P] Create `iac/modules/container-apps-env/` (Container Apps Environment bound to the LAW from `monitoring`, no VNet for this slice, diagnostic settings enabled).
-- [ ] T040 [P] Create `iac/modules/container-app/` (single Container App composing image, env vars, secrets (Key Vault refs), managed identity, scale rules, three health probes — liveness/readiness/startup — and a configurable `ingress_external` boolean defaulting `false` so a later slice can flip to internal).
+- [X] T031 Create `iac/platform-bootstrap/main.tf` provisioning: a dedicated resource group (`rg-busterminal-tfstate`), an Azure Storage Account with versioning + soft-delete + HTTPS-only + TLS1.2 minimum, a blob container `tfstate`, a user-assigned managed identity per environment passed in as input, and a federated identity credential on each with the subject template `repo:<org>/BusTerminal:environment:<env>`. Use AVM where coverage exists (`Azure/avm-res-storage-storageaccount/azurerm`, `Azure/avm-res-managedidentity-userassignedidentity/azurerm`) with pinned versions.
+- [X] T032 Create `iac/platform-bootstrap/variables.tf` declaring `github_org_repo` (string), `environments` (set of strings, default `["dev"]`), `location` (default `eastus2`), `subscription_id`.
+- [X] T033 Create `iac/platform-bootstrap/outputs.tf` emitting the values needed as GitHub repository variables: per-environment `AZURE_CLIENT_ID`, plus shared `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `TFSTATE_STORAGE_ACCOUNT_NAME`, `TFSTATE_RESOURCE_GROUP`, `TFSTATE_CONTAINER_NAME`.
+- [X] T034 Write `iac/platform-bootstrap/README.md` documenting how to run the module (`tofu init -backend=false && tofu apply -var-file=...`) plus the equivalent manual `az` CLI walkthrough required by FR-082b. Include the GitHub repository-variable mapping table.
+- [X] T035 [P] Create `iac/modules/identity/` (workload-MI provisioning + role-assignment helpers) consuming the AVM user-assigned-identity module.
+- [X] T036 [P] Create `iac/modules/monitoring/` (Log Analytics Workspace + Application Insights connected to the workspace + a `key_vault_secret` resource that exposes the App Insights connection string for workload consumption).
+- [X] T037 [P] Create `iac/modules/keyvault/` (Key Vault using RBAC authorization, no access policies, diagnostic settings to the LAW from `monitoring`).
+- [X] T038 [P] Create `iac/modules/container-registry/` (ACR with admin disabled, diagnostic settings to LAW, an output for the login server).
+- [X] T039 [P] Create `iac/modules/container-apps-env/` (Container Apps Environment bound to the LAW from `monitoring`, no VNet for this slice, diagnostic settings enabled).
+- [X] T040 [P] Create `iac/modules/container-app/` (single Container App composing image, env vars, secrets (Key Vault refs), managed identity, scale rules, three health probes — liveness/readiness/startup — and a configurable `ingress_external` boolean defaulting `false` so a later slice can flip to internal).
 
 **Checkpoint**: All cross-cutting infrastructure is in place. User stories can now proceed in parallel.
 

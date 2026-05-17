@@ -127,7 +127,10 @@
       "WebFetch(domain:www.nuget.org)",
       "Bash(dotnet restore *)",
       "Bash(find api/BusTerminal.Api/api -type f)",
-      "Bash(find api/BusTerminal.Api/api -type d)"
+      "Bash(find api/BusTerminal.Api/api -type d)",
+      "Bash(tofu fmt *)",
+      "Bash(tofu init *)",
+      "Bash(tofu validate *)"
     ]
   },
   "enabledMcpjsonServers": [

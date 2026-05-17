@@ -10,5 +10,5 @@ output "name" {
 
 output "uri" {
   description = "Key Vault DNS endpoint (vault URI) — set this as `AZURE_KEY_VAULT_URI` on workload containers."
-  value       = module.keyvault.resource.vault_uri
+  value       = module.keyvault.uri
 }
