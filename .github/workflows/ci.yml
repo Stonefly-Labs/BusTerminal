@@ -182,7 +182,7 @@ jobs:
       - name: Start API in background for OpenAPI capture
         env:
           ASPNETCORE_ENVIRONMENT: Development
-          ASPNETCORE_URLS: http://localhost:5080
+          ASPNETCORE_URLS: http://localhost:8080
           AzureAd__TenantId: development
           AzureAd__ClientId: 00000000-0000-0000-0000-000000000001
           AzureAd__Audience: api://00000000-0000-0000-0000-000000000001
@@ -193,7 +193,7 @@ jobs:
       - name: Wait for OpenAPI endpoint
         run: |
           for i in {1..30}; do
-            if curl -fsS http://localhost:5080/openapi/v1.json -o /tmp/live-openapi.json 2>/dev/null; then
+            if curl -fsS http://localhost:8080/openapi/v1.json -o /tmp/live-openapi.json 2>/dev/null; then
               echo "OpenAPI captured"
               exit 0
             fi
