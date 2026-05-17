@@ -3,12 +3,14 @@
  *
  * Exercises the US1 happy path:
  *   1. Land on `/` and observe the redirect to `/signin`.
- *   2. Click the dev-mode sign-in button.
+ *   2. Click the dev-mode sign-in button (Credentials provider — no OAuth).
  *   3. Land on `/platform-status` with the dev user's display name visible.
  *   4. See a correlation card with a non-empty trace ID.
  *
- * The test depends on the mock-auth fallback (`AZURE_AD_TENANT_ID=development`)
- * being active in the running dev server. CI configures these env vars.
+ * Requires both servers to be reachable on their default ports:
+ *   - frontend (this Playwright webServer) on `:3000`
+ *   - backend (.NET, started by the surrounding workflow) on `:8080`,
+ *     with mock auth active so `/whoami` returns the synthetic principal.
  */
 
 import { expect, test } from "@playwright/test";

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { isMockAuthActive, signIn } from "@/lib/auth";
+import { MOCK_PROVIDER_ID, isMockAuthActive, signIn } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 async function signInAction(formData: FormData) {
   "use server";
   const callbackUrl = (formData.get("callbackUrl") as string) || "/platform-status";
-  await signIn("microsoft-entra-id", { redirectTo: callbackUrl });
+  const providerId = isMockAuthActive ? MOCK_PROVIDER_ID : "microsoft-entra-id";
+  await signIn(providerId, { redirectTo: callbackUrl });
 }
 
 interface SignInPageProps {

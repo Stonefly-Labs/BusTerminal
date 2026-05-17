@@ -1,5 +1,6 @@
 import NextAuth, { type NextAuthConfig, type Session } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
+import Credentials from "next-auth/providers/credentials";
 
 declare module "next-auth" {
   interface Session {
@@ -10,6 +11,7 @@ declare module "next-auth" {
 type JwtWithAccessToken = { accessToken?: string };
 
 const DEV_TENANT_SENTINEL = "development";
+export const MOCK_PROVIDER_ID = "mock-dev";
 
 const tenantId = process.env.AZURE_AD_TENANT_ID ?? "";
 const clientId = process.env.AZURE_AD_CLIENT_ID ?? "";
@@ -25,22 +27,41 @@ const MOCK_USER = {
 
 const MOCK_ACCESS_TOKEN = "mock-access-token-development-only";
 
-function buildProviderConfig() {
-  if (isMockTenant) {
-    return {
-      clientId: "mock-client",
-      clientSecret: "mock-secret",
-      issuer: "https://login.microsoftonline.com/common/v2.0",
-    };
-  }
+function buildEntraProviderConfig() {
   const base = { clientId, clientSecret };
-  if (tenantId) {
+  if (tenantId && !isMockTenant) {
     return { ...base, issuer: `https://login.microsoftonline.com/${tenantId}/v2.0` };
   }
   return base;
 }
 
-const providers = [MicrosoftEntraID(buildProviderConfig())];
+// In mock mode, register a Credentials provider that synthesizes the dev user
+// without any OAuth redirect. This is the only provider available when
+// `AZURE_AD_TENANT_ID === "development"`, so a real OAuth round-trip is
+// impossible — the dev sign-in completes locally and never talks to Microsoft.
+// Gated to non-production environments by the `assertNonProduction` check
+// inside `authorize()`.
+const mockProvider = Credentials({
+  id: MOCK_PROVIDER_ID,
+  name: "Dev User (mock)",
+  credentials: {},
+  authorize: async () => {
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_AUTH !== "true") {
+      throw new Error(
+        "Mock authentication is disabled in production. Set AZURE_AD_TENANT_ID to a real tenant.",
+      );
+    }
+    return {
+      id: MOCK_USER.id,
+      name: MOCK_USER.name,
+      email: MOCK_USER.email,
+    };
+  },
+});
+
+const providers = isMockTenant
+  ? [mockProvider]
+  : [MicrosoftEntraID(buildEntraProviderConfig())];
 
 export const authConfig: NextAuthConfig = {
   providers,
