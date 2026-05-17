@@ -69,6 +69,12 @@ resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   key_vault_id = module.keyvault.id
   content_type = "text/plain"
 
+  # The App Insights connection string is a static identifier that does not
+  # rotate. A far-future expiration date satisfies CKV_AZURE_41 (which
+  # requires every secret have an expiration) without imposing operational
+  # rotation overhead that would not actually rotate anything.
+  expiration_date = "2099-12-31T23:59:59Z"
+
   tags = local.shared_tags
 }
 

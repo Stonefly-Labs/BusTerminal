@@ -65,10 +65,7 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: iac
-          framework: terraform
-          quiet: true
-          soft_fail: false
-          download_external_modules: true
+          config_file: iac/.checkov.yaml
 
   plan-dev:
     name: tofu plan (dev) · PR comment

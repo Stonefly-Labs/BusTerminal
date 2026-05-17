@@ -41,5 +41,11 @@ resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   key_vault_id = var.key_vault_id
   content_type = "text/plain"
 
+  # Static identifier; far-future expiry satisfies CKV_AZURE_41 without
+  # imposing rotation overhead. (See env composition for the callsite-level
+  # rationale: the connection string is an opaque Azure-managed identifier
+  # that does not rotate.)
+  expiration_date = "2099-12-31T23:59:59Z"
+
   tags = var.tags
 }

@@ -148,7 +148,13 @@
       "Bash(mv /tmp/tflint-bin/tflint ~/.local/bin/tflint)",
       "Bash(~/.local/bin/tflint --version)",
       "Bash(~/.local/bin/tflint --init --config \"$\\(pwd\\)/.tflint.hcl\")",
-      "Bash(~/.local/bin/tflint --recursive --config \"$\\(pwd\\)/.tflint.hcl\")"
+      "Bash(~/.local/bin/tflint --recursive --config \"$\\(pwd\\)/.tflint.hcl\")",
+      "Bash(pip3 install *)",
+      "Bash(~/Library/Python/3.9/bin/checkov --version)",
+      "Bash(pip3 show *)",
+      "Bash(~/Library/Python/3.9/bin/checkov -d iac --config-file iac/.checkov.yaml)",
+      "Bash(git rm *)",
+      "Bash(git check-ignore *)"
     ]
   },
   "enabledMcpjsonServers": [

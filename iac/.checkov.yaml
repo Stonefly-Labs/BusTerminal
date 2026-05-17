@@ -1,0 +1,117 @@
+# Checkov configuration for BusTerminal IaC.
+#
+# Each skipped rule is documented with its rationale. The defaults remain on
+# (`soft-fail: false`) so any new finding outside this list fails CI.
+#
+# Reviewers: when removing a skip, verify the underlying issue is actually
+# fixed before merging — checkov passing is necessary but not sufficient.
+framework:
+  - terraform
+
+quiet: true
+soft-fail: false
+download-external-modules: true
+
+skip-check:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Inconsistent with constitutional AVM consumption convention
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_TF_1 — "Ensure Terraform module sources use a commit hash".
+  # The BusTerminal constitution mandates Azure Verified Modules consumed
+  # from the Terraform Registry with pinned SEMVER versions (e.g.,
+  # `version = "0.5.0"`), not git URLs with commit SHAs. AVM publishes
+  # signed, version-tagged releases; switching to git+SHA breaks update
+  # tooling, dependabot integration, and the documented AVM workflow.
+  - CKV_TF_1
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Deferred per plan.md § Complexity Tracking
+  # The foundation slice provisions public ingress + public storage to keep
+  # bootstrap from requiring a private DNS resolver reachable from GitHub
+  # Actions. A later slice flips these to private once VNet integration lands.
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_139 — "Ensure ACR set to disable public networking".
+  # ACR must be reachable from the GitHub Actions runner for image push.
+  # Private link from CI is out of scope for the foundation.
+  - CKV_AZURE_139
+
+  # CKV_AZURE_35 / CKV_AZURE_36 / CKV_AZURE_59 / CKV_AZURE_244 — storage
+  # account default-deny / trusted-services / public access / local users.
+  # The OpenTofu state account (platform-bootstrap) must be reachable from
+  # the GitHub Actions runner using OIDC-backed Entra tokens. Shared keys
+  # are already disabled (`shared_access_key_enabled = false`). Private
+  # endpoints + service-endpoint allowlists arrive with the VNet slice.
+  - CKV_AZURE_35
+  - CKV_AZURE_36
+  - CKV_AZURE_59
+  - CKV_AZURE_244
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # AVM internals that already satisfy the control but checkov can't see it
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_109 — "Ensure that key vault allows firewall rules settings".
+  # Our keyvault module passes `network_acls = { bypass = "AzureServices",
+  # default_action = "Allow" or "Deny" }` to the AVM module, which sets the
+  # ACL accordingly. The AVM uses a `dynamic "network_acls"` block that
+  # checkov's static analyzer cannot trace through.
+  - CKV_AZURE_109
+
+  # CKV_AZURE_206 — "Ensure that Storage Accounts use replication".
+  # The platform-bootstrap state account is explicitly `account_replication_type
+  # = "ZRS"` (zone-redundant). Checkov flags the AVM resource block because
+  # its default in the upstream module is LRS; our override is invisible to
+  # the static check.
+  - CKV_AZURE_206
+
+  # CKV2_AZURE_38 — "Ensure soft-delete is enabled on Azure storage account".
+  # The state account has `delete_retention_policy { days = 30 }` and
+  # `container_delete_retention_policy { days = 30 }` configured via the AVM
+  # `blob_properties` input. Checkov's composite check expects a different
+  # structural shape and false-positives on the AVM dynamic block.
+  - CKV2_AZURE_38
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # AVM module surface — control not exposed as a module input
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_233 — "Ensure ACR is zone redundant".
+  # The dev environment is intentionally single-zone for cost. The
+  # container-registry module accepts a `sku` (Premium today) so zone
+  # redundancy can be enabled in `prod` when that environment exists.
+  - CKV_AZURE_233
+
+  # CKV_AZURE_166 — "Ensure container image quarantine, scan, and mark
+  # images verified". The AVM container-registry module does not expose
+  # the quarantine policy (preview feature) as an input. Trivy scanning
+  # in CI covers the same supply-chain hygiene goal (see ci.yml).
+  - CKV_AZURE_166
+
+  # CKV_AZURE_237 — "Ensure dedicated data endpoints are enabled."
+  # Premium SKU optional feature; AVM does not expose the input.
+  # Re-evaluate when private endpoints are introduced.
+  - CKV_AZURE_237
+
+  # CKV_AZURE_164 — "Ensures that ACR uses signed/trusted images".
+  # Premium content trust feature; AVM does not expose the input.
+  # Image signing is a separate hardening slice (constitution § supply chain).
+  - CKV_AZURE_164
+
+  # CKV_AZURE_112 — "Ensure that key vault key is backed by HSM".
+  # This rule fires on the AVM keyvault module's example `azurerm_key_vault_key`
+  # resource. BusTerminal does not currently create any Key Vault keys
+  # (only secrets). When key creation lands, HSM-backed keys will be the
+  # default per the secret-management slice.
+  - CKV_AZURE_112
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Inapplicable — feature is not used by BusTerminal
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_33 — "Ensure Storage logging is enabled for Queue service
+  # for read, write and delete requests". BusTerminal does not use the
+  # Storage Queue service; the state account holds only blobs. Rule is a
+  # false positive against an unused service.
+  - CKV_AZURE_33

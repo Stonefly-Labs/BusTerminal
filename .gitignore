@@ -500,6 +500,15 @@ terraform.rc
 # Allow example tfvars used as templates for environments
 !**/terraform.tfvars.example
 !**/*.tfvars.example
+# Allow committed per-environment defaults that only contain non-secret values
+!iac/environments/*/terraform.tfvars
+
+# Checkov download cache + scan artifacts. Created when running with
+# `download-external-modules: true`; contains transitively cloned AVM modules
+# (each with its own .git). Never commit.
+**/.external_modules/
+**/.checkov/
+results.sarif
 
 # --- macOS ---
 .DS_Store
