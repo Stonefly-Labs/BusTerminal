@@ -122,18 +122,16 @@ components:
       properties:
         oid:
           type: string
-          format: uuid
-          description: Object ID of the signed-in principal in Entra ID.
+          description: Object ID (UUID) of the signed-in principal in Entra ID.
         displayName:
           type: string
           description: Display name as known to Entra ID. May be null for some token shapes (then this field is omitted).
         preferredUsername:
-          type: string
-          description: UPN-like identifier suitable for display. Optional.
+          type: [string, "null"]
+          description: UPN-like identifier suitable for display. Optional; null when the access token did not carry a `preferred_username` claim.
         tenantId:
           type: string
-          format: uuid
-          description: Entra ID tenant ID the principal belongs to.
+          description: Entra ID tenant ID (UUID) the principal belongs to.
     Correlation:
       type: object
       description: |
@@ -152,12 +150,11 @@ components:
           pattern: '^[0-9a-f]{16}$'
           description: 16-hex-character W3C parent-id of the span the backend recorded.
         receivedTraceparent:
-          type: string
+          type: [string, "null"]
           description: |
             The exact traceparent header value the backend received, or null
             if the caller did not propagate one (which would itself be a
             violation of FR-022 and should be investigated).
-          nullable: true
     ServerInfo:
       type: object
       description: |
