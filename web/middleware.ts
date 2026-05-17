@@ -11,6 +11,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/_next/")) return true;
   if (pathname.startsWith("/healthz/")) return true;
+  // Slice-001 design-system showcase is dev-only and reachable without auth.
+  if (pathname === "/showcase" || pathname.startsWith("/showcase/")) return true;
   return false;
 }
 

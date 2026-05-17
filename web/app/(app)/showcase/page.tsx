@@ -33,8 +33,8 @@ import { TopicCard } from "@/components/domain/topic-card";
 import { TopicRow as TopicDomainRow } from "@/components/domain/topic-row";
 import { TopologyMiniMapPlaceholder } from "@/components/domain/topology-mini-map-placeholder";
 
-import { SHOWCASE_COLUMNS, SHOWCASE_QUEUES, type QueueRow } from "./_showcase/showcase-data";
-import { newQueueSchema, type NewQueueValues } from "./_showcase/showcase-schemas";
+import { SHOWCASE_COLUMNS, SHOWCASE_QUEUES, type QueueRow } from "../_showcase/showcase-data";
+import { newQueueSchema, type NewQueueValues } from "../_showcase/showcase-schemas";
 import {
   SHOWCASE_AZURE_RESOURCE_ID,
   SHOWCASE_DOMAIN_QUEUE,
@@ -46,7 +46,7 @@ import {
   SHOWCASE_PORTAL_URL,
   SHOWCASE_SUBSCRIPTION,
   SHOWCASE_TOPIC,
-} from "./_showcase/domain-showcase-data";
+} from "../_showcase/domain-showcase-data";
 
 const TIMELINE = [
   { hour: "00:00", active: 12, dl: 0 },

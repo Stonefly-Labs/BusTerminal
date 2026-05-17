@@ -128,7 +128,7 @@ test.describe("theme-switch mid-flight (T106 / FR-005)", () => {
     });
     await page.emulateMedia({ colorScheme: "dark" });
 
-    await page.goto("/");
+    await page.goto("/showcase");
     await waitForThemeClass(page, "dark");
 
     // ----- Capture pre-switch canvas color --------------------------------

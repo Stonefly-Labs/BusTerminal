@@ -76,7 +76,7 @@ test.describe("keyboard-only walkthrough (T109 / SC-007)", () => {
   test("complete every interaction on the demo screen without a pointing device", async ({
     page,
   }) => {
-    await page.goto("/", { waitUntil: "load" });
+    await page.goto("/showcase", { waitUntil: "load" });
     // Wait until React has hydrated before keyboard interaction — typing
     // into the search input pre-hydration updates the native value but no
     // React onChange fires, so the DataTable filter state never updates.

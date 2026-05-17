@@ -16,7 +16,8 @@
     "test:watch": "vitest",
     "test:storybook": "test-storybook",
     "test:storybook:ci": "concurrently -k -s first -n \"SB,TEST\" -c \"magenta,blue\" \"pnpm build-storybook --quiet && http-server storybook-static --port 6006 --silent\" \"wait-on tcp:127.0.0.1:6006 && pnpm test:storybook\"",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test tests/e2e",
+    "test:a11y": "playwright test tests/a11y",
     "analyze": "cross-env ANALYZE=true next build",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
@@ -27,7 +28,6 @@
     "audit:review-records": "node scripts/audit-review-records.mjs"
   },
   "dependencies": {
-    "@auth/core": "^0.39.1",
     "@hookform/resolvers": "^3.9.1",
     "@microsoft/applicationinsights-react-js": "^17.3.6",
     "@microsoft/applicationinsights-web": "^3.4.1",

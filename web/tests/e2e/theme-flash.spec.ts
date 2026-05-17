@@ -94,7 +94,7 @@ test.describe("theme-flash (T105 / SC-004)", () => {
     const darkPage = await context.newPage();
     await clearThemePersistence(darkPage);
 
-    await darkPage.goto("/", { waitUntil: "domcontentloaded" });
+    await darkPage.goto("/showcase", { waitUntil: "domcontentloaded" });
 
     const htmlClass = await darkPage.evaluate(() => document.documentElement.className);
     expect(htmlClass).toContain("dark");
@@ -114,7 +114,7 @@ test.describe("theme-flash (T105 / SC-004)", () => {
     const lightPage = await context.newPage();
     await clearThemePersistence(lightPage);
 
-    await lightPage.goto("/", { waitUntil: "domcontentloaded" });
+    await lightPage.goto("/showcase", { waitUntil: "domcontentloaded" });
 
     const htmlClass = await lightPage.evaluate(() => document.documentElement.className);
     expect(htmlClass).not.toContain("dark");
@@ -131,7 +131,7 @@ test.describe("theme-flash (T105 / SC-004)", () => {
     const persistedPage = await context.newPage();
     await seedThemePersistence(persistedPage, "light");
 
-    await persistedPage.goto("/", { waitUntil: "domcontentloaded" });
+    await persistedPage.goto("/showcase", { waitUntil: "domcontentloaded" });
 
     const htmlClass = await persistedPage.evaluate(
       () => document.documentElement.className,

@@ -1,4 +1,5 @@
 using BusTerminal.Api.Features.Health;
+using BusTerminal.Api.Features.Identity;
 using BusTerminal.Api.Infrastructure.Authentication;
 using BusTerminal.Api.Infrastructure.Configuration;
 using BusTerminal.Api.Infrastructure.Observability;
@@ -35,6 +36,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapBusTerminalHealthEndpoints();
+app.MapWhoAmIEndpoint();
 
 try
 {

@@ -130,7 +130,12 @@
       "Bash(find api/BusTerminal.Api/api -type d)",
       "Bash(tofu fmt *)",
       "Bash(tofu init *)",
-      "Bash(tofu validate *)"
+      "Bash(tofu validate *)",
+      "Bash(pnpm remove *)",
+      "Bash(sed -i '' 's|page.goto\\(\"/\"|page.goto\\(\"/showcase\"|g' web/tests/e2e/keyboard-only.spec.ts web/tests/e2e/reduced-motion.spec.ts web/tests/e2e/rtl-smoke.spec.ts web/tests/e2e/theme-switch.spec.ts)",
+      "Bash(sed -i '' 's|page.goto\\(\"/\"\\)|page.goto\\(\"/showcase\"\\)|g' web/tests/e2e/theme-switch.spec.ts)",
+      "Bash(chmod +x scripts/start-local.sh scripts/start-local.ps1)",
+      "Bash(chmod +x scripts/start-local-containers.sh scripts/test-all.sh scripts/start-local-containers.ps1 scripts/test-all.ps1)"
     ]
   },
   "enabledMcpjsonServers": [

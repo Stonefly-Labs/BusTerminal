@@ -12,7 +12,8 @@ import { defineConfig, devices } from "@playwright/test";
 const LAPTOP_VIEWPORT = { width: 1366, height: 768 } as const;
 
 export default defineConfig({
-  testDir: "./tests/e2e",
+  testDir: "./tests",
+  testMatch: ["e2e/**/*.spec.ts", "a11y/**/*.spec.ts"],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

@@ -3,6 +3,7 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 
 const nextConfig: NextConfig = {
   typedRoutes: true,
+  output: "standalone",
 };
 
 const withAnalyzer = withBundleAnalyzer({

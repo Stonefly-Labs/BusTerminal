@@ -1,6 +1,14 @@
 import NextAuth, { type NextAuthConfig, type Session } from "next-auth";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
 
+declare module "next-auth" {
+  interface Session {
+    accessToken?: string;
+  }
+}
+
+type JwtWithAccessToken = { accessToken?: string };
+
 const DEV_TENANT_SENTINEL = "development";
 
 const tenantId = process.env.AZURE_AD_TENANT_ID ?? "";
@@ -40,27 +48,28 @@ export const authConfig: NextAuthConfig = {
   session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, account }) {
+      const extended = token as typeof token & JwtWithAccessToken;
       if (account?.access_token) {
-        token.accessToken = account.access_token;
+        extended.accessToken = account.access_token;
       }
-      if (isMockTenant && !token.accessToken) {
-        token.accessToken = MOCK_ACCESS_TOKEN;
-        token.sub = MOCK_USER.id;
-        token.name = MOCK_USER.name;
-        token.email = MOCK_USER.email;
+      if (isMockTenant && !extended.accessToken) {
+        extended.accessToken = MOCK_ACCESS_TOKEN;
+        extended.sub = MOCK_USER.id;
+        extended.name = MOCK_USER.name;
+        extended.email = MOCK_USER.email;
       }
-      return token;
+      return extended;
     },
     async session({ session, token }) {
-      const extended = session as Session & { accessToken?: string };
-      if (typeof token.accessToken === "string") {
-        extended.accessToken = token.accessToken;
+      const extendedToken = token as typeof token & JwtWithAccessToken;
+      if (typeof extendedToken.accessToken === "string") {
+        session.accessToken = extendedToken.accessToken;
       }
       if (isMockTenant && session.user) {
         session.user.name ??= MOCK_USER.name;
         session.user.email ??= MOCK_USER.email;
       }
-      return extended;
+      return session satisfies Session;
     },
   },
   pages: {
