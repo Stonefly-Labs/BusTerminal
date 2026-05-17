@@ -123,7 +123,11 @@
       "Bash(bash /Users/christopherhouse/projects/BusTerminal/scripts/bootstrap.sh)",
       "Bash(gitleaks --version)",
       "Bash(tflint --version)",
-      "Bash(dotnet test *)"
+      "Bash(dotnet test *)",
+      "WebFetch(domain:www.nuget.org)",
+      "Bash(dotnet restore *)",
+      "Bash(find api/BusTerminal.Api/api -type f)",
+      "Bash(find api/BusTerminal.Api/api -type d)"
     ]
   },
   "enabledMcpjsonServers": [
