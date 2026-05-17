@@ -1,5 +1,3 @@
-data "azurerm_client_config" "current" {}
-
 locals {
   resource_group_name = "rg-${var.naming_prefix}"
 
@@ -128,7 +126,6 @@ module "backend_app" {
 
   name                          = local.backend_app_name
   resource_group_name           = azurerm_resource_group.this.name
-  location                      = azurerm_resource_group.this.location
   container_apps_environment_id = module.container_apps_env.id
   managed_identity_id           = module.workload_identity.id
   image                         = var.backend_image
@@ -167,7 +164,6 @@ module "frontend_app" {
 
   name                          = local.frontend_app_name
   resource_group_name           = azurerm_resource_group.this.name
-  location                      = azurerm_resource_group.this.location
   container_apps_environment_id = module.container_apps_env.id
   managed_identity_id           = module.workload_identity.id
   image                         = var.frontend_image

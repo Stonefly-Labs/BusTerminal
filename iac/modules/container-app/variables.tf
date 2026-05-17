@@ -8,11 +8,6 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "location" {
-  description = "Azure region for the Container App."
-  type        = string
-}
-
 variable "container_apps_environment_id" {
   description = "Resource ID of the parent Container Apps Environment."
   type        = string

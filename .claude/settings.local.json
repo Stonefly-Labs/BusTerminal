@@ -138,7 +138,17 @@
       "Bash(chmod +x scripts/start-local-containers.sh scripts/test-all.sh scripts/start-local-containers.ps1 scripts/test-all.ps1)",
       "Bash(tofu version *)",
       "Bash(chmod +x *)",
-      "Bash(tofu -chdir=iac/environments/dev validate)"
+      "Bash(tofu -chdir=iac/environments/dev validate)",
+      "Bash(brew install *)",
+      "Bash(brew tap *)",
+      "Bash(curl -fsSL \"https://github.com/terraform-linters/tflint/releases/latest/download/tflint_darwin_arm64.zip\" -o /tmp/tflint.zip)",
+      "Bash(unzip -o /tmp/tflint.zip -d /tmp/tflint-bin)",
+      "Bash(mv /tmp/tflint-bin/tflint /usr/local/bin/tflint)",
+      "Bash(mkdir -p ~/.local/bin)",
+      "Bash(mv /tmp/tflint-bin/tflint ~/.local/bin/tflint)",
+      "Bash(~/.local/bin/tflint --version)",
+      "Bash(~/.local/bin/tflint --init --config \"$\\(pwd\\)/.tflint.hcl\")",
+      "Bash(~/.local/bin/tflint --recursive --config \"$\\(pwd\\)/.tflint.hcl\")"
     ]
   },
   "enabledMcpjsonServers": [
