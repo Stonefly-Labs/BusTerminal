@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: build · lint · typecheck · test · storybook · e2e · analyze
+  frontend:
+    name: frontend · build · lint · typecheck · test · storybook · e2e · analyze
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -82,3 +82,178 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node web/scripts/bundle-diff.mjs
+
+      - name: pnpm audit (fail on high+)
+        run: pnpm -C web audit --audit-level high
+
+  backend:
+    name: backend · build · test · openapi diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore api/BusTerminal.slnx
+
+      - name: Build (no restore, warnings as errors enforced by csproj)
+        run: dotnet build api/BusTerminal.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test api/BusTerminal.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+      - name: Restore .NET tools
+        working-directory: api
+        run: dotnet tool restore
+
+      - name: dotnet list package --vulnerable (fail on High+)
+        run: |
+          set -euo pipefail
+          out=$(dotnet list api/BusTerminal.slnx package --vulnerable --include-transitive 2>&1 || true)
+          echo "$out"
+          if echo "$out" | grep -E "High|Critical" >/dev/null; then
+            echo "::error::Vulnerable package(s) of severity High or Critical detected."
+            exit 1
+          fi
+
+      - name: Start API in background for OpenAPI capture
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5080
+          AzureAd__TenantId: development
+          AzureAd__ClientId: 00000000-0000-0000-0000-000000000001
+          AzureAd__Audience: api://00000000-0000-0000-0000-000000000001
+        run: |
+          dotnet run --project api/BusTerminal.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for OpenAPI endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5080/openapi/v1.json -o /tmp/live-openapi.json 2>/dev/null; then
+              echo "OpenAPI captured"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Timed out waiting for /openapi/v1.json"
+          cat /tmp/api.log || true
+          exit 1
+
+      - name: Install oasdiff
+        run: |
+          curl -fsSL https://github.com/Tufin/oasdiff/releases/download/v1.10.27/oasdiff_1.10.27_linux_amd64.tar.gz \
+            | tar -xz -C /tmp oasdiff
+          sudo mv /tmp/oasdiff /usr/local/bin/oasdiff
+          oasdiff --version
+
+      - name: Diff live OpenAPI against the contract (fail on breaking changes)
+        run: |
+          oasdiff breaking \
+            specs/002-solution-foundation/contracts/whoami.openapi.yaml \
+            /tmp/live-openapi.json \
+            --fail-on ERR
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -n "${API_PID:-}" ]; then kill "$API_PID" || true; fi
+
+  iac:
+    name: iac · fmt · validate · tflint · checkov
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: tofu fmt -check (recursive)
+        working-directory: iac
+        run: tofu fmt -check -recursive -diff
+
+      - name: tofu init -backend=false (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu init -backend=false
+
+      - name: tofu validate (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint init
+        working-directory: iac
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: tflint (recursive)
+        working-directory: iac
+        run: tflint --recursive --config "$(pwd)/.tflint.hcl"
+
+      - name: Checkov (Terraform / OpenTofu scan)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: iac
+          framework: terraform
+          quiet: true
+          soft_fail: false
+          download_external_modules: true
+
+  contracts:
+    name: contracts · openapi lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Redocly lint (whoami.openapi.yaml)
+        run: npx --yes @redocly/cli@latest lint specs/002-solution-foundation/contracts/whoami.openapi.yaml
+
+  security:
+    name: security · gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

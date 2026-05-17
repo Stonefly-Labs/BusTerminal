@@ -135,7 +135,10 @@
       "Bash(sed -i '' 's|page.goto\\(\"/\"|page.goto\\(\"/showcase\"|g' web/tests/e2e/keyboard-only.spec.ts web/tests/e2e/reduced-motion.spec.ts web/tests/e2e/rtl-smoke.spec.ts web/tests/e2e/theme-switch.spec.ts)",
       "Bash(sed -i '' 's|page.goto\\(\"/\"\\)|page.goto\\(\"/showcase\"\\)|g' web/tests/e2e/theme-switch.spec.ts)",
       "Bash(chmod +x scripts/start-local.sh scripts/start-local.ps1)",
-      "Bash(chmod +x scripts/start-local-containers.sh scripts/test-all.sh scripts/start-local-containers.ps1 scripts/test-all.ps1)"
+      "Bash(chmod +x scripts/start-local-containers.sh scripts/test-all.sh scripts/start-local-containers.ps1 scripts/test-all.ps1)",
+      "Bash(tofu version *)",
+      "Bash(chmod +x *)",
+      "Bash(tofu -chdir=iac/environments/dev validate)"
     ]
   },
   "enabledMcpjsonServers": [

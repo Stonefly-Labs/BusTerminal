@@ -101,3 +101,44 @@ resource "azurerm_role_assignment" "pipeline_storage_data" {
   role_definition_name = "Storage Blob Data Contributor"
   scope                = module.tfstate_storage.resource_id
 }
+
+# Subscription-level Contributor so the pipeline can provision environment
+# resources via `tofu apply` against `iac/environments/<env>/`. The pipeline
+# identity is scoped to a single environment via the federated credential
+# subject, providing the per-environment isolation FR-100 requires while
+# keeping the role assignment broad enough to actually create resources.
+resource "azurerm_role_assignment" "pipeline_subscription_contributor" {
+  for_each = toset(var.environments)
+
+  principal_id         = module.pipeline_identity[each.key].principal_id
+  role_definition_name = "Contributor"
+  scope                = "/subscriptions/${var.subscription_id}"
+}
+
+# RBAC Administrator at the subscription scope lets the pipeline grant the
+# workload managed identity its own narrowly-scoped roles (AcrPull, Key Vault
+# Secrets User) during `tofu apply`. Without this, the workload identity's
+# role assignments inside the env composition fail.
+resource "azurerm_role_assignment" "pipeline_role_admin" {
+  for_each = toset(var.environments)
+
+  principal_id         = module.pipeline_identity[each.key].principal_id
+  role_definition_name = "Role Based Access Control Administrator"
+  scope                = "/subscriptions/${var.subscription_id}"
+
+  condition_version = "2.0"
+  # Scope the RBAC-admin grant: pipeline can only assign roles the workload
+  # actually needs. Prevents privilege escalation per FR-040–FR-052 spirit.
+  condition = <<-CONDITION
+    (
+      !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
+    )
+    OR
+    (
+      @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {
+        7f951dda-4ed3-4680-a7ca-43fe172d538d,
+        4633458b-17de-408a-b874-0445c86b69e6
+      }
+    )
+  CONDITION
+}
