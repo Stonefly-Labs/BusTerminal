@@ -34,7 +34,7 @@ jobs:
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Read pinned OpenTofu version
         id: tofu_version
