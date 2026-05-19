@@ -22,16 +22,20 @@ Principle VI — Incremental Extensibility).
 
 | Path | What lives here |
 |---|---|
-| [`web/`](./web) | Next.js 16.x App Router frontend foundation — design tokens, themed shadcn/ui primitives, TanStack Table foundation, RHF + Zod form foundation, Recharts wrappers, i18n surface, observability adapter with W3C Trace Context propagation, brand assets. The current focus of active work. |
-| [`specs/`](./specs) | Spec-Driven Development feature specs. Spec 001 is the active feature. |
+| [`web/`](./web) | Next.js 16.x App Router frontend foundation — design tokens, themed shadcn/ui primitives, TanStack Table foundation, RHF + Zod form foundation, Recharts wrappers, i18n surface, observability adapter with W3C Trace Context propagation, brand assets. |
+| [`api/`](./api) | .NET 10 ASP.NET Core Minimal API backend (`BusTerminal.Api`) and its xUnit test project (`BusTerminal.Api.Tests`). Solution file: `BusTerminal.slnx`. |
+| [`iac/`](./iac) | OpenTofu infrastructure-as-code — platform bootstrap, reusable modules, and per-environment compositions (`dev`, `test`, `prod`). |
+| [`.github/workflows/`](./.github/workflows) | GitHub Actions pipelines — CI on PRs and CD on `main`. |
+| [`scripts/`](./scripts) | Developer and platform helper scripts (`bootstrap.{ps1,sh}` for prerequisite checks; local-dev and platform-bootstrap helpers as they land). |
+| [`docs/`](./docs) | Onboarding, deployment, observability, identity, and architecture documentation. |
+| [`specs/`](./specs) | Spec-Driven Development feature specs. Spec 002 (solution foundation) is the active feature. |
 | [`speckit-artifacts/`](./speckit-artifacts) | Foundational input documents — the constitution draft, brand foundation, tech-stack reference, and future foundational specs. |
 | [`.specify/`](./.specify) | Spec-Driven Development tooling — the constitution, templates, hooks, and the active-feature pointer. |
-| [`docs/adr/`](./docs/adr) | Architectural Decision Records (placeholder; created as ADRs land). |
 | [`CLAUDE.md`](./CLAUDE.md) | Project context for coding agents. |
 
-Backend services and infrastructure-as-code will be added by future
-specs as sibling top-level directories (e.g., `services/`,
-`infrastructure/`).
+For the canonical onboarding walkthrough — local dev, first deploy,
+and prerequisite versions — see
+[`specs/002-solution-foundation/quickstart.md`](./specs/002-solution-foundation/quickstart.md).
 
 ---
 
@@ -46,8 +50,7 @@ Read these in priority order when you need context:
    single-page consolidation of every approved technology, library,
    and infrastructure choice.
 3. **[Active feature spec](./.specify/feature.json)** — points to the
-   current spec under `specs/`. Today: spec 001 — Brand System and
-   Design Foundation.
+   current spec under `specs/`. Today: spec 002 — Solution Foundation.
 4. **[Source artifacts](./speckit-artifacts/)** — foundational input
    documents.
 
@@ -133,7 +136,10 @@ pnpm -C web test:e2e
 pnpm -C web analyze
 ```
 
-A more thorough walkthrough lives in
+A more thorough walkthrough — including the backend, IaC, and first
+deploy — lives in
+[`specs/002-solution-foundation/quickstart.md`](./specs/002-solution-foundation/quickstart.md).
+For the original frontend-only foundation walkthrough, see
 [`specs/001-brand-system-and-design-foundation/quickstart.md`](./specs/001-brand-system-and-design-foundation/quickstart.md).
 
 For agentic-coding rules and MCP server conventions, see

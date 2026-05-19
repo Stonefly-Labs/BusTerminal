@@ -1,0 +1,42 @@
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: BusTerminal.Api/Dockerfile
+    image: busterminal/api:dev
+    container_name: busterminal-api
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      AzureAd__Instance: https://login.microsoftonline.com/
+      AzureAd__TenantId: development
+      AzureAd__ClientId: 00000000-0000-0000-0000-000000000000
+      AzureAd__Audience: api://busterminal-dev
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: busterminal/web:dev
+    container_name: busterminal-web
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://api:8080
+      AZURE_AD_TENANT_ID: development
+      AZURE_AD_CLIENT_ID: mock-client
+      AZURE_AD_CLIENT_SECRET: mock-secret
+      NEXTAUTH_SECRET: dev-secret-do-not-use-in-prod
+      AUTH_SECRET: dev-secret-do-not-use-in-prod
+      AUTH_TRUST_HOST: "true"

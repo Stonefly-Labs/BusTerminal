@@ -57,7 +57,7 @@ test.describe("RTL smoke (T111 / SC-011)", () => {
     test(`every primitive renders without breakage in RTL · ${theme} theme`, async ({
       page,
     }) => {
-      await page.goto("/", { waitUntil: "domcontentloaded" });
+      await page.goto("/showcase", { waitUntil: "domcontentloaded" });
       await setTheme(page, theme);
       await setDirectionRtl(page);
 

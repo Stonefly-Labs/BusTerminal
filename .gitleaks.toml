@@ -1,0 +1,69 @@
+# Gitleaks configuration for BusTerminal.
+# Extends the bundled default ruleset and adds an allowlist for documented
+# placeholder values that are intentionally committed in docs and examples.
+#
+# Run locally: `gitleaks detect --config .gitleaks.toml --redact`
+# In CI: see .github/workflows/security.yml (Phase 6, US4).
+
+title = "BusTerminal gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholder values and design-system artifacts that are not real secrets."
+
+# Paths that intentionally contain placeholder-looking strings, brand assets,
+# generated artifacts, or vendored fixtures we don't want to scan.
+paths = [
+    '''(^|/)\.git/''',
+    '''(^|/)node_modules/''',
+    '''(^|/)pnpm-lock\.yaml$''',
+    '''(^|/)package-lock\.json$''',
+    '''(^|/)yarn\.lock$''',
+    '''(^|/)\.next/''',
+    '''(^|/)bin/''',
+    '''(^|/)obj/''',
+    '''(^|/)dist/''',
+    '''(^|/)build/''',
+    '''(^|/)storybook-static/''',
+    '''(^|/)coverage/''',
+    '''(^|/)test-results/''',
+    '''(^|/)playwright-report/''',
+    '''(^|/)docs/.*\.md$''',
+    '''(^|/)README\.md$''',
+    '''(^|/)CHANGELOG\.md$''',
+    '''(^|/)\.specify/''',
+    '''(^|/)speckit-artifacts/''',
+    '''(^|/)specs/.*\.md$''',
+    '''(^|/)web/public/.*''',
+    '''.*\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|otf|eot|pdf)$''',
+]
+
+# Patterns explicitly permitted as committed values: documented placeholder
+# strings, empty GUIDs, mock-auth sentinel constants. Keep this list tight —
+# every entry below is a deliberate, reviewed allowance.
+regexes = [
+    # Placeholder GUID (all zeros) — used in docs and mock auth contexts.
+    '''00000000-0000-0000-0000-000000000000''',
+    # Dev-only mock principal oid (per research.md §10) — synthetic, not a real identity.
+    '''00000000-0000-0000-0000-000000000001''',
+    # Documented placeholder tokens in README / quickstart.
+    '''<your-tenant-id>''',
+    '''<your-client-id>''',
+    '''<your-subscription-id>''',
+    '''<your-resource-group>''',
+    '''<your-key-vault-name>''',
+    '''<your-application-insights-connection-string>''',
+    # Mock-auth sentinel for the development tenant.
+    '''AzureAd:TenantId\s*=\s*["']?development["']?''',
+    # Federation subject template — not a credential.
+    '''repo:[^/]+/BusTerminal:environment:[a-z]+''',
+]
+
+# Specific commits to ignore (none yet — add SHAs here if a historical false
+# positive ever needs to be retroactively allowlisted).
+commits = []
+
+# Stop-the-bleeding rule overrides go here if needed. Default rules cover
+# AWS, GCP, Azure, generic high-entropy tokens, and most cloud providers.

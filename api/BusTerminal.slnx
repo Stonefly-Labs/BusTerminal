@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="BusTerminal.Api.Tests/BusTerminal.Api.Tests.csproj" />
+  <Project Path="BusTerminal.Api/BusTerminal.Api.csproj" />
+</Solution>

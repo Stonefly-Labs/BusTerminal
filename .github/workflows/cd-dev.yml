@@ -1,0 +1,227 @@
+name: CD · dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    name: build · push · tofu apply · health-wait · smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_github_org_repo: ${{ github.repository }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX_DEV }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: Azure login (OIDC federated)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Image tag
+        id: names
+        run: |
+          echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "placeholder_image=mcr.microsoft.com/azuredocs/aci-helloworld:latest" >> "$GITHUB_OUTPUT"
+
+      - name: tofu init (azurerm backend via OIDC)
+        working-directory: iac/environments/dev
+        run: |
+          tofu init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
+
+      # First apply: ensures ACR + supporting infra exist before images can be
+      # pushed. Uses already-deployed image refs when state exists, falls back
+      # to a public placeholder on the first-ever run for this environment.
+      - name: tofu apply — infra-only (ensures ACR exists)
+        id: apply_infra
+        working-directory: iac/environments/dev
+        run: |
+          set -euo pipefail
+          CURR_BACKEND=$(tofu output -raw backend_image_in_use 2>/dev/null || true)
+          CURR_FRONTEND=$(tofu output -raw frontend_image_in_use 2>/dev/null || true)
+          if [ -z "$CURR_BACKEND" ]; then CURR_BACKEND="${{ steps.names.outputs.placeholder_image }}"; fi
+          if [ -z "$CURR_FRONTEND" ]; then CURR_FRONTEND="${{ steps.names.outputs.placeholder_image }}"; fi
+          tofu apply -auto-approve \
+            -var "backend_image=$CURR_BACKEND" \
+            -var "frontend_image=$CURR_FRONTEND"
+
+      - name: Read ACR coordinates from state
+        id: acr
+        working-directory: iac/environments/dev
+        run: |
+          echo "name=$(tofu output -raw container_registry_name)" >> "$GITHUB_OUTPUT"
+          echo "login_server=$(tofu output -raw container_registry_login_server)" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve image refs
+        id: images
+        run: |
+          echo "backend=${{ steps.acr.outputs.login_server }}/busterminal/api:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "frontend=${{ steps.acr.outputs.login_server }}/busterminal/web:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+
+      - name: ACR login (managed-identity)
+        run: az acr login --name "${{ steps.acr.outputs.name }}"
+
+      - name: Build & push backend image
+        run: |
+          docker build \
+            --tag "${{ steps.images.outputs.backend }}" \
+            --tag "${{ steps.acr.outputs.login_server }}/busterminal/api:latest" \
+            --file api/BusTerminal.Api/Dockerfile \
+            api
+          docker push "${{ steps.images.outputs.backend }}"
+          docker push "${{ steps.acr.outputs.login_server }}/busterminal/api:latest"
+
+      - name: Build & push frontend image
+        run: |
+          docker build \
+            --tag "${{ steps.images.outputs.frontend }}" \
+            --tag "${{ steps.acr.outputs.login_server }}/busterminal/web:latest" \
+            --file web/Dockerfile \
+            web
+          docker push "${{ steps.images.outputs.frontend }}"
+          docker push "${{ steps.acr.outputs.login_server }}/busterminal/web:latest"
+
+      - name: tofu apply — roll revisions with new images
+        working-directory: iac/environments/dev
+        run: |
+          tofu apply -auto-approve \
+            -var "backend_image=${{ steps.images.outputs.backend }}" \
+            -var "frontend_image=${{ steps.images.outputs.frontend }}"
+
+      - name: Capture deploy outputs
+        id: outs
+        working-directory: iac/environments/dev
+        run: |
+          echo "frontend_fqdn=$(tofu output -raw frontend_fqdn)" >> "$GITHUB_OUTPUT"
+          echo "backend_fqdn=$(tofu output -raw backend_fqdn)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for backend readiness (/healthz/ready)
+        run: |
+          set -euo pipefail
+          URL="${{ steps.outs.outputs.backend_fqdn }}/healthz/ready"
+          for i in {1..60}; do
+            code=$(curl -s -o /tmp/ready.out -w "%{http_code}" "$URL" || true)
+            if [ "$code" = "200" ]; then
+              echo "Backend ready (200) after $((i*5))s"
+              cat /tmp/ready.out || true
+              break
+            fi
+            echo "Attempt $i: status=$code — sleeping 5s"
+            sleep 5
+          done
+          if [ "$code" != "200" ]; then
+            echo "::error::Backend did not become ready within 5 minutes"
+            exit 1
+          fi
+
+      - name: Wait for frontend readiness
+        run: |
+          set -euo pipefail
+          URL="${{ steps.outs.outputs.frontend_fqdn }}"
+          for i in {1..60}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || true)
+            # 200 or 3xx (signin redirect) are both healthy signals for the frontend.
+            if [ "$code" = "200" ] || [ "$code" = "302" ] || [ "$code" = "307" ]; then
+              echo "Frontend reachable ($code) after $((i*5))s"
+              break
+            fi
+            echo "Attempt $i: status=$code — sleeping 5s"
+            sleep 5
+          done
+          if [ "$code" != "200" ] && [ "$code" != "302" ] && [ "$code" != "307" ]; then
+            echo "::error::Frontend did not become reachable within 5 minutes"
+            exit 1
+          fi
+
+      - name: Post-deploy smoke — unauthenticated 401 + contract shape
+        run: |
+          set -euo pipefail
+          URL="${{ steps.outs.outputs.backend_fqdn }}/whoami"
+          code=$(curl -s -o /tmp/whoami.out -D /tmp/whoami.hdr -w "%{http_code}" "$URL" || true)
+          if [ "$code" != "401" ]; then
+            echo "::error::Expected 401 on unauthenticated /whoami, got $code"
+            cat /tmp/whoami.out || true
+            exit 1
+          fi
+          if ! grep -i -E "^WWW-Authenticate:.*Bearer" /tmp/whoami.hdr >/dev/null; then
+            echo "::error::Missing WWW-Authenticate: Bearer challenge header"
+            cat /tmp/whoami.hdr
+            exit 1
+          fi
+          echo "Unauthenticated /whoami correctly challenges with Bearer."
+
+      - name: Post-deploy smoke — authenticated /whoami via pipeline MI
+        id: smoke_auth
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          TOKEN=$(az account get-access-token \
+            --resource "api://${{ vars.ENTRA_API_CLIENT_ID_DEV }}" \
+            --query accessToken -o tsv 2>/tmp/token.err || true)
+          if [ -z "$TOKEN" ]; then
+            echo "::warning::Could not acquire API-scope token via pipeline MI. Check that the pipeline identity is granted the backend API app role (see docs/deploying-environments.md)."
+            cat /tmp/token.err >&2 || true
+            exit 1
+          fi
+          URL="${{ steps.outs.outputs.backend_fqdn }}/whoami"
+          TRACEPARENT="00-$(openssl rand -hex 16)-$(openssl rand -hex 8)-01"
+          code=$(curl -s -o /tmp/auth.out -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "traceparent: $TRACEPARENT" \
+            "$URL" || true)
+          echo "Authenticated /whoami → $code"
+          cat /tmp/auth.out
+          if [ "$code" != "200" ]; then exit 1; fi
+          # Validate the response carries the contract shape: principal.oid + correlation.traceId
+          python3 -c "import json; d=json.load(open('/tmp/auth.out')); assert 'principal' in d and 'oid' in d['principal'], 'principal.oid missing'; assert 'correlation' in d and 'traceId' in d['correlation'], 'correlation.traceId missing'; assert 'server' in d and 'environment' in d['server'], 'server.environment missing'; print('Contract shape OK:', json.dumps(d, indent=2))"
+
+      - name: Smoke summary
+        if: always()
+        run: |
+          echo "Frontend: https://${{ steps.outs.outputs.frontend_fqdn }}"
+          echo "Backend:  https://${{ steps.outs.outputs.backend_fqdn }}"
+          if [ "${{ steps.smoke_auth.outcome }}" = "success" ]; then
+            echo "Authenticated smoke: PASS"
+          else
+            echo "Authenticated smoke: SKIPPED/FAIL — pipeline MI may need the API app role grant. Unauthenticated 401 challenge passed."
+          fi

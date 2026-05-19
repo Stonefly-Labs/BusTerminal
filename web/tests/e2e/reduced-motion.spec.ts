@@ -53,7 +53,7 @@ test.describe("reduced-motion (T110 / SC-008)", () => {
   }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/showcase", { waitUntil: "domcontentloaded" });
 
     // 1) Global CSS rule: pick any element with a `transition-*` class
     //    (the Top-bar theme toggle uses `transition-colors`) and read
@@ -88,7 +88,7 @@ test.describe("reduced-motion (T110 / SC-008)", () => {
   }) => {
     const context = await browser.newContext({ reducedMotion: "no-preference" });
     const page = await context.newPage();
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/showcase", { waitUntil: "domcontentloaded" });
     await page.waitForSelector("path.recharts-line-curve", { state: "attached" });
 
     // With animation active, the path eventually settles to the full

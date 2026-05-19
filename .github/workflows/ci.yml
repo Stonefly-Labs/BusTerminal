@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: build · lint · typecheck · test · storybook · e2e · analyze
+  frontend:
+    name: frontend · build · lint · typecheck · test · storybook · e2e · analyze
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -62,8 +62,57 @@ jobs:
       - name: Build & test Storybook (a11y + interactions)
         run: pnpm -C web test:storybook:ci
 
+      # Backend is needed for the platform-status E2E (the page does a server-
+      # side `/whoami` round-trip). Mock auth is active so no real Entra tenant
+      # is contacted; the .NET mock handler synthesizes the dev user.
+      - name: Setup .NET 10 (for E2E backend)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build backend (Release)
+        run: dotnet build api/BusTerminal.slnx --configuration Release
+
+      - name: Start backend in background (mock auth)
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:8080
+          AzureAd__TenantId: development
+          AzureAd__ClientId: 00000000-0000-0000-0000-000000000001
+          AzureAd__Audience: api://00000000-0000-0000-0000-000000000001
+        run: |
+          dotnet run --project api/BusTerminal.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for backend readiness
+        run: |
+          set -euo pipefail
+          for i in {1..60}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/healthz/ready || true)
+            if [ "$code" = "200" ]; then
+              echo "Backend ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Backend did not become ready in 60s"
+          cat /tmp/api.log || true
+          exit 1
+
       - name: Playwright E2E
+        env:
+          AUTH_SECRET: e2e-secret-do-not-use-in-prod
+          NEXTAUTH_SECRET: e2e-secret-do-not-use-in-prod
+          AZURE_AD_TENANT_ID: development
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
         run: pnpm -C web test:e2e
+
+      - name: Stop backend
+        if: always()
+        run: |
+          if [ -n "${API_PID:-}" ]; then kill "$API_PID" 2>/dev/null || true; fi
+          echo "Backend log tail:"
+          tail -n 50 /tmp/api.log 2>/dev/null || true
 
       - name: Bundle analyzer build
         run: pnpm -C web analyze
@@ -82,3 +131,185 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node web/scripts/bundle-diff.mjs
+
+      - name: pnpm audit (fail on high+)
+        run: pnpm -C web audit --audit-level high
+
+  backend:
+    name: backend · build · test · openapi diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore api/BusTerminal.slnx
+
+      - name: Build (no restore, warnings as errors enforced by csproj)
+        run: dotnet build api/BusTerminal.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test api/BusTerminal.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+      - name: Restore .NET tools
+        working-directory: api
+        run: dotnet tool restore
+
+      - name: dotnet list package --vulnerable (fail on High+)
+        run: |
+          set -euo pipefail
+          out=$(dotnet list api/BusTerminal.slnx package --vulnerable --include-transitive 2>&1 || true)
+          echo "$out"
+          if echo "$out" | grep -E "High|Critical" >/dev/null; then
+            echo "::error::Vulnerable package(s) of severity High or Critical detected."
+            exit 1
+          fi
+
+      - name: Start API in background for OpenAPI capture
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:8080
+          AzureAd__TenantId: development
+          AzureAd__ClientId: 00000000-0000-0000-0000-000000000001
+          AzureAd__Audience: api://00000000-0000-0000-0000-000000000001
+        run: |
+          dotnet run --project api/BusTerminal.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
+          echo "API_PID=$!" >> $GITHUB_ENV
+
+      - name: Wait for OpenAPI endpoint
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8080/openapi/v1.json -o /tmp/live-openapi.json 2>/dev/null; then
+              echo "OpenAPI captured"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Timed out waiting for /openapi/v1.json"
+          cat /tmp/api.log || true
+          exit 1
+
+      - name: Install oasdiff
+        run: |
+          curl -fsSL https://github.com/Tufin/oasdiff/releases/download/v1.10.27/oasdiff_1.10.27_linux_amd64.tar.gz \
+            | tar -xz -C /tmp oasdiff
+          sudo mv /tmp/oasdiff /usr/local/bin/oasdiff
+          oasdiff --version
+
+      - name: Diff live OpenAPI against the contract (fail on breaking changes)
+        run: |
+          oasdiff breaking \
+            specs/002-solution-foundation/contracts/whoami.openapi.yaml \
+            /tmp/live-openapi.json \
+            --fail-on ERR
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -n "${API_PID:-}" ]; then kill "$API_PID" || true; fi
+
+  iac:
+    name: iac · fmt · validate · tflint · checkov
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: tofu fmt -check (recursive)
+        working-directory: iac
+        run: tofu fmt -check -recursive -diff
+
+      - name: tofu init -backend=false (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu init -backend=false
+
+      - name: tofu validate (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint init
+        working-directory: iac
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: tflint (recursive)
+        working-directory: iac
+        run: tflint --recursive --config "$(pwd)/.tflint.hcl"
+
+      - name: Checkov (Terraform / OpenTofu scan)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: iac
+          config_file: iac/.checkov.yaml
+
+  contracts:
+    name: contracts · openapi lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Redocly lint (whoami.openapi.yaml)
+        run: npx --yes @redocly/cli@latest lint specs/002-solution-foundation/contracts/whoami.openapi.yaml
+
+  security:
+    name: security · gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The official gitleaks-action@v2 now requires a paid GITLEAKS_LICENSE
+      # secret for any repo owned by an organization. The gitleaks binary
+      # itself is still MIT-licensed, so we install it directly and scan from
+      # the workflow — no license, no extra secret to rotate.
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          version="8.21.2"
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${version}/gitleaks_${version}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          sudo mv /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Gitleaks scan
+        run: gitleaks detect --config .gitleaks.toml --redact --no-banner --verbose

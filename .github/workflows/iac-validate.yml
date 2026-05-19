@@ -1,0 +1,160 @@
+name: IaC · validate · plan
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "iac/**"
+      - ".github/workflows/iac-validate.yml"
+
+concurrency:
+  group: iac-validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  validate:
+    name: fmt · validate · tflint · checkov
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: tofu fmt -check (recursive)
+        working-directory: iac
+        run: tofu fmt -check -recursive -diff
+
+      - name: tofu init -backend=false (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu init -backend=false
+
+      - name: tofu validate (dev composition)
+        working-directory: iac/environments/dev
+        run: tofu validate
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint init
+        working-directory: iac
+        run: tflint --init
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: tflint (recursive)
+        working-directory: iac
+        run: tflint --recursive --config "$(pwd)/.tflint.hcl"
+
+      - name: Checkov (Terraform / OpenTofu scan)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: iac
+          config_file: iac/.checkov.yaml
+
+  plan-dev:
+    name: tofu plan (dev) · PR comment
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 15
+    environment: dev
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_github_org_repo: ${{ github.repository }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX_DEV }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      # The plan uses placeholder image refs — actual rollouts happen via cd-dev.yml.
+      TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+      TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: Azure login (OIDC federated)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: tofu init (azurerm backend via OIDC)
+        working-directory: iac/environments/dev
+        run: |
+          tofu init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
+
+      - name: tofu plan
+        working-directory: iac/environments/dev
+        id: plan
+        run: |
+          set +e
+          tofu plan -no-color -out=tfplan > plan.out 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          # Cap comment size at ~60KB to stay under the GitHub comment limit.
+          head -c 60000 plan.out > plan.trimmed
+          {
+            echo 'plan<<PLAN_EOF'
+            cat plan.trimmed
+            echo 'PLAN_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const plan = `${{ steps.plan.outputs.plan }}`;
+            const body = [
+              '### OpenTofu plan — `dev`',
+              '',
+              '```',
+              plan,
+              '```',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+      - name: Fail job if plan errored
+        if: steps.plan.outputs.exit_code != '0' && steps.plan.outputs.exit_code != '2'
+        run: |
+          echo "::error::tofu plan exited with ${{ steps.plan.outputs.exit_code }}"
+          exit 1

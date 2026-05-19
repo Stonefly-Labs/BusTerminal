@@ -1,0 +1,92 @@
+variable "subscription_id" {
+  description = "Azure subscription ID for the dev environment."
+  type        = string
+}
+
+variable "environment_name" {
+  description = "Logical environment name. Drives tagging, the App Insights `environment` claim echoed by the backend, and the `ASPNETCORE_ENVIRONMENT` value on the backend container."
+  type        = string
+  default     = "dev"
+}
+
+variable "location" {
+  description = "Azure region hosting the environment's resources."
+  type        = string
+  default     = "eastus2"
+}
+
+variable "naming_prefix" {
+  description = "Short prefix applied to every resource name (e.g., `bt-dev` produces `rg-bt-dev`, `kv-bt-dev-...`)."
+  type        = string
+  default     = "bt-dev"
+}
+
+variable "unique_suffix" {
+  description = "Globally-unique suffix appended to names that require uniqueness across Azure (Key Vault, ACR). 4-12 lowercase alphanumeric characters."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]{4,12}$", var.unique_suffix))
+    error_message = "unique_suffix must be 4-12 lowercase alphanumeric characters."
+  }
+}
+
+variable "github_org_repo" {
+  description = "GitHub repository identifier in `<org>/<repo>` form. Used as the federated-credential subject prefix on the workload identity."
+  type        = string
+}
+
+variable "frontend_image" {
+  description = "Fully qualified frontend container image (e.g., `<acr>.azurecr.io/busterminal/web:<sha>`). Supplied by the CD pipeline per deploy."
+  type        = string
+}
+
+variable "backend_image" {
+  description = "Fully qualified backend container image (e.g., `<acr>.azurecr.io/busterminal/api:<sha>`). Supplied by the CD pipeline per deploy."
+  type        = string
+}
+
+variable "frontend_min_replicas" {
+  description = "Minimum replica count for the frontend Container App."
+  type        = number
+  default     = 0
+}
+
+variable "frontend_max_replicas" {
+  description = "Maximum replica count for the frontend Container App."
+  type        = number
+  default     = 3
+}
+
+variable "backend_min_replicas" {
+  description = "Minimum replica count for the backend Container App."
+  type        = number
+  default     = 0
+}
+
+variable "backend_max_replicas" {
+  description = "Maximum replica count for the backend Container App."
+  type        = number
+  default     = 3
+}
+
+variable "entra_tenant_id" {
+  description = "Microsoft Entra ID tenant ID enforced for user sign-in and backend JWT validation."
+  type        = string
+}
+
+variable "entra_api_client_id" {
+  description = "Entra ID application (client) ID of the backend API registration. Becomes the JWT audience the backend validates."
+  type        = string
+}
+
+variable "entra_web_client_id" {
+  description = "Entra ID application (client) ID of the frontend (web) registration. Used by NextAuth.js to initiate sign-in."
+  type        = string
+}
+
+variable "tags" {
+  description = "Additional tags merged onto every resource provisioned for this environment."
+  type        = map(string)
+  default     = {}
+}

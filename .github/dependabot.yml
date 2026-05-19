@@ -1,0 +1,79 @@
+version: 2
+
+# Weekly dependency-update PRs across every ecosystem the foundation uses.
+# Dependabot raises pinned-version PRs into `main`; CI gates (security/audit/scan
+# jobs in `ci.yml`) decide whether each upgrade is safe to merge.
+updates:
+  - package-ecosystem: nuget
+    directory: /api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - backend
+
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+    # pnpm is supported via the npm ecosystem; Dependabot updates package.json
+    # and re-runs `pnpm install` to refresh pnpm-lock.yaml.
+
+  - package-ecosystem: terraform
+    directory: /iac
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - iac
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci
+
+  - package-ecosystem: docker
+    directory: /api/BusTerminal.Api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker
+
+  - package-ecosystem: docker
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Chicago
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - docker

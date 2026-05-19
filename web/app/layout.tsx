@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import "@/lib/observability/register-adapters";
 import { Providers } from "./providers";
 import { directionForLocale } from "@/lib/i18n";
 import { THEME_STORAGE_KEY } from "@/lib/theme-provider-constants";
