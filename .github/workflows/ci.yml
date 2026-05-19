@@ -119,7 +119,7 @@ jobs:
 
       - name: Upload bundle analyzer report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bundle-analyzer-report
           path: web/.next/diagnostics/route-bundle-stats.json
@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-results
           path: TestResults/**/*.trx
