@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Read pinned OpenTofu version
         id: tofu_version
@@ -90,7 +90,7 @@ jobs:
       TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Read pinned OpenTofu version
         id: tofu_version
