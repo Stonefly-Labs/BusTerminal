@@ -10,11 +10,19 @@ terraform {
       source  = "hashicorp/azuread"
       version = "~> 3.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.12"
+    }
   }
 }
 
 provider "azurerm" {
   subscription_id = var.subscription_id
+  # Use AAD (not shared keys) for storage data-plane operations, including
+  # the provider's post-create data-plane availability wait. This is what
+  # lets us keep `shared_access_key_enabled = false` on the tfstate SA.
+  storage_use_azuread = true
   features {}
 }
 
@@ -37,10 +45,34 @@ resource "azurerm_resource_group" "tfstate" {
   tags     = local.shared_tags
 }
 
+# Grant the operator running this bootstrap (the current az-CLI principal)
+# data-plane access on the tfstate resource group. With shared keys disabled
+# on the storage account, the azurerm provider's post-create data-plane
+# availability wait must authenticate via AAD; this role assignment is what
+# makes that path work. Scope is the RG so it's in place before the SA is
+# (re)created.
+resource "azurerm_role_assignment" "bootstrap_operator_blob_data_owner" {
+  scope                = azurerm_resource_group.tfstate.id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
+# Azure AD role assignments have eventual-consistency propagation delays.
+# Wait a beat after granting the data-plane role before the storage module
+# tries its data-plane availability poll, otherwise the first attempt
+# races propagation and 403s.
+resource "time_sleep" "wait_for_blob_rbac_propagation" {
+  depends_on      = [azurerm_role_assignment.bootstrap_operator_blob_data_owner]
+  create_duration = "60s"
+}
+
 module "tfstate_storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
   version = "0.6.3"
 
+  depends_on = [time_sleep.wait_for_blob_rbac_propagation]
+
+  enable_telemetry              = false
   name                          = var.tfstate_storage_account_name
   resource_group_name           = azurerm_resource_group.tfstate.name
   location                      = azurerm_resource_group.tfstate.location
@@ -77,6 +109,7 @@ module "pipeline_identity" {
   source  = "Azure/avm-res-managedidentity-userassignedidentity/azurerm"
   version = "0.3.3"
 
+  enable_telemetry    = false
   name                = "mi-busterminal-pipeline-${each.key}"
   resource_group_name = azurerm_resource_group.tfstate.name
   location            = azurerm_resource_group.tfstate.location
