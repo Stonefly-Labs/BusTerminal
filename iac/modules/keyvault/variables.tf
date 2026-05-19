@@ -14,9 +14,8 @@ variable "location" {
 }
 
 variable "log_analytics_workspace_id" {
-  description = "Log Analytics Workspace ID for diagnostic settings. Set to null to skip diagnostic-settings creation."
+  description = "Log Analytics Workspace ID for diagnostic settings. Required — every Key Vault we provision routes diagnostics to the solution LAW per constitutional policy."
   type        = string
-  default     = null
 }
 
 variable "public_network_access_enabled" {

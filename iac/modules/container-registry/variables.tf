@@ -20,9 +20,8 @@ variable "sku" {
 }
 
 variable "log_analytics_workspace_id" {
-  description = "Log Analytics Workspace ID for diagnostic settings. Set to null to skip."
+  description = "Log Analytics Workspace ID for diagnostic settings. Required — every ACR we provision routes diagnostics to the solution LAW per constitutional policy."
   type        = string
-  default     = null
 }
 
 variable "public_network_access_enabled" {
