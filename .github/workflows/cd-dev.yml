@@ -77,16 +77,23 @@ jobs:
         working-directory: iac/environments/dev
         run: |
           set -euo pipefail
-          # Use -json + jq so missing/null outputs reliably return empty.
-          # `tofu output -raw <name>` leaks "Warning: No outputs found" text
-          # into stdout on first-ever apply (outputs defined but state has
-          # nothing yet), which then poisons the -var value with ANSI noise
-          # and a "ContainerAppInvalidImageFormat" Azure error.
-          OUTPUTS_JSON=$(tofu output -json 2>/dev/null || echo '{}')
-          CURR_BACKEND=$(echo "$OUTPUTS_JSON" | jq -r '.backend_image_in_use.value // empty')
-          CURR_FRONTEND=$(echo "$OUTPUTS_JSON" | jq -r '.frontend_image_in_use.value // empty')
-          if [ -z "$CURR_BACKEND" ]; then CURR_BACKEND="${{ steps.names.outputs.placeholder_image }}"; fi
-          if [ -z "$CURR_FRONTEND" ]; then CURR_FRONTEND="${{ steps.names.outputs.placeholder_image }}"; fi
+          PLACEHOLDER="${{ steps.names.outputs.placeholder_image }}"
+          CURR_BACKEND="$PLACEHOLDER"
+          CURR_FRONTEND="$PLACEHOLDER"
+          # Only try to reuse previously-deployed image refs when state has
+          # any resources at all. On first-ever apply tofu's output commands
+          # leak rendered warning text into stdout (ANSI box-drawing chars,
+          # "No outputs found", etc.), which would poison the -var values
+          # and crash Container App with `ContainerAppInvalidImageFormat`.
+          if tofu state list 2>/dev/null | grep -q .; then
+            JSON=$(tofu output -json 2>/dev/null || true)
+            if echo "$JSON" | jq empty >/dev/null 2>&1; then
+              REUSE_BACKEND=$(echo "$JSON" | jq -r '.backend_image_in_use.value // empty')
+              REUSE_FRONTEND=$(echo "$JSON" | jq -r '.frontend_image_in_use.value // empty')
+              [ -n "$REUSE_BACKEND" ] && CURR_BACKEND="$REUSE_BACKEND"
+              [ -n "$REUSE_FRONTEND" ] && CURR_FRONTEND="$REUSE_FRONTEND"
+            fi
+          fi
           echo "Using backend image:  $CURR_BACKEND"
           echo "Using frontend image: $CURR_FRONTEND"
           tofu apply -auto-approve \
