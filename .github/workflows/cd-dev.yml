@@ -77,10 +77,18 @@ jobs:
         working-directory: iac/environments/dev
         run: |
           set -euo pipefail
-          CURR_BACKEND=$(tofu output -raw backend_image_in_use 2>/dev/null || true)
-          CURR_FRONTEND=$(tofu output -raw frontend_image_in_use 2>/dev/null || true)
+          # Use -json + jq so missing/null outputs reliably return empty.
+          # `tofu output -raw <name>` leaks "Warning: No outputs found" text
+          # into stdout on first-ever apply (outputs defined but state has
+          # nothing yet), which then poisons the -var value with ANSI noise
+          # and a "ContainerAppInvalidImageFormat" Azure error.
+          OUTPUTS_JSON=$(tofu output -json 2>/dev/null || echo '{}')
+          CURR_BACKEND=$(echo "$OUTPUTS_JSON" | jq -r '.backend_image_in_use.value // empty')
+          CURR_FRONTEND=$(echo "$OUTPUTS_JSON" | jq -r '.frontend_image_in_use.value // empty')
           if [ -z "$CURR_BACKEND" ]; then CURR_BACKEND="${{ steps.names.outputs.placeholder_image }}"; fi
           if [ -z "$CURR_FRONTEND" ]; then CURR_FRONTEND="${{ steps.names.outputs.placeholder_image }}"; fi
+          echo "Using backend image:  $CURR_BACKEND"
+          echo "Using frontend image: $CURR_FRONTEND"
           tofu apply -auto-approve \
             -var "backend_image=$CURR_BACKEND" \
             -var "frontend_image=$CURR_FRONTEND"
