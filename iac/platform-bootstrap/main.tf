@@ -94,6 +94,19 @@ module "tfstate_storage" {
     }
   }
 
+  # AVM defaults this to `default_action = "Deny"` with only the
+  # `AzureServices` bypass, which blocks the GitHub-hosted CI runners
+  # that need to read/write tfstate via OIDC. Allow public access at
+  # the network layer; RBAC (Storage Blob Data Contributor on the
+  # pipeline managed identity) remains the actual access control.
+  # CKV_AZURE_35 is already skipped in `iac/.checkov.yaml` with this
+  # exact rationale; private endpoints + service-endpoint allowlists
+  # arrive with the VNet slice.
+  network_rules = {
+    bypass         = ["AzureServices"]
+    default_action = "Allow"
+  }
+
   containers = {
     tfstate = {
       name = local.tfstate_container_name
