@@ -1,0 +1,182 @@
+openapi: 3.1.0
+info:
+  title: BusTerminal Platform API — Identity Surface
+  version: 0.2.0
+  description: |
+    The identity diagnostic surface introduced by spec 002 and **extended** by
+    spec 003 (`specs/003-auth-and-identity`). The 003 extensions add
+    `callerType` and `effectiveRoles` to the response so the frontend and any
+    workload caller can immediately observe the authorization posture the
+    backend resolved for the calling token.
+
+    Backward compatibility: every field defined in 002 remains present and
+    unchanged. New fields are additive.
+servers:
+  - url: https://{backendHost}
+    description: BusTerminal backend
+    variables:
+      backendHost:
+        default: api-bt-dev.<containerappsenv>.eastus2.azurecontainerapps.io
+        description: Backend Container Apps FQDN (per environment)
+security:
+  - EntraIdBearer: [access_as_user]
+paths:
+  /whoami:
+    get:
+      operationId: getWhoAmI
+      summary: Identity round-trip diagnostic (with role information)
+      description: |
+        Returns the calling principal's display identity, caller type, and
+        effective platform roles, plus the inbound W3C Trace Context
+        correlation identifier. Used by the frontend's platform-status page
+        to render the authenticated user's role(s) and by any caller to
+        confirm the role posture the backend resolved for its token.
+
+        This endpoint requires only authentication — no specific platform
+        role. A caller with **no** effective roles will receive a 200 with
+        `effectiveRoles: []`; this is the documented signal that the user is
+        signed in but has no platform access (FR-010, SC-008).
+      security:
+        - EntraIdBearer: [access_as_user]
+      parameters:
+        - in: header
+          name: traceparent
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+          description: W3C Trace Context traceparent. Mandatory on UI-originated requests per constitution.
+        - in: header
+          name: tracestate
+          required: false
+          schema:
+            type: string
+          description: Optional W3C Trace Context tracestate; passed through in the correlation block.
+      responses:
+        '200':
+          description: Authenticated principal information including role posture.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WhoAmIResponse'
+              example:
+                principal:
+                  oid: 11111111-2222-3333-4444-555555555555
+                  displayName: Chris House
+                  preferredUsername: chris.house@example.com
+                  tenantId: 99999999-aaaa-bbbb-cccc-dddddddddddd
+                  callerType: Human
+                  effectiveRoles:
+                    - BusTerminal.Operator
+                    - BusTerminal.Reader
+                correlation:
+                  traceId: 4bf92f3577b34da6a3ce929d0e0e4736
+                  spanId: 00f067aa0ba902b7
+                  receivedTraceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+                server:
+                  environment: dev
+                  revision: api-bt-dev--rev-0099
+                  serverTimeUtc: 2026-05-19T17:45:12.482Z
+        '401':
+          description: |
+            Missing or invalid Microsoft Entra ID bearer token. The response
+            body is intentionally empty (RFC 6750 challenge in
+            `WWW-Authenticate` header), avoiding any token-introspection leak.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+              description: 'Bearer realm="busterminal", error="invalid_token"'
+        '503':
+          description: |
+            Backend not ready (e.g., Entra ID OIDC metadata not yet fetched
+            after cold start). Caller should retry with exponential backoff.
+components:
+  securitySchemes:
+    EntraIdBearer:
+      type: oauth2
+      description: |
+        Microsoft Entra ID bearer token obtained via the platform's Entra
+        app registrations. Required on every request — no anonymous access
+        (FR-007, FR-031).
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          scopes:
+            access_as_user: Access BusTerminal on behalf of the signed-in user
+  schemas:
+    WhoAmIResponse:
+      type: object
+      required: [principal, correlation, server]
+      properties:
+        principal:
+          $ref: '#/components/schemas/Principal'
+        correlation:
+          $ref: '#/components/schemas/Correlation'
+        server:
+          $ref: '#/components/schemas/ServerInfo'
+    Principal:
+      type: object
+      description: |
+        Identity information extracted from the validated access token,
+        including the caller's effective platform roles (FR-008, FR-009).
+      required: [oid, tenantId, callerType, effectiveRoles]
+      properties:
+        oid:
+          type: string
+          description: Object ID (UUID) of the signed-in principal in Entra ID.
+        displayName:
+          type: [string, "null"]
+          description: Display name as known to Entra ID. Null for workload callers and for human tokens lacking the `name` claim.
+        preferredUsername:
+          type: [string, "null"]
+          description: UPN-like identifier suitable for display. Null for workload callers.
+        tenantId:
+          type: string
+          description: Entra ID tenant ID (UUID) the principal belongs to.
+        callerType:
+          type: string
+          enum: [Human, Workload]
+          description: |
+            Resolved caller type. `Workload` when the token is app-only
+            (issued via client credentials / managed-identity flow);
+            `Human` otherwise.
+        effectiveRoles:
+          type: array
+          description: |
+            The set of `BusTerminal.*` platform roles resolved from the
+            access token's `roles` claim. Empty array indicates the caller
+            is authenticated but holds no platform role — every role-gated
+            operation will reject this caller (FR-010).
+          items:
+            type: string
+            enum:
+              - BusTerminal.Admin
+              - BusTerminal.Operator
+              - BusTerminal.Reader
+              - BusTerminal.Developer
+    Correlation:
+      type: object
+      required: [traceId, spanId]
+      properties:
+        traceId:
+          type: string
+          pattern: '^[0-9a-f]{32}$'
+        spanId:
+          type: string
+          pattern: '^[0-9a-f]{16}$'
+        receivedTraceparent:
+          type: [string, "null"]
+    ServerInfo:
+      type: object
+      required: [environment, revision, serverTimeUtc]
+      properties:
+        environment:
+          type: string
+          enum: [dev, test, prod, local]
+        revision:
+          type: string
+        serverTimeUtc:
+          type: string
+          format: date-time

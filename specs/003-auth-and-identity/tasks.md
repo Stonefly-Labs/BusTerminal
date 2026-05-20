@@ -1,0 +1,353 @@
+---
+
+description: "Task list for Auth and Identity (spec 003)"
+---
+
+# Tasks: Auth and Identity
+
+**Input**: Design documents from `specs/003-auth-and-identity/`
+
+**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md (all present)
+
+**Tests**: This slice's spec explicitly defines an Independent Test per user story and ships five probe endpoints (FR-009c) whose existence is to be end-to-end tested. Test tasks are included accordingly.
+
+**Organization**: Tasks are grouped by user story per `tasks-template.md`. Foundational tasks (Phase 2) are the platform primitives every story depends on; story-specific tasks (Phases 3–8) deliver each user story independently. The slice does **not** redo 002's auth wiring — every task that touches `api/`, `web/`, `iac/`, or `docs/` is additive to or a targeted modification of the 002 surface.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
+- **[Story]**: User story label (US1–US6) for phase-3-onwards tasks; omitted in Setup, Foundational, Polish
+- All file paths are repo-relative
+
+## Path Conventions (per plan.md)
+
+- Backend: `api/BusTerminal.Api/`, tests in `api/BusTerminal.Api.Tests/`
+- Frontend: `web/`, tests in `web/tests/` (Playwright) and co-located `*.test.ts` (Vitest)
+- IaC: `iac/modules/`, `iac/environments/`
+- Docs: `docs/`
+- Spec/contracts: `specs/003-auth-and-identity/contracts/`
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Add the new tooling (libraries, IaC providers) the slice depends on. No business logic.
+
+- [ ] T001 [P] Remove `next-auth` from `web/package.json` dependencies and run `pnpm install` to update `pnpm-lock.yaml`.
+- [ ] T002 [P] Add `@azure/msal-browser@^4` and `@azure/msal-react@^3` to `web/package.json` dependencies; run `pnpm install` to update `pnpm-lock.yaml`.
+- [ ] T003 [P] Add `Microsoft.Graph` (latest v5.x) NuGet package reference to `api/BusTerminal.Api/BusTerminal.Api.csproj`.
+- [ ] T004 Add `hashicorp/azuread` provider pinned to `~> 3.1` to `iac/environments/dev/providers.tf` alongside the existing `azurerm` provider; run `tofu init -upgrade` to download the provider.
+- [ ] T005 [P] Update `web/.env.local.example` to replace NextAuth variables (`AZURE_AD_*`, `NEXTAUTH_*`) with MSAL variables (`NEXT_PUBLIC_AZURE_AD_TENANT_ID`, `NEXT_PUBLIC_AZURE_AD_CLIENT_ID`, `NEXT_PUBLIC_API_SCOPE`, `NEXT_PUBLIC_API_BASE_URL`) per `quickstart.md` § C.3.
+- [ ] T006 [P] Update `api/BusTerminal.Api/appsettings.Development.json.example` to document the `AzureAd:Audience` setting required by `Microsoft.Identity.Web` for token validation against the API app registration (per `quickstart.md` § C.3).
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Platform primitives that every user story depends on. **No user-story task can begin until this phase is complete.**
+
+**⚠️ CRITICAL**: This phase defines `PlatformPrincipal`, `PlatformRole`, `OperationClass`, the credential factory, the MSAL provider, and the role-claim-aware mock authentication handler. Every later phase consumes these.
+
+### Backend foundational types and credential plumbing
+
+- [ ] T007 [P] Create `PlatformRole` enum in `api/BusTerminal.Api/Authorization/PlatformRole.cs` with values `Admin`, `Operator`, `Reader`, `Developer`. Each enum member carries the corresponding `BusTerminal.*` string as a `[Description]` attribute or a `ToClaimValue()` extension. See `data-model.md` § Platform Role.
+- [ ] T008 [P] Create `OperationClass` enum in `api/BusTerminal.Api/Authorization/OperationClass.cs` with values `Read`, `MutateDomain`, `OperatePlatform`, `Administer`, `DeveloperTooling` plus a `PolicyName` lookup constant (`"CanRead"`, `"CanMutateDomain"`, `"CanOperatePlatform"`, `"CanAdminister"`, `"CanUseDeveloperTooling"`). See `data-model.md` § Operation Class.
+- [ ] T009 [P] Create `PlatformPrincipal` record in `api/BusTerminal.Api/Authorization/PlatformPrincipal.cs` with the field shape from `data-model.md` § Platform Principal (ObjectId, TenantId, CallerType, DisplayName, Username, EffectiveRoles, RawClaims, CorrelationId). Caller type enum lives in same file.
+- [ ] T010 [P] Create `RolesClaimExtensions` static class in `api/BusTerminal.Api/Authorization/RolesClaimExtensions.cs` exposing `GetEffectiveRoles(ClaimsPrincipal)` that reads the `roles` claim, parses known values into `PlatformRole`, and silently drops unknown values while emitting a structured log line `"unknown role rejected"` (see `research.md` § 2).
+- [ ] T011 Create `PrincipalAccessor` and `IPlatformPrincipalAccessor` in `api/BusTerminal.Api/Authorization/PrincipalAccessor.cs`. Implementation reads `IHttpContextAccessor.HttpContext.User`, maps claims (`oid`, `tid`, `idtyp`, `name`, `preferred_username`, `roles`) into `PlatformPrincipal`, and pulls correlation id from the current `Activity.Current?.TraceId`. Register as scoped service in DI.
+- [ ] T012 [P] Create `AzureCredentialFactory` and `IAzureCredentialFactory` in `api/BusTerminal.Api/Infrastructure/Credentials/AzureCredentialFactory.cs`. Method `TokenCredential CreateCredential(string? userAssignedClientId = null)` returns a `DefaultAzureCredential` configured per `research.md` § 4 (in deployed env, sets `ManagedIdentityClientId`; locally, uses defaults). Register as singleton.
+
+### Frontend foundational MSAL plumbing
+
+- [ ] T013 [P] Create `web/lib/auth/msal-config.ts` exporting a `buildMsalConfig()` function that returns a `Configuration` object for `PublicClientApplication` per `research.md` § 1 (Authorization Code + PKCE, `sessionStorage` cache, redirect flow, authority `https://login.microsoftonline.com/<NEXT_PUBLIC_AZURE_AD_TENANT_ID>`).
+- [ ] T014 [P] Create `web/lib/auth/msal-instance.ts` exporting a singleton `pca: PublicClientApplication` constructed from `buildMsalConfig()` and an `await pca.initialize()` promise (`msalReady`) consumers can await before mounting.
+- [ ] T015 [P] Create `web/lib/auth/scopes.ts` exporting `API_SCOPE = process.env.NEXT_PUBLIC_API_SCOPE` and a typed `ScopeRequest` constant.
+- [ ] T016 [P] Create `web/lib/auth/claims.ts` exporting typed accessors for the `oid`, `tid`, `name`, `preferred_username`, and `roles` claims on an MSAL `AccountInfo` / decoded id_token payload.
+- [ ] T017 Create `web/components/auth/msal-provider.tsx` marked `"use client"` that wraps children in `<MsalProvider instance={pca}>`. Awaits `msalReady` before rendering to avoid SSR/hydration ordering issues; renders a non-interactive skeleton while pending.
+- [ ] T018 Mount `MsalProvider` in `web/app/layout.tsx` (root layout) so all child routes inherit the MSAL context. Note this introduces a small client-component boundary at the top of the tree — keep page components as Server Components where possible.
+- [ ] T019 [P] Create `web/hooks/use-current-user.ts` returning the active MSAL `AccountInfo` (or `null`) via `useMsal()` + `useAccount()`.
+- [ ] T020 [P] Create `web/hooks/use-roles.ts` returning a typed `Set<PlatformRole>` parsed from the active account's `idTokenClaims.roles` using the same parser semantics as backend `RolesClaimExtensions` (unknown roles silently dropped).
+- [ ] T021 [P] Create `web/hooks/use-has-role.ts` exporting `useHasRole(role: PlatformRole | PlatformRole[]) => boolean` built on `useRoles`.
+- [ ] T022 [P] Create `web/hooks/use-acquire-token.ts` exporting `useAcquireToken()` that calls `instance.acquireTokenSilent({ scopes: [API_SCOPE], account })` first and falls back to `instance.acquireTokenRedirect({ scopes: [API_SCOPE] })` on `InteractionRequiredAuthError` per `research.md` § 1.
+- [ ] T023 Create `web/components/auth/auth-guard.tsx` marked `"use client"` that uses `useIsAuthenticated()` to gate children, triggering `loginRedirect` when unauthenticated.
+- [ ] T024 Create `web/components/auth/role-guard.tsx` marked `"use client"` that takes an `operationClass` prop, queries roles via `useHasRole`, and renders fallback (defaulting to `null`) when the caller is unauthorized. Encodes the role-permission matrix in `web/lib/auth/role-permission-matrix.ts` (next task).
+- [ ] T025 [P] Create `web/lib/auth/role-permission-matrix.ts` mirroring `contracts/role-permission-matrix.md` exactly. Export `authorizedRoles(operationClass: OperationClass): readonly PlatformRole[]`. Include a Vitest unit test in `web/lib/auth/__tests__/role-permission-matrix.test.ts` asserting matrix conformance.
+- [ ] T026 Rewrite `web/lib/api-client.ts` to use the MSAL-acquired token (via `useAcquireToken`-equivalent module-level helper for non-React callers) attached as `Authorization: Bearer <token>`; preserve the existing `traceparent` propagation from 002. On a 401 response, retry once after forcing a fresh `acquireTokenSilent({ forceRefresh: true })`.
+
+### Backend mock auth + DI wiring
+
+- [ ] T027 Modify `api/BusTerminal.Api/Infrastructure/Authentication/MockAuthenticationHandler.cs` to read the `X-Mock-Roles` request header (comma-separated), parse values against `PlatformRole`, and append them as `ClaimTypes.Role` claims on the synthesized `ClaimsPrincipal` per `research.md` § 5. The handler remains gated to `IHostEnvironment.IsDevelopment()` exactly as today.
+- [ ] T028 Modify `api/BusTerminal.Api/Program.cs` to register `IHttpContextAccessor`, `IPlatformPrincipalAccessor`, and `IAzureCredentialFactory` (depends on T007–T012 completing first). Update the `whoami` endpoint registration to authorize via `RequireAuthorization()` only (no specific role; the endpoint itself returns role information).
+
+**Checkpoint**: Foundation is ready. `PlatformPrincipal`, role/operation-class types, credential factory, MSAL provider, role hooks, MSAL-aware api-client, and the role-aware mock handler all exist and are wired. User story implementation can now begin in parallel.
+
+---
+
+## Phase 3: User Story 1 — Platform owner can grant role-scoped access (Priority: P1) 🎯 MVP
+
+**Goal**: Deliver the role-aware authorization mechanism end-to-end. Two test identities assigned different roles see different allowed operations; no-role users get a clear no-access experience.
+
+**Independent Test**: Assign two dev-tenant identities to two different roles via the Entra portal. Sign in as each. Confirm the role-permission matrix at `contracts/role-permission-matrix.md` is enforced on each of the five probe endpoints — and that a no-role user gets a 403 (API) and the no-access page (UI).
+
+### IaC for app roles
+
+- [ ] T029 [P] [US1] Create `iac/modules/app-registration-roles/main.tf` declaring the four BusTerminal app roles on the API app registration via four `azuread_application_app_role` resources (one per role). Each role has `allowed_member_types = ["User", "Application"]`. The parent `azuread_application` referenced here must carry `lifecycle { ignore_changes = [app_role] }` (modification done in T031).
+- [ ] T030 [P] [US1] Add `iac/modules/app-registration-roles/variables.tf` (inputs: `api_application_id`, `role_definitions` map of 4 entries) and `outputs.tf` (outputs: `role_ids` map for downstream consumption).
+- [ ] T031 [US1] Modify the existing `bt-dev-api` `azuread_application` resource block (currently in `iac/environments/dev/main.tf`, inherited from 002) to add `lifecycle { ignore_changes = [app_role] }`. Then instantiate `module "app_registration_roles"` against it.
+
+### Backend role policies + probe endpoints
+
+- [ ] T032 [US1] Create `api/BusTerminal.Api/Authorization/RolePolicies.cs` exposing `AddBusTerminalRolePolicies(this IServiceCollection)`. Define the five named policies (`CanRead`, `CanMutateDomain`, `CanOperatePlatform`, `CanAdminister`, `CanUseDeveloperTooling`) using `.AddPolicy(...).RequireRole(...)` per the matrix in `contracts/role-permission-matrix.md`. Call this extension from `api/BusTerminal.Api/Infrastructure/Authentication/AuthenticationExtensions.cs::AddBusTerminalAuthentication`.
+- [ ] T033 [P] [US1] Create `api/BusTerminal.Api/Features/RoleProbes/ReadProbeEndpoint.cs` exposing `GET /probe/read`. Returns `ProbeResponse` with `operationClass = "Read"`, caller `oid` + effective roles + correlation id. Maps via `.RequireAuthorization("CanRead")`.
+- [ ] T034 [P] [US1] Create `api/BusTerminal.Api/Features/RoleProbes/MutateDomainProbeEndpoint.cs` exposing `POST /probe/mutate-domain`. Accepts `ProbeEchoRequest`, returns `ProbeEchoResponse` (echoes message). `.RequireAuthorization("CanMutateDomain")`.
+- [ ] T035 [P] [US1] Create `api/BusTerminal.Api/Features/RoleProbes/OperatePlatformProbeEndpoint.cs` exposing `POST /probe/operate`. Returns `ProbeResponse`. `.RequireAuthorization("CanOperatePlatform")`.
+- [ ] T036 [P] [US1] Create `api/BusTerminal.Api/Features/RoleProbes/AdministerProbeEndpoint.cs` exposing `POST /probe/administer`. Accepts `ProbeEchoRequest`, returns `ProbeEchoResponse`. `.RequireAuthorization("CanAdminister")`.
+- [ ] T037 [P] [US1] Create `api/BusTerminal.Api/Features/RoleProbes/DeveloperToolingProbeEndpoint.cs` exposing `GET /probe/developer`. Returns `ProbeResponse`. `.RequireAuthorization("CanUseDeveloperTooling")`. (Graph self-resolve integration is added in T088 under US6 — leave a TODO comment for the Graph call until then.)
+- [ ] T038 [US1] Modify `api/BusTerminal.Api/Features/Identity/WhoAmIEndpoint.cs` to return the extended response shape from `contracts/whoami.openapi.yaml` v0.2.0: include `callerType`, `effectiveRoles`. Source the `PlatformPrincipal` from `IPlatformPrincipalAccessor`.
+- [ ] T039 [US1] Implement RFC 7807 problem-details response for 403 results from role policies. Create `api/BusTerminal.Api/Authorization/AuthorizationProblemFactory.cs` producing the `AuthorizationProblem` shape defined in `contracts/role-probes.openapi.yaml` (includes `requiredOperationClass`, `requiredRoles`, `correlationId`; deliberately omits the caller's effective roles). Hook via `services.AddProblemDetails(...)` or a custom `IAuthorizationMiddlewareResultHandler`.
+- [ ] T040 [US1] Add structured logging for authorization failures (FR-032) in the authorization-result handler from T039: emit a single log entry per 403 with fields `caller_oid`, `caller_effective_roles`, `required_operation_class`, `required_roles`, `correlation_id`. Token contents MUST NOT be logged (FR-033).
+
+### Frontend role-aware UI
+
+- [ ] T041 [US1] Modify `web/app/(auth)/signin/page.tsx` to use MSAL `loginRedirect({ scopes: [API_SCOPE] })` instead of NextAuth `signIn(...)`. The page is a thin Client Component that immediately invokes the redirect on mount.
+- [ ] T042 [US1] Modify `web/app/(auth)/signout/page.tsx` to call MSAL `logoutRedirect()` instead of NextAuth's sign-out.
+- [ ] T043 [US1] Create `web/app/(auth)/no-access/page.tsx` for the no-platform-role experience (SC-008). Shows the user's display name, `oid`, a "request access" instruction directing them to their Admin, and a sign-out affordance. The page is gated to authenticated-but-roleless callers; see T046.
+- [ ] T044 [US1] Modify `web/app/(authenticated)/layout.tsx` to: (a) replace any NextAuth session check with `AuthGuard`; (b) call `/whoami` on first render of an authenticated session; (c) when `effectiveRoles.length === 0`, redirect to `/no-access` via `router.replace`. Pass the resolved `effectiveRoles` to a role context provider for downstream consumption.
+- [ ] T045 [US1] Modify `web/app/(authenticated)/platform-status/page.tsx` to render the caller's `effectiveRoles` in addition to identity, using the extended `/whoami` response shape from T038.
+- [ ] T046 [US1] Modify `web/components/layout/navigation-shell.tsx` to filter primary nav entries through `useHasRole` based on each entry's declared operation class. Entries for which the caller is unauthorized are hidden (FR-006).
+- [ ] T047 [US1] Modify `web/components/layout/user-menu.tsx` to display the active MSAL account's name + the caller's effective roles, and to call MSAL `logoutRedirect()` instead of NextAuth `signOut(...)`.
+- [ ] T048 [P] [US1] Create `web/components/auth/role-aware-button.tsx` — a `<Button>` variant that takes an `operationClass` prop, becomes disabled when the caller lacks any authorized role, and renders an accessible tooltip naming the required role(s). FR-006 + WCAG 2.2 AA.
+
+### Tests for User Story 1
+
+- [ ] T049 [P] [US1] Add Vitest unit tests in `web/lib/auth/__tests__/role-permission-matrix.test.ts` (in the same file created by T025) asserting every operation class maps to the expected role set per `contracts/role-permission-matrix.md`.
+- [ ] T050 [P] [US1] Add xUnit unit tests in `api/BusTerminal.Api.Tests/Unit/Authorization/RolePoliciesTests.cs` exhaustively exercising every (role, operation class) combination — 4 roles × 5 classes + 1 no-role case = 21 assertions — against the policies registered by `RolePolicies.cs`.
+- [ ] T051 [P] [US1] Add xUnit unit tests in `api/BusTerminal.Api.Tests/Unit/Authorization/PlatformPrincipalMappingTests.cs` validating claims → `PlatformPrincipal` projection: human token shape, app-only token shape, missing optional claims, unknown role values dropped, `oid` and `tid` propagated.
+- [ ] T052 [US1] Add xUnit integration tests in `api/BusTerminal.Api.Tests/Integration/RoleProbeEndpointTests.cs` running `WebApplicationFactory` with the mock auth handler. Cover the full 5×5 matrix (5 probes × 4 roles + no-role) plus 401 (no token) for each probe — 30 cases. Use the `X-Mock-Roles` header to vary roles.
+- [ ] T053 [US1] Modify `api/BusTerminal.Api.Tests/Integration/WhoAmIEndpointTests.cs` (inherited from 002) to assert the new `callerType` and `effectiveRoles` fields are present in the response and reflect the mock-roles header values.
+- [ ] T054 [P] [US1] Add a Playwright smoke in `web/tests/e2e/role-aware-affordances.spec.ts` that signs in as a Reader-only test user and asserts that the navigation shell does NOT show Operator/Admin entries and that the role-aware buttons for Mutate-Domain operations are disabled.
+
+**Checkpoint**: At this point, User Story 1 is fully functional. Any human or workload caller can be granted a role in Entra and observed to receive exactly the operations the role-permission matrix authorizes.
+
+---
+
+## Phase 4: User Story 2 — Operators can deploy BusTerminal with no static Azure credentials (Priority: P1)
+
+**Goal**: Sweep the codebase, IaC, and pipeline configuration to eliminate any remaining static credentials. Codify the credential-acquisition abstraction as the single way Azure is reached.
+
+**Independent Test**: Run `gitleaks` against the repo; inspect every Azure-service authentication path; confirm zero connection strings / account keys / SAS tokens / service principal client secrets are present and that every workload uses Managed Identity or developer Entra identity.
+
+- [ ] T055 [P] [US2] Delete `web/lib/auth.ts` (NextAuth config; referenced `AZURE_AD_CLIENT_SECRET`). The file is superseded by `web/lib/auth/*` from Phase 2.
+- [ ] T056 [P] [US2] Delete `web/app/api/auth/[...nextauth]/route.ts` if it exists. (002 created it; this slice removes it entirely.)
+- [ ] T057 [P] [US2] Remove `AZURE_AD_CLIENT_SECRET` and `NEXTAUTH_SECRET` references from `web/middleware.ts`. Replace any session check with an MSAL-account-presence check (read MSAL cache on the client side; on the server side, defer to API-level token validation).
+- [ ] T058 [P] [US2] Remove `WebClientSecret` and `NextAuthSecret` Key Vault references from `iac/environments/dev/` (locate via `grep -r WebClientSecret iac/`). The secrets become orphans in the dev Key Vault — they will be deleted manually post-deploy and the deletion noted in `docs/identity-and-secrets.md`.
+- [ ] T059 [US2] Update `iac/modules/keyvault/` (if it surfaces these secrets) and the env composition to stop emitting `WebClientSecret` / `NextAuthSecret` as Key Vault outputs.
+- [ ] T060 [P] [US2] Run `gitleaks detect --redact --no-banner --source=.` locally and confirm zero findings. If findings appear, address each (no allowlist additions without reason).
+- [ ] T061 [P] [US2] Audit `.github/workflows/*.yml` for any `AZURE_AD_CLIENT_SECRET`, `AZURE_CLIENT_SECRET`, or NextAuth-related secret references. Remove. Pipeline retains OIDC federation from 002 unchanged.
+- [ ] T062 [US2] Rewrite `docs/identity-and-secrets.md` as the authoritative single-page reference for BusTerminal credential acquisition: Managed Identity for workloads, OIDC federation for pipelines, `DefaultAzureCredential` for code, MSAL for SPAs. Supersedes the 002 version. Reference back to `contracts/graph-permissions-inventory.md` for Graph specifically.
+- [ ] T063 [US2] Add a CI step to `.github/workflows/ci.yml` that runs `gitleaks` on every PR and fails the build on any finding. (If 002 already runs `gitleaks`, verify the config picks up the changes in this slice; if not, add it now.)
+
+**Checkpoint**: A secret scan returns zero results. Every Azure call traces back to MI, OIDC federation, or developer Entra identity. User Story 2 holds end-to-end.
+
+---
+
+## Phase 5: User Story 3 — Internal service-to-service auth (Priority: P2)
+
+**Goal**: Prove a workload-MI-authenticated call to the BusTerminal API works end-to-end. Document the pattern for future internal callers (Container Apps Jobs, Functions).
+
+**Independent Test**: Stand up a probe Container Apps Job that authenticates via its MI, acquires a token for the API audience, calls `/probe/read`, and gets 200. A control invocation without a token gets 401.
+
+- [ ] T064 [P] [US3] Create `iac/modules/workload-identity/main.tf` providing a generalized workload identity module: provisions `azurerm_user_assigned_identity`, optionally creates `azuread_app_role_assignment` resources for a configurable list of `BusTerminal.*` roles on the API SP, and optionally creates `azurerm_role_assignment` resources for downstream Azure-resource RBAC. Inputs declared in `variables.tf`; outputs in `outputs.tf`.
+- [ ] T065 [P] [US3] Create `iac/modules/workload-identity/variables.tf` (inputs per `data-model.md` § Workload Identity: `name`, `kind` defaulting to `UserAssigned`, `environment`, `workload`, `assigned_api_app_roles` list, `assigned_azure_rbac` list of `{ scope, role_definition_name }`).
+- [ ] T066 [US3] Refactor `iac/environments/dev/main.tf` to express the existing `mi-bt-dev-workload` MI via `module "workload_identity" "workload"`, granting it `BusTerminal.Reader` on the API by default. Verify `tofu plan` shows zero destructive changes via `moved` blocks or `import` blocks.
+- [ ] T067 [P] [US3] Add an integration test in `api/BusTerminal.Api.Tests/Integration/WorkloadCallerTests.cs` that uses the mock auth handler to simulate an app-only token (caller type Workload, `idtyp=app`, `roles` claim populated) and asserts `/probe/read` returns 200 and the audit log entry shows `caller_type=Workload` and `caller_oid` = the workload MI's object id.
+- [ ] T068 [US3] Create `docs/internal-workload-callers.md` documenting the pattern: how a new Container Apps Job / Function authenticates to the API, with a worked example using `mi-bt-dev-workload`. Cross-references `quickstart.md` § SC-003.
+- [ ] T069 [P] [US3] Author a probe Container Apps Job manifest at `iac/modules/probe-job-internal-caller/main.tf` (off by default; opt-in via a `probe_job_enabled` variable on the env composition). The job runs once, acquires a token via its MI, calls `/probe/read`, exits with 0 on 200 or non-zero otherwise — provides a re-runnable SC-003 smoke.
+
+**Checkpoint**: User Story 3 is fully demonstrable: a workload MI calls the API and is authorized via the same path human callers traverse. The pattern is documented for the next workload that lands.
+
+---
+
+## Phase 6: User Story 4 — Developers run the full stack locally (Priority: P2)
+
+**Goal**: A developer signed in via `az login` can run the local backend and have it authenticate to any Azure dependency via their identity — no per-developer secrets, no `.env` credential editing.
+
+**Independent Test**: Clean machine. `az login --tenant <busterminal-dev-tenant>`. `pwsh scripts/start-local.ps1`. Backend reads from dev Key Vault successfully without any secret in `.env` or `appsettings.Development.json`.
+
+- [ ] T070 [P] [US4] Modify the existing Key Vault configuration provider wiring in `api/BusTerminal.Api/Infrastructure/Configuration/KeyVaultExtensions.cs` (from 002) to acquire its `TokenCredential` from `IAzureCredentialFactory` instead of constructing `DefaultAzureCredential` inline. This is the proof case for FR-018.
+- [ ] T071 [P] [US4] Update `scripts/start-local.ps1` and `scripts/start-local.sh` to verify `az account show` succeeds before launching the backend; print a clear remediation message naming the tenant id (`596c1564-...` for dev) if `az` is not signed in or is on the wrong tenant (FR-019).
+- [ ] T072 [P] [US4] Update `docs/local-development.md` to reference the new credential model: developers run `az login --tenant <tenant-id>` once; the backend's `IAzureCredentialFactory` resolves their identity for every Azure dependency. Remove any prior reference to per-developer secrets or `.env`-stored credentials. **Add a numbered prerequisite at the top of the document**: "Before any local-Azure work, you must have an Entra account in the BusTerminal dev tenant (`596c1564-6e95-4c35-a80b-2dbe45a162f3`) with at least the `BusTerminal.Developer` app role assigned (see `docs/identity-role-administration.md` § Part B). MSAL no longer ships a frontend mock provider — local sign-in goes to the real dev tenant." Cross-reference this prereq from `quickstart.md` § C.1.
+- [ ] T073 [P] [US4] Add a friendly developer error in `AzureCredentialFactory.CreateCredential` for the `CredentialUnavailableException` case in `Development` environment: catch it at the SDK boundary inside `KeyVaultExtensions` and convert to a clear `InvalidOperationException` with message `"Azure credentials unavailable. Run: az login --tenant 596c1564-6e95-4c35-a80b-2dbe45a162f3"` (the dev tenant id).
+- [ ] T074 [US4] Add a Vitest unit test in `api/BusTerminal.Api.Tests/Unit/Credentials/AzureCredentialFactoryTests.cs` confirming that `CreateCredential()` returns a `DefaultAzureCredential` in `Development` and that it sets `ManagedIdentityClientId` when `userAssignedClientId` is provided.
+
+**Checkpoint**: A developer with only `az login` on a clean machine can exercise real-Azure-dependent code paths locally. The credential model is identical to deployed environments — same `IAzureCredentialFactory`, same chain, no branches in application code.
+
+---
+
+## Phase 7: User Story 5 — CI/CD infrastructure modules encapsulate identity provisioning (Priority: P3)
+
+**Goal**: Adding a new environment or workload is module composition, not inline IAM. Federated credentials are a reusable module, not a one-off resource block.
+
+**Independent Test**: Add a hypothetical new workload to `iac/environments/dev/main.tf` using only `module "workload_identity" ...` and `module "federated_credential" ...` invocations — confirm no inline `azurerm_user_assigned_identity`, `azurerm_role_assignment`, or `azuread_application_federated_identity_credential` resource blocks are introduced.
+
+- [ ] T075 [P] [US5] Create `iac/modules/federated-credential/main.tf` providing a generalized federated credential module: takes `parent_application_id`, `issuer`, `audience`, `subject`, `display_name`, `description`; produces an `azuread_application_federated_identity_credential` resource.
+- [ ] T076 [P] [US5] Create `iac/modules/federated-credential/variables.tf` and `outputs.tf` (output: `credential_id`).
+- [ ] T077 [US5] Refactor the existing pipeline federated credential (inherited from 002) in `iac/environments/dev/main.tf` to use `module "federated_credential" "pipeline_dev"` rather than the inline resource block. Use `moved` blocks so `tofu plan` produces zero destructive changes.
+- [ ] T078 [P] [US5] Add a CI lint check (e.g., as a step in `.github/workflows/iac-validate.yml`) that fails the build if any new `azurerm_role_assignment`, `azurerm_user_assigned_identity`, or `azuread_application_federated_identity_credential` resource appears at the `iac/environments/*/main.tf` level outside a module declaration. Use a simple `grep -E` pattern against the file set — document any allowlisted exceptions inline.
+- [ ] T079 [US5] Update `docs/deploying-environments.md` (inherited from 002) with a "Adding a new workload" section that walks through the module-composition pattern using the modules introduced by this slice. Cross-reference `quickstart.md` § SC-005.
+
+**Checkpoint**: All identity-related IaC composes from the four new modules (`app-registration-roles`, `workload-identity`, `federated-credential`, `graph-permissions`) plus the existing `identity` module. Inline IAM blocks exist only where documented as explicit exceptions.
+
+---
+
+## Phase 8: User Story 6 — Microsoft Graph foundation (Priority: P3)
+
+**Goal**: Pre-wire the Graph client abstraction so future identity-aware capabilities (display-name resolution, group lookups, org metadata) inherit a working foundation. Single Graph permission (`User.Read.All` application) granted now; future slices add more as needed.
+
+**Independent Test**: The Graph client abstraction resolves the calling user's own profile via app-only flow against the dev tenant on the first invocation after deployment, with no manual consent or credential step at runtime.
+
+- [ ] T080 [P] [US6] Create `iac/modules/graph-permissions/main.tf` declaring the `User.Read.All` Graph application permission on the API app registration via `azuread_application_api_access`. References the well-known Microsoft Graph app id via `data "azuread_application_published_app_ids" "well_known"`. Outputs `granted_role_ids` for downstream documentation.
+- [ ] T081 [US6] Add `module "graph_permissions"` to `iac/environments/dev/main.tf`. After `tofu apply`, admin consent must be granted manually per `quickstart.md` § A.2.3 — log this as a follow-up to be performed by a tenant admin.
+- [ ] T082 [P] [US6] Create `IGraphClient` interface in `api/BusTerminal.Api/Infrastructure/Graph/IGraphClient.cs` exposing the minimal initial surface: `Task<GraphUser?> ResolveUserAsync(string objectId, CancellationToken ct)`. Define a `GraphUser` record (oid, displayName, userPrincipalName, mail) co-located in the same file. Add a single-line code comment above the interface noting: `// Delegated Graph flows (FR-025) can be added in a later slice by injecting a user-context TokenCredential via the AzureCredentialFactory — no breaking change to this interface required.`
+- [ ] T083 [US6] Create `GraphClient` implementation in `api/BusTerminal.Api/Infrastructure/Graph/GraphClient.cs` constructed with a `GraphServiceClient` built from `IAzureCredentialFactory.CreateCredential()` (per `research.md` § 3). Method calls `_graph.Users[objectId].GetAsync(...)` and maps the result to `GraphUser`. Returns null on 404; throws on other errors (no silent failure — FR per spec edge cases).
+- [ ] T084 [P] [US6] Create `GraphClientExtensions` in `api/BusTerminal.Api/Infrastructure/Graph/GraphClientExtensions.cs` exposing `AddBusTerminalGraphClient(this IServiceCollection)` that registers `IGraphClient → GraphClient` as a scoped service. Call from `Program.cs`.
+- [ ] T085 [P] [US6] Create `docs/identity-graph-permissions.md` (new) documenting: (1) the current permissions inventory (a copy of `contracts/graph-permissions-inventory.md`'s current state), (2) the procedure to grant admin consent in a new environment, (3) the procedure to add a new permission in a future slice. Cross-reference the inventory contract.
+- [ ] T086 [US6] Add unit tests in `api/BusTerminal.Api.Tests/Unit/Graph/GraphClientTests.cs` mocking `GraphServiceClient`'s `IRequestAdapter` and asserting (a) successful user resolution maps to `GraphUser` correctly, (b) 404 returns null, (c) other errors propagate.
+- [ ] T087 [US6] Add an integration test (gated on the dev tenant being reachable; opt-in via env var `BUSTERMINAL_GRAPH_INTEGRATION=1`) in `api/BusTerminal.Api.Tests/Integration/GraphResolveSelfTests.cs` that resolves the test caller's own profile and asserts `displayName` is non-empty.
+- [ ] T088 [US6] Modify `api/BusTerminal.Api/Features/RoleProbes/DeveloperToolingProbeEndpoint.cs` (created in T037) to call `IGraphClient.ResolveUserAsync(caller.ObjectId)` and include the resolved `displayName` in the response. This is the SC-009 smoke surface. Wrap the call in try/catch and degrade gracefully if Graph consent is not yet granted (return the probe response with a `graphResolvedDisplayName: null` field and log a warning).
+
+**Checkpoint**: The Graph foundation exists. Future slices that need Graph access can call `IGraphClient` directly; new permissions follow the documented procedure. SC-009 is verifiable.
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
+
+**Purpose**: Final hardening, documentation cohesion, smoke validation across all user stories.
+
+- [ ] T089 [P] Run the full quickstart `quickstart.md` end-to-end on a fresh machine; record any deviations and fix them in-place. Target: ≤ 30 min from clone to a working role-aware local stack.
+- [ ] T090 [P] Update root `README.md` to mention the role-aware authentication posture and link to `docs/identity-and-secrets.md`, `docs/identity-role-administration.md`, `docs/identity-graph-permissions.md`.
+- [ ] T091 [P] Create `docs/identity-role-administration.md` (the operator runbook promoted from `quickstart.md` Part B): how to grant/remove roles, how to bootstrap the initial Admin, how role propagation works.
+- [ ] T092 [P] Add Playwright smoke in `web/tests/e2e/no-access-experience.spec.ts` covering SC-008: a no-role test user sees `/no-access` rendered within 2 seconds of completing MSAL sign-in. **Include an explicit Playwright timing assertion** — capture a timestamp at the post-MSAL-redirect navigation event, then `await expect(page.getByTestId('no-access-page')).toBeVisible({ timeout: 2000 })` and assert `(Date.now() - postRedirectTs) <= 2000`. Fail the test if the page renders late.
+- [ ] T093 [P] Add Playwright smoke in `web/tests/e2e/msal-sign-in-and-whoami.spec.ts` covering the basic sign-in → `/whoami` → effective-roles-rendered → sign-out cycle. **Also verify the inherited (002) posture is intact post-rewrite**: (a) the page loads over HTTPS in the deployed env (assert `page.url().startsWith('https://')` when `BASE_URL` is non-localhost); (b) a deliberately-malformed bearer token sent to `/whoami` via `fetch` returns `401` with a `WWW-Authenticate: Bearer ...` header (confirms the inherited Microsoft.Identity.Web validation pipeline is still active after T028).
+- [ ] T094 [P] Add a contract conformance test in `api/BusTerminal.Api.Tests/Integration/OpenApiConformanceTests.cs` that parses `contracts/role-probes.openapi.yaml` + `contracts/whoami.openapi.yaml` and compares against the live OpenAPI document emitted by the API. Fail on shape drift.
+- [ ] T095 Run `axe` against the new no-access page and role-aware affordances (T043, T048); resolve any WCAG 2.2 AA violation.
+- [ ] T096 [P] Verify W3C Trace Context (`traceparent`/`tracestate`) propagation on MSAL-acquired requests (constitution-bound). Add a manual verification step to `quickstart.md` Part D and an automated assertion to T093.
+- [ ] T097 [P] Update `speckit-artifacts/tech-stack.md` § 7 (Identity & Authentication) to mention MSAL for SPA auth and reference the role-permission matrix as the binding contract for future slices. This is the durable home for the slice's identity decisions.
+- [ ] T098 Run `tofu plan` against `iac/environments/dev/` and assert it shows only the additive changes expected by this slice (new modules, role definitions, Graph permission grant) plus zero-effect refactors (`moved` blocks). No destructive changes.
+- [ ] T099 [P] Verify SC-002 / SC-007: re-run `gitleaks detect --redact --no-banner --source=.` after all polish tasks land; confirm zero findings. Document the run output in the PR description.
+- [ ] T100 Update `docs/architecture.md` (inherited from 002) with a short "Identity & Authorization" section showing the MSAL → API → role-policy flow and the workload-identity → API call shape. One diagram + a paragraph; defer to the role-permission matrix for details.
+- [ ] T101 [P] Add a CI guard in `.github/workflows/iac-validate.yml` (or a new `iac-credential-scan` job) that fails the build on any new occurrence of inline Azure-service connection-string / account-key / SAS-token patterns inside `iac/` HCL files. Use a `grep -E` against the file set with patterns like `(AccountKey|SharedAccessKey|connection_string|primary_access_key|sas_token)\s*=` and exclude documented exceptions via an inline allowlist. Future-proofs FR-015's "no static credentials" stance as later slices introduce Cosmos / AI Search / Storage / OpenAI / Service Bus / App Configuration resources.
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Phase 1 (Setup)**: No dependencies. Can start immediately.
+- **Phase 2 (Foundational)**: Depends on Phase 1 (libraries/providers installed). **BLOCKS all user stories.**
+- **Phase 3 (US1)**: Depends on Phase 2.
+- **Phase 4 (US2)**: Depends on Phase 2. Largely deletion-and-audit work; can run **in parallel with Phase 3** if staffed.
+- **Phase 5 (US3)**: Depends on Phase 3 (needs the role policies + probes to call against). Workload identity IaC can be authored in parallel with Phase 3 but the integration test needs the probes.
+- **Phase 6 (US4)**: Depends on Phase 2 (`IAzureCredentialFactory`). Can run **in parallel with Phase 3–5**.
+- **Phase 7 (US5)**: Depends on Phases 3 and 5 (the IaC modules to refactor are introduced there).
+- **Phase 8 (US6)**: Depends on Phase 2 (credential factory) and Phase 3 (the developer-tooling probe to extend in T088). Can otherwise run **in parallel with Phase 5/6/7**.
+- **Phase 9 (Polish)**: Depends on all desired user stories being complete.
+
+### User Story Dependencies
+
+- **US1 (P1)**: The MVP. Independent once Phase 2 is done.
+- **US2 (P1)**: Independent of US1 — pure cleanup + audit.
+- **US3 (P2)**: Depends on US1's probe endpoints (the workload calls them) but its IaC module work is independent.
+- **US4 (P2)**: Independent of US1–US3.
+- **US5 (P3)**: Depends on US3's `workload-identity` module and US1's `app-registration-roles` module being authored.
+- **US6 (P3)**: Largely independent; touches the same `DeveloperToolingProbeEndpoint` as US1 (T088 modifies T037's output).
+
+### Within Each User Story
+
+- IaC modules can be authored in parallel with backend/frontend code (different file trees).
+- Backend models/types before services before endpoints.
+- Endpoints before contract/integration tests against them.
+- Frontend hooks before components that consume them.
+- Story is "done" only when its independent test passes end-to-end.
+
+### Parallel Opportunities
+
+- All Phase 1 `[P]` tasks (T001, T002, T003, T005, T006): parallel.
+- Backend foundational types (T007–T010): parallel.
+- Frontend MSAL foundational pieces (T013–T016, T019–T022, T025): parallel.
+- All five probe endpoint creation tasks (T033–T037): parallel.
+- US1 + US2 + US4 + US6: can be worked in parallel by separate developers once Phase 2 is complete (US3 + US5 have intra-story sequencing).
+- Within Polish: T089–T097 are largely parallel except where noted.
+
+---
+
+## Parallel Example: User Story 1
+
+```bash
+# After Phase 2 complete, run these in parallel:
+Task: T029 — Create iac/modules/app-registration-roles/main.tf
+Task: T033 — Create ReadProbeEndpoint.cs
+Task: T034 — Create MutateDomainProbeEndpoint.cs
+Task: T035 — Create OperatePlatformProbeEndpoint.cs
+Task: T036 — Create AdministerProbeEndpoint.cs
+Task: T037 — Create DeveloperToolingProbeEndpoint.cs
+Task: T048 — Create role-aware-button.tsx
+
+# Then sequentially (each blocks the next):
+Task: T032 — RolePolicies.cs (must exist before probe tests pass)
+Task: T038 — WhoAmIEndpoint.cs extension
+Task: T044 — (authenticated)/layout.tsx role context
+
+# Tests can run in parallel after their subject code lands:
+Task: T049 — Vitest role-permission-matrix tests
+Task: T050 — xUnit RolePoliciesTests
+Task: T051 — xUnit PlatformPrincipalMappingTests
+Task: T052 — xUnit RoleProbeEndpointTests (depends on T032–T037)
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Stories 1 + 2 — both P1)
+
+1. Complete **Phase 1**: Setup (T001–T006).
+2. Complete **Phase 2**: Foundational (T007–T028). **Blocking — no user-story work until done.**
+3. Complete **Phase 3**: User Story 1 (T029–T054). Validate via the 5×5 role matrix probe tests.
+4. Complete **Phase 4**: User Story 2 (T055–T063). Validate via gitleaks zero-findings.
+5. **STOP AND VALIDATE**: SC-001, SC-002, SC-007, SC-008 all hit. The slice is shippable here as a coherent role-aware foundation, even without US3–US6.
+6. Optional checkpoint deploy/demo.
+
+### Incremental Delivery (P2 stories)
+
+1. **Phase 5 (US3)** and **Phase 6 (US4)** in parallel: US3 needs the probes from Phase 3; US4 needs only Phase 2.
+2. Validate SC-003 (US3) and SC-004 (US4).
+3. Demo internal-caller and developer-local-stack paths.
+
+### Final Delivery (P3 stories + polish)
+
+1. **Phase 7 (US5)**: IaC module composition refactor. Validate SC-005.
+2. **Phase 8 (US6)**: Graph foundation. Validate SC-009.
+3. **Phase 9 (Polish)**: Cohesion, smoke validation, secret-scan re-run.
+
+### Parallel Team Strategy
+
+With multiple developers and Phase 2 complete:
+
+- **Developer A**: Phase 3 (US1) — the MVP. Owns the role-policy + probe + role-aware UI.
+- **Developer B**: Phase 4 (US2) — the cleanup sweep. Independent.
+- **Developer C**: Phase 6 (US4) — credential-factory consolidation. Independent.
+- After Phase 3 lands: Developer A or D picks up Phase 5 (US3); Developer B or E picks up Phase 8 (US6).
+- Phase 7 (US5) is the last refactor — sequenced after Phases 3 and 5.
+
+---
+
+## Notes
+
+- **Tests are included** because the spec's user stories each define an Independent Test and SC-001–SC-009 are concrete enough to assert against. Tests follow the slice's testing strategy from `plan.md`: Vitest + RTL for unit, `WebApplicationFactory` for integration, Playwright for E2E.
+- **No new top-level technology** is introduced — every library / provider / package addition (MSAL, Microsoft.Graph, `azuread` provider) is a direct extension of choices the constitution and tech-stack already approve.
+- **The matrix is the contract.** When in doubt about who can do what, consult `contracts/role-permission-matrix.md` — it is authoritative over the code.
+- **Commit after each task or logical group.** Pre-commit gitleaks remains advisory until T063 wires it into CI; do not skip.
+- **Stop at checkpoints** to validate stories independently. The slice ships value at every checkpoint, not just at the end.
+- **Avoid**: vague edits, same-file conflicts across parallel tasks, cross-story dependencies that break independence.

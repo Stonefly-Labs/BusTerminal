@@ -140,9 +140,14 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 - **FR-001**: The platform MUST use Microsoft Entra ID as the sole identity provider for human authentication.
 - **FR-002**: The platform MUST accept only organizational Microsoft accounts. Personal Microsoft accounts, social identity providers, local user databases, and username/password mechanisms MUST NOT be supported.
 
+#### Initial Role Bootstrap
+
+- **FR-002a**: The initial `BusTerminal.Admin` role assignment for a new environment MUST be performed manually by a tenant administrator through the Entra ID portal. The procedure (locating the backend API app registration, selecting the `BusTerminal.Admin` app role, and assigning it to the designated founding operator object id) MUST be documented in the operator runbook delivered by this slice.
+- **FR-002b**: The initial `BusTerminal.Admin` assignment MUST NOT be provisioned via OpenTofu and MUST NOT rely on a bootstrap script. This keeps the privileged grant auditable in Entra ID's directory logs and decouples platform-role ownership from infrastructure-state ownership.
+
 #### Frontend Authentication
 
-- **FR-003**: The frontend MUST authenticate users via Microsoft Entra ID using the Authorization Code flow with PKCE. The implicit flow MUST NOT be used.
+- **FR-003**: The frontend MUST authenticate users via Microsoft Entra ID using the Authorization Code flow with PKCE, implemented with MSAL (`@azure/msal-browser` + `@azure/msal-react`). The implicit flow MUST NOT be used. Any interim frontend authentication library shipped in spec 002 (e.g., NextAuth) MUST be removed as part of this slice.
 - **FR-004**: The frontend MUST acquire access tokens for the BusTerminal backend API on demand and attach them as bearer credentials to API requests.
 - **FR-005**: The frontend MUST surface the signed-in user's identity (display name and account) and provide an explicit sign-out affordance.
 - **FR-006**: The frontend MUST render role-aware UI: affordances for operations the current user is not authorized to perform MUST NOT appear as actionable controls.
@@ -151,7 +156,14 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 
 - **FR-007**: The backend API MUST validate every inbound request's bearer token: issuer, audience, signature, expiry, and required claims. Validation failures MUST produce a structured authorization error and MUST be logged with the failure reason (never the token itself).
 - **FR-008**: The backend MUST normalize incoming token claims into a single internal "platform principal" representation that downstream code uses for authorization decisions, audit logging, and Graph-related lookups.
-- **FR-009**: The backend MUST enforce role-based authorization on every protected operation. The four initial platform roles are: **BusTerminal.Admin** (full administrative access), **BusTerminal.Operator** (operational management access), **BusTerminal.Reader** (read-only access), **BusTerminal.Developer** (API/spec/developer-tooling access).
+- **FR-009**: The backend MUST enforce role-based authorization on every protected operation. The four initial platform roles are: **BusTerminal.Admin** (full administrative access), **BusTerminal.Operator** (operational management access), **BusTerminal.Reader** (read-only access), **BusTerminal.Developer** (API/spec/developer-tooling access). The roles MUST be defined as Entra ID **app roles** on the backend API app registration and consumed by the API via the `roles` claim on the access token.
+- **FR-009a**: Every protected operation MUST be assigned to exactly one **operation class** from the following enumeration: **Read** (GET-style queries against domain or platform state), **Mutate-Domain** (create/update/delete of domain resources introduced by later slices), **Operate-Platform** (operational actions such as triggering discovery, clearing caches, retrying failed jobs), **Administer** (platform-wide configuration, role-assignment-adjacent operations, environment-level settings), **Developer-Tooling** (OpenAPI surface, API explorer, developer diagnostic endpoints not gated as Read).
+- **FR-009b**: The role-to-operation-class mapping MUST be the following matrix, published as a documentation deliverable of this slice and binding for all current and future protected endpoints:
+   - **BusTerminal.Reader** → Read
+   - **BusTerminal.Developer** → Read, Developer-Tooling
+   - **BusTerminal.Operator** → Read, Mutate-Domain, Operate-Platform
+   - **BusTerminal.Admin** → Read, Mutate-Domain, Operate-Platform, Administer, Developer-Tooling
+- **FR-009c**: The US1 probe endpoints introduced by this slice MUST collectively exercise at least one operation in each of the five operation classes, so that the role-permission matrix is end-to-end testable before any domain slice ships.
 - **FR-010**: The backend MUST reject role-gated requests from authenticated users who hold no applicable platform role. Lack of any role MUST NOT be treated as a default "reader" assignment.
 - **FR-011**: When a user holds multiple platform roles, the backend MUST compute effective permissions as the union (most permissive role wins for any given operation).
 - **FR-012**: The backend MUST validate tokens from internal workload callers identically to tokens from human callers. There MUST NOT be a "trusted internal" bypass based on network position, source header, or shared secret.
@@ -171,14 +183,14 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 
 #### Token Acquisition Patterns
 
-- **FR-020**: Frontend-to-backend token acquisition MUST use the frontend's user-context authentication library.
+- **FR-020**: Frontend-to-backend token acquisition MUST use MSAL's token-acquisition APIs (silent acquisition with interactive fallback) against the backend API's exposed scope.
 - **FR-021**: Backend-to-Azure-service token acquisition MUST use the credential chain abstraction.
 - **FR-022**: Backend-to-internal-API token acquisition MUST use the calling workload's managed identity.
 
 #### Microsoft Graph Foundation
 
 - **FR-023**: The backend MUST include a Graph client abstraction capable of executing app-only Graph operations using the workload's managed identity. The abstraction MUST be the sole entry point for Graph access in the codebase.
-- **FR-024**: Graph permissions granted to the backend app registration MUST be the minimum required for currently-planned operations and MUST be enumerated in the documentation deliverables.
+- **FR-024**: Graph permissions granted to the backend app registration in this slice MUST be limited to `User.Read.All` (application permission, admin-consented). This is the minimum required for the SC-009 self-resolve smoke and the near-term "resolve object id to display name" use case. Additional Graph permissions MUST be added only by slices that explicitly require them, and MUST be enumerated in the permissions inventory documentation deliverable.
 - **FR-025**: Delegated Graph flows MUST be supported by the abstraction but MUST NOT be enabled or consented to in this slice unless a specific operation in this slice requires them.
 
 #### Infrastructure as Code
@@ -202,10 +214,10 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 ### Key Entities
 
 - **Platform Principal**: The normalized internal representation of an authenticated caller. Carries: caller object id, tenant id, caller type (human / workload), display name (for humans), effective platform roles, raw claims (for diagnostic use), and the correlation id of the originating request. Single source of truth for authorization decisions and audit logging.
-- **Platform Role**: One of the four enumerated platform-level roles (Admin, Operator, Reader, Developer). Granted to a principal via Entra ID and surfaced in the access token in a documented claim location. Drives authorization checks and role-aware UI rendering.
+- **Platform Role**: One of the four enumerated platform-level roles (Admin, Operator, Reader, Developer). Implemented as an Entra ID **app role** defined on the backend API app registration. Granted to a principal via Entra ID role assignment and surfaced in the `roles` claim on the access token. Drives authorization checks and role-aware UI rendering.
 - **Workload Identity**: A managed identity (user-assigned by default) attached to a BusTerminal-hosted workload — backend API, Container Apps Job, Container Apps Function, or pipeline runner. Holder of RBAC grants on downstream Azure resources and of platform-role assignments for internal API calls.
 - **Federated Credential**: The trust relationship between a pipeline or external identity provider (e.g., GitHub OIDC issuer) and an Entra ID identity (typically the pipeline managed identity). Defined by a subject pattern that must match the OIDC token's `sub` claim at request time.
-- **Graph Permission Grant**: A Microsoft Graph application permission granted (and admin-consented) to the backend app registration. Enumerated in the permissions inventory; consumed exclusively via the Graph client abstraction.
+- **Graph Permission Grant**: A Microsoft Graph application permission granted (and admin-consented) to the backend app registration. The initial inventory granted by this slice is `User.Read.All` (application) only. Enumerated in the permissions inventory; consumed exclusively via the Graph client abstraction.
 - **App Registration**: The Entra ID app registration backing the platform — one for the backend API (exposes scopes and role definitions) and one for the frontend client (registers the SPA/web client and redirect URIs). Identity for the platform itself.
 
 ---
@@ -228,8 +240,8 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 
 ## Assumptions
 
-- **MSAL replaces any interim frontend auth library shipped in spec 002**: Spec 002's "platform-status page successfully calls the backend's `whoami` endpoint and renders the user's identity" implied a working frontend sign-in flow. The 003 source artifact prescribes MSAL (`@azure/msal-browser`, `@azure/msal-react`) as the standardized frontend authentication library. This slice consolidates onto MSAL even if 002 used a different library (e.g., NextAuth). If an alternative is preferred, it must be raised before `/speckit-plan` (see Clarifications below).
-- **Role assignments are granted via Entra ID app roles defined on the backend API app registration**: This is the most common Microsoft-native pattern and integrates cleanly with `Microsoft.Identity.Web`'s role-claim handling. Group-claim mapping is a documented alternative for future use but is not the default for this slice.
+- **MSAL is the frontend authentication library for this slice (confirmed 2026-05-19)**: This slice standardizes on `@azure/msal-browser` + `@azure/msal-react` and removes any interim auth library shipped in spec 002 (e.g., NextAuth). All references to "the frontend authentication library" in this spec refer to MSAL.
+- **Role assignments are granted via Entra ID app roles defined on the backend API app registration (confirmed 2026-05-19)**: Integrates cleanly with `Microsoft.Identity.Web`'s role-claim handling. Group-claim mapping is a documented alternative for future use but is not implemented in this slice.
 - **Local developer identities will be granted appropriate platform roles in the dev Entra environment**: Developers' personal Entra accounts must hold at least the `BusTerminal.Developer` role to exercise role-gated endpoints locally against deployed dev resources. Role-assignment procedure is part of the documentation deliverables.
 - **The existing `mi-bt-dev-workload` user-assigned managed identity is the workload identity onto which downstream RBAC grants will be added**: New resource integrations (Cosmos, Search, etc.) will grant data-plane roles to this identity rather than introducing a per-resource workload identity. Per-workload identities may be introduced later for blast-radius reduction; not required now.
 - **The existing pipeline managed identity (`mi-busterminal-pipeline-dev`) and its GitHub OIDC federation are the basis for all CI/CD Azure authentication in this slice**: New pipeline operations layer onto this identity; no new federated identities are introduced unless explicitly justified.
@@ -262,8 +274,10 @@ A future BusTerminal capability needs to resolve a user object id to a display n
 
 ## Clarifications
 
-The following items are flagged for `/speckit-clarify` before `/speckit-plan`:
+### Session 2026-05-19
 
-- [NEEDS CLARIFICATION: Does spec 002 currently use MSAL on the frontend, or did it ship with NextAuth (or another library)? The 003 artifact prescribes MSAL, but the existing dev environment notes reference a `NextAuthSecret` — confirming this drives whether 003 is a "configure MSAL" task or a "replace NextAuth with MSAL" task.]
-- [NEEDS CLARIFICATION: Are the four platform roles delivered as Entra ID **app roles** (defined on the backend API app registration, surfaced in the `roles` claim) or as **Entra ID security groups** (surfaced in a `groups` claim and mapped to roles inside the API)? App roles is the default assumption; confirm before plan.]
-- [NEEDS CLARIFICATION: What is the policy for granting the initial `BusTerminal.Admin` role? Manual assignment by tenant admin only, or is there a documented procedure (e.g., a bootstrap script invoked once per environment)?]
+- Q: Which frontend authentication library does this slice standardize on? → A: MSAL (`@azure/msal-browser` + `@azure/msal-react`), replacing any interim auth library shipped in spec 002.
+- Q: How are the four platform roles delivered — Entra ID app roles or security groups? → A: Entra ID **app roles** defined on the backend API app registration, surfaced in the `roles` claim.
+- Q: How is the initial `BusTerminal.Admin` role granted in a new environment? → A: Manual assignment by a tenant admin via the Entra ID portal, documented in the operator runbook. Not provisioned via OpenTofu or a bootstrap script.
+- Q: How are operation-class boundaries between the four platform roles defined? → A: This slice ships a role-permission matrix mapping five operation classes (Read, Mutate-Domain, Operate-Platform, Administer, Developer-Tooling) to roles. The matrix is the contract that later domain slices bind their endpoints against.
+- Q: Which Microsoft Graph permissions are granted to the backend in this slice? → A: `User.Read.All` (application) only. Sufficient for the SC-009 self-resolve smoke and future user-object-id → display-name lookups. Broader permissions (groups, directory, etc.) are deferred to slices that explicitly require them.

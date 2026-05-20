@@ -1,0 +1,246 @@
+openapi: 3.1.0
+info:
+  title: BusTerminal Platform API — Role Probe Surface
+  version: 0.1.0
+  description: |
+    Five probe endpoints, one per operation class, introduced by spec 003
+    (`specs/003-auth-and-identity`). The probes exist solely to validate
+    that the role-permission matrix (`role-permission-matrix.md`) is wired
+    end-to-end before any domain slice ships. FR-009c.
+
+    Probes are **not** intended as long-term API surface. They will be
+    superseded by real domain endpoints in later slices as those slices
+    introduce real `MutateDomain`, `OperatePlatform`, `Administer`, and
+    domain-specific `Read` operations. Until then, probes are the integration
+    test surface for the matrix and the smoke-test target for SC-001.
+
+    Every probe accepts only authenticated callers and enforces a single
+    named authorization policy bound to one operation class. A caller whose
+    effective roles do not satisfy the policy receives `403 Forbidden`. A
+    caller with no token at all receives `401 Unauthorized`.
+
+    No probe mutates real platform state. The `MutateDomain` and
+    `Administer` probes accept a body (so they exercise model binding) and
+    return an in-memory echo response.
+servers:
+  - url: https://{backendHost}
+    variables:
+      backendHost:
+        default: api-bt-dev.<containerappsenv>.eastus2.azurecontainerapps.io
+security:
+  - EntraIdBearer: [access_as_user]
+paths:
+  /probe/read:
+    get:
+      operationId: probeRead
+      summary: Probe — Read operation class
+      description: |
+        Exercises the `Read` operation class (policy `CanRead`).
+        Authorized roles: BusTerminal.Reader, BusTerminal.Developer,
+        BusTerminal.Operator, BusTerminal.Admin.
+      tags: [role-probes]
+      responses:
+        '200':
+          description: Probe succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProbeResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Caller is authenticated but lacks any role satisfying `CanRead`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/AuthorizationProblem' }
+
+  /probe/mutate-domain:
+    post:
+      operationId: probeMutateDomain
+      summary: Probe — Mutate-Domain operation class
+      description: |
+        Exercises the `MutateDomain` operation class (policy
+        `CanMutateDomain`). Authorized roles: BusTerminal.Operator,
+        BusTerminal.Admin. Does **not** mutate real state; returns an echo.
+      tags: [role-probes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProbeEchoRequest' }
+      responses:
+        '200':
+          description: Probe succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProbeEchoResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Caller lacks any role satisfying `CanMutateDomain`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/AuthorizationProblem' }
+
+  /probe/operate:
+    post:
+      operationId: probeOperatePlatform
+      summary: Probe — Operate-Platform operation class
+      description: |
+        Exercises the `OperatePlatform` operation class (policy
+        `CanOperatePlatform`). Authorized roles: BusTerminal.Operator,
+        BusTerminal.Admin.
+      tags: [role-probes]
+      responses:
+        '200':
+          description: Probe succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProbeResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Caller lacks any role satisfying `CanOperatePlatform`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/AuthorizationProblem' }
+
+  /probe/administer:
+    post:
+      operationId: probeAdminister
+      summary: Probe — Administer operation class
+      description: |
+        Exercises the `Administer` operation class (policy `CanAdminister`).
+        Authorized role: BusTerminal.Admin only.
+      tags: [role-probes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProbeEchoRequest' }
+      responses:
+        '200':
+          description: Probe succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProbeEchoResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Caller lacks the Admin role required by `CanAdminister`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/AuthorizationProblem' }
+
+  /probe/developer:
+    get:
+      operationId: probeDeveloperTooling
+      summary: Probe — Developer-Tooling operation class
+      description: |
+        Exercises the `DeveloperTooling` operation class (policy
+        `CanUseDeveloperTooling`). Authorized roles: BusTerminal.Developer,
+        BusTerminal.Admin.
+      tags: [role-probes]
+      responses:
+        '200':
+          description: Probe succeeded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProbeResponse' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: Caller lacks any role satisfying `CanUseDeveloperTooling`.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/AuthorizationProblem' }
+components:
+  securitySchemes:
+    EntraIdBearer:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/authorize
+          tokenUrl: https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token
+          scopes:
+            access_as_user: Access BusTerminal on behalf of the signed-in user
+  responses:
+    Unauthenticated:
+      description: Missing or invalid bearer token.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string }
+          description: 'Bearer realm="busterminal", error="invalid_token"'
+  schemas:
+    ProbeResponse:
+      type: object
+      required: [operationClass, callerObjectId, callerEffectiveRoles, correlationId, serverTimeUtc]
+      properties:
+        operationClass:
+          type: string
+          enum: [Read, MutateDomain, OperatePlatform, Administer, DeveloperTooling]
+        callerObjectId:
+          type: string
+        callerEffectiveRoles:
+          type: array
+          items:
+            type: string
+            enum:
+              - BusTerminal.Admin
+              - BusTerminal.Operator
+              - BusTerminal.Reader
+              - BusTerminal.Developer
+        correlationId:
+          type: string
+        serverTimeUtc:
+          type: string
+          format: date-time
+    ProbeEchoRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 256
+          description: An arbitrary string the probe will echo back. Used to exercise model binding and request-body validation in the authorized-path test.
+    ProbeEchoResponse:
+      allOf:
+        - $ref: '#/components/schemas/ProbeResponse'
+        - type: object
+          required: [echo]
+          properties:
+            echo:
+              type: string
+              description: The exact `message` value from the request, verbatim.
+    AuthorizationProblem:
+      type: object
+      description: |
+        RFC 7807 problem-details body returned for 403 responses. Includes the
+        required role(s) so the caller (or its developer) can act on the
+        failure without inspecting telemetry. The caller's effective roles
+        are deliberately **not** echoed back to avoid leaking authorization
+        posture to unauthenticated clients.
+      required: [type, title, status, detail, requiredOperationClass, requiredRoles]
+      properties:
+        type:
+          type: string
+          format: uri
+          example: 'https://busterminal/problems/authorization/insufficient-role'
+        title:
+          type: string
+          example: 'Insufficient role'
+        status:
+          type: integer
+          example: 403
+        detail:
+          type: string
+          example: 'The calling principal does not hold any role authorized for the requested operation class.'
+        requiredOperationClass:
+          type: string
+          enum: [Read, MutateDomain, OperatePlatform, Administer, DeveloperTooling]
+        requiredRoles:
+          type: array
+          items:
+            type: string
+            enum:
+              - BusTerminal.Admin
+              - BusTerminal.Operator
+              - BusTerminal.Reader
+              - BusTerminal.Developer
+        correlationId:
+          type: string
