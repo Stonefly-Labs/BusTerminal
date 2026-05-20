@@ -69,7 +69,7 @@
     "@playwright/test": "^1.60.0",
     "@storybook/addon-a11y": "^10.3.6",
     "@storybook/addon-docs": "^10.4.0",
-    "@storybook/addon-themes": "^10.3.6",
+    "@storybook/addon-themes": "^10.4.0",
     "@storybook/nextjs": "^10.3.6",
     "@storybook/test-runner": "^0.24.3",
     "@tailwindcss/postcss": "^4",
