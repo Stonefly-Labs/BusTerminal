@@ -174,7 +174,9 @@
       "Bash(az keyvault *)",
       "Bash(curl -sS --max-time 15 https://__TRACKED_VAR__/healthz/ready -w ' ← web /healthz/ready \\(%{http_code}\\)\\\\n')",
       "Bash(curl -sS --max-time 15 https://__TRACKED_VAR__/healthz/ready -w '\\\\n ← api /healthz/ready \\(%{http_code}\\)\\\\n')",
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ]
   },
   "enabledMcpjsonServers": [
