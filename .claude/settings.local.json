@@ -154,7 +154,27 @@
       "Bash(pip3 show *)",
       "Bash(~/Library/Python/3.9/bin/checkov -d iac --config-file iac/.checkov.yaml)",
       "Bash(git rm *)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(gh run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh workflow *)",
+      "Bash(az containerapp *)",
+      "Bash(az resource *)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -o /dev/null -w '  status=%{http_code} total=%{time_total}s\\\\n' --max-time 15 https://ca-bt-dev-web.purplemoss-051f1ff7.eastus2.azurecontainerapps.io/)",
+      "Bash(curl -sS -o /tmp/web.html -w 'status=%{http_code} time=%{time_total}s\\\\n' --max-time 30 https://ca-bt-dev-web.purplemoss-051f1ff7.eastus2.azurecontainerapps.io/)",
+      "Bash(curl -sS --max-time 30 https://ca-bt-dev-web.purplemoss-051f1ff7.eastus2.azurecontainerapps.io/healthz/ready -w '\\\\nstatus=%{http_code}\\\\n')",
+      "Bash(curl -sS --max-time 30 https://__TRACKED_VAR__/healthz/ready -w '\\\\nstatus=%{http_code}\\\\n')",
+      "Bash(curl -sS --max-time 30 https://__TRACKED_VAR__/whoami -w '\\\\nstatus=%{http_code}\\\\n')",
+      "Bash(tofu apply *)",
+      "Bash(gh variable *)",
+      "Bash(az role *)",
+      "Bash(az keyvault *)",
+      "Bash(curl -sS --max-time 15 https://__TRACKED_VAR__/healthz/ready -w ' ← web /healthz/ready \\(%{http_code}\\)\\\\n')",
+      "Bash(curl -sS --max-time 15 https://__TRACKED_VAR__/healthz/ready -w '\\\\n ← api /healthz/ready \\(%{http_code}\\)\\\\n')",
+      "Bash(git fetch *)"
     ]
   },
   "enabledMcpjsonServers": [
