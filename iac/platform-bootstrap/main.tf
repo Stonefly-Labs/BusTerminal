@@ -174,7 +174,19 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
 
   condition_version = "2.0"
   # Scope the RBAC-admin grant: pipeline can only assign roles the workload
-  # actually needs. Prevents privilege escalation per FR-040–FR-052 spirit.
+  # (and the pipeline itself, where needed) actually use. Prevents privilege
+  # escalation per FR-040–FR-052 spirit.
+  #
+  # Allowed role-definition GUIDs (built-in Azure roles):
+  #   7f951dda-4ed3-4680-a7ca-43fe172d538d  AcrPull
+  #     → granted to the workload identity so Container Apps can pull images.
+  #   4633458b-17de-408a-b874-0445c86b69e6  Key Vault Secrets User
+  #     → granted to the workload identity so Container Apps can resolve KV
+  #       secret references at runtime.
+  #   b86a8fe4-44ce-4948-aee5-eccb2c155cd7  Key Vault Secrets Officer
+  #     → granted to the pipeline managed identity itself by the env
+  #       composition so `tofu apply` can manage `azurerm_key_vault_secret`
+  #       resources via AAD (no shared keys on KV).
   condition = <<-CONDITION
     (
       !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
@@ -183,7 +195,8 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
     (
       @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {
         7f951dda-4ed3-4680-a7ca-43fe172d538d,
-        4633458b-17de-408a-b874-0445c86b69e6
+        4633458b-17de-408a-b874-0445c86b69e6,
+        b86a8fe4-44ce-4948-aee5-eccb2c155cd7
       }
     )
   CONDITION

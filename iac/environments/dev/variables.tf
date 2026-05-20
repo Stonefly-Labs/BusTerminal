@@ -90,3 +90,22 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "kv_operator_object_ids" {
+  description = <<-EOT
+    Entra ID object IDs of humans (or break-glass service principals) who need
+    standing `Key Vault Secrets Officer` access on the environment Key Vault.
+
+    Pipeline managed identities do NOT belong here — they receive the role
+    automatically via `azurerm_role_assignment.pipeline_kv_secrets_officer`.
+
+    Each ID listed here gets a separate role assignment scoped to the env KV
+    so on-call operators can set bootstrap secrets (e.g., `WebClientSecret`,
+    `NextAuthSecret`) via `az keyvault secret set` during initial env stand-up
+    without an out-of-band manual grant.
+
+    Wire from CI via `TF_VAR_kv_operator_object_ids` (JSON-encoded list).
+  EOT
+  type        = list(string)
+  default     = []
+}

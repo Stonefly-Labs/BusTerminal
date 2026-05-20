@@ -60,6 +60,65 @@ module "keyvault" {
   tags = local.shared_tags
 }
 
+# Pipeline managed identity data-plane access to the env KV.
+#
+# The composition's principal in CI IS the pipeline managed identity (federated
+# from GitHub OIDC, see iac/platform-bootstrap). `azurerm_key_vault_secret`
+# resources require Key Vault data-plane RBAC; this self-grant supplies it.
+# The bootstrap RBAC-Admin condition explicitly allows assigning this role
+# (b86a8fe4-...) so this `azurerm_role_assignment` write succeeds with the
+# pipeline's existing permissions.
+#
+# Scope is the RG (not the KV) so any future env-scoped KV in this RG inherits
+# the grant — operationally simpler than per-KV assignments.
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
+  scope                = azurerm_resource_group.this.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+  description          = "Pipeline MI manages `azurerm_key_vault_secret` resources in this env via AAD (shared keys are disabled on KV)."
+}
+
+# Operator standing access — populated via `kv_operator_object_ids`. Each
+# entry gets `Key Vault Secrets Officer` scoped to the env KV so on-call
+# humans can set bootstrap secrets (WebClientSecret, NextAuthSecret) via
+# `az keyvault secret set` without an out-of-band grant.
+resource "azurerm_role_assignment" "operator_kv_secrets_officer" {
+  for_each             = toset(var.kv_operator_object_ids)
+  scope                = module.keyvault.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = each.value
+  description          = "Standing operator access for bootstrap-secret seeding. Listed in `kv_operator_object_ids`."
+}
+
+# Azure AD role assignments have eventual-consistency propagation. Without
+# this sleep, the first `azurerm_key_vault_secret` create races propagation
+# of the role assignment and 403s.
+resource "time_sleep" "wait_for_kv_rbac_propagation" {
+  depends_on = [
+    azurerm_role_assignment.pipeline_kv_secrets_officer,
+    azurerm_role_assignment.operator_kv_secrets_officer,
+  ]
+  create_duration = "60s"
+}
+
+# One-time imports for role assignments that were created manually via `az`
+# during the initial dev bootstrap (2026-05-19). Tofu adopts them into state
+# instead of failing on "resource already exists". Import blocks are
+# idempotent — they're a no-op once the resource is in state — and can stay
+# in tree until the team forgets why they exist (or be removed in a later
+# cleanup commit).
+import {
+  to = azurerm_role_assignment.pipeline_kv_secrets_officer
+  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.Authorization/roleAssignments/d78aec1f-2553-464e-9be2-bd382da9818c"
+}
+
+import {
+  to = azurerm_role_assignment.operator_kv_secrets_officer["62936c0c-a840-43e8-a24e-22304b7d7c89"]
+  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.KeyVault/vaults/kv-bt-dev-chdev01/providers/Microsoft.Authorization/roleAssignments/12d618e9-a9ca-4e42-82a7-dc077b5c5a78"
+}
+
 # App Insights connection-string secret in Key Vault, exposed to workloads as a
 # Container Apps secret backed by this Key Vault URI. Placed here (not in the
 # monitoring module) to avoid the KV ↔ monitoring cycle.
@@ -76,6 +135,11 @@ resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   expiration_date = "2099-12-31T23:59:59Z"
 
   tags = local.shared_tags
+
+  # Wait for the KV data-plane RBAC to propagate before tofu attempts the
+  # data-plane secret write. Only matters on first-apply against a fresh
+  # state (subsequent applies already have the role).
+  depends_on = [time_sleep.wait_for_kv_rbac_propagation]
 }
 
 module "container_registry" {

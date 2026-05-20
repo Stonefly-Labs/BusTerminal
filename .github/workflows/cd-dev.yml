@@ -32,6 +32,10 @@ jobs:
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      # JSON-encoded list of Entra object IDs for humans with standing
+      # Secrets Officer access on the env KV. Pipeline MI excluded — it
+      # gets its grant from a tofu self-assignment in the composition.
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
