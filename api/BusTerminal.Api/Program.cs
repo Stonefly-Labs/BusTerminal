@@ -1,10 +1,12 @@
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Health;
 using BusTerminal.Api.Features.Identity;
+using BusTerminal.Api.Features.RoleProbes;
 using BusTerminal.Api.Infrastructure.Authentication;
 using BusTerminal.Api.Infrastructure.Configuration;
 using BusTerminal.Api.Infrastructure.Credentials;
 using BusTerminal.Api.Infrastructure.Observability;
+using Microsoft.AspNetCore.Authorization;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +26,7 @@ builder.Services.AddBusTerminalHealthChecks(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IPlatformPrincipalAccessor, PrincipalAccessor>();
 builder.Services.AddSingleton<IAzureCredentialFactory, AzureCredentialFactory>();
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BusTerminalAuthorizationMiddlewareResultHandler>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();
@@ -43,6 +46,7 @@ app.UseAuthorization();
 
 app.MapBusTerminalHealthEndpoints();
 app.MapWhoAmIEndpoint();
+app.MapRoleProbeEndpoints();
 
 try
 {

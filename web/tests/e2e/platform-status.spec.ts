@@ -16,7 +16,12 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("US1: platform-status round-trip", () => {
-  test("root redirects to signin, dev sign-in lands on platform-status", async ({ page }) => {
+  // Inherited from 002. The "Continue as Dev User" button was provided by
+  // NextAuth's Credentials provider, which spec 003 removed (FR-003). MSAL
+  // has no no-IDP path, so the assertion against a synthetic dev-user sign-in
+  // can no longer run without a real Entra round-trip. Restored by T093 in
+  // Phase 9 polish, which lands the MSAL E2E auth fixture.
+  test.fixme("root redirects to signin, dev sign-in lands on platform-status", async ({ page }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     await expect(page).toHaveURL(/\/signin/);

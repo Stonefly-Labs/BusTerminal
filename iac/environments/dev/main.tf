@@ -308,3 +308,52 @@ resource "azurerm_federated_identity_credential" "workload_environment" {
   issuer              = "https://token.actions.githubusercontent.com"
   subject             = "repo:${var.github_org_repo}:environment:${var.environment_name}"
 }
+
+# Spec 003 — platform app roles on the API app registration.
+#
+# The `bt-dev-api` app registration was created out-of-band in 002 and is not
+# a tofu-managed `azuread_application` resource. Reference it via a data source
+# and pass its id into the new `app-registration-roles` module. Because the
+# parent app is not a managed resource, the module's "ignore_changes = [app_role]"
+# lifecycle requirement (which applies when the parent IS managed) does not
+# apply here. See iac/modules/app-registration-roles/README.md.
+data "azuread_application" "api" {
+  client_id = var.entra_api_client_id
+}
+
+module "app_registration_roles" {
+  source = "../../modules/app-registration-roles"
+
+  api_application_id = data.azuread_application.api.id
+
+  role_definitions = {
+    admin = {
+      role_id              = var.platform_role_ids.admin
+      value                = "BusTerminal.Admin"
+      display_name         = "BusTerminal Administrator"
+      description          = "Full administrative access. Authorizes every operation class: Read, MutateDomain, OperatePlatform, Administer, DeveloperTooling."
+      allowed_member_types = ["User", "Application"]
+    }
+    operator = {
+      role_id              = var.platform_role_ids.operator
+      value                = "BusTerminal.Operator"
+      display_name         = "BusTerminal Operator"
+      description          = "Operational management access. Authorizes Read, MutateDomain, OperatePlatform."
+      allowed_member_types = ["User", "Application"]
+    }
+    reader = {
+      role_id              = var.platform_role_ids.reader
+      value                = "BusTerminal.Reader"
+      display_name         = "BusTerminal Reader"
+      description          = "Read-only access to platform and domain state."
+      allowed_member_types = ["User", "Application"]
+    }
+    developer = {
+      role_id              = var.platform_role_ids.developer
+      value                = "BusTerminal.Developer"
+      display_name         = "BusTerminal Developer"
+      description          = "API/spec/developer-tooling access. Authorizes Read and DeveloperTooling."
+      allowed_member_types = ["User", "Application"]
+    }
+  }
+}

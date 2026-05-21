@@ -1,3 +1,4 @@
+using BusTerminal.Api.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Identity.Web;
 
@@ -47,6 +48,8 @@ public static class AuthenticationExtensions
                 new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
                     .RequireAuthenticatedUser()
                     .Build());
+
+        services.AddBusTerminalRolePolicies();
 
         return services;
     }

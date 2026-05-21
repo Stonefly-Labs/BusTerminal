@@ -189,7 +189,9 @@
       "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.6/microsoft.graph.core.nuspec\")",
       "Bash(grep -v \"^--$\")",
       "Bash(grep -i \"\\\\.tf$\\\\|\\\\.tf\\\\.\")",
-      "Bash(echo \"EXIT=$?\")"
+      "Bash(echo \"EXIT=$?\")",
+      "mcp__microsoft-learn__microsoft_docs_fetch",
+      "Bash(awk '{print NR, $0}')"
     ]
   },
   "enabledMcpjsonServers": [

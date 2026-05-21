@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
+using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Identity;
 using BusTerminal.Api.Infrastructure.Authentication;
 using FluentAssertions;
@@ -47,8 +48,30 @@ public sealed class WhoAmIEndpointTests : IClassFixture<WhoAmIAppFactory>
         body.Principal.DisplayName.Should().Be(MockAuthenticationHandler.DevPrincipalDisplayName);
         body.Principal.PreferredUsername.Should().Be(MockAuthenticationHandler.DevPrincipalUpn);
         body.Principal.TenantId.Should().Be(MockAuthenticationHandler.DevTenantId);
+        body.Principal.CallerType.Should().Be(nameof(CallerType.Human));
+        body.Principal.EffectiveRoles.Should().BeEmpty();
         body.Server.Revision.Should().NotBeNullOrWhiteSpace();
         body.Server.Environment.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task AuthenticatedRequest_WithMockRolesHeader_EchoesEffectiveRoles()
+    {
+        using var client = _factory.CreateClient();
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/whoami");
+        request.Headers.Add(
+            MockAuthenticationHandler.MockRolesHeader,
+            $"{PlatformRoleClaims.Operator},{PlatformRoleClaims.Reader}");
+
+        var response = await client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var body = await response.Content.ReadFromJsonAsync<WhoAmIResponse>();
+        body.Should().NotBeNull();
+        body!.Principal.CallerType.Should().Be(nameof(CallerType.Human));
+        body.Principal.EffectiveRoles.Should().BeEquivalentTo(
+            new[] { PlatformRoleClaims.Operator, PlatformRoleClaims.Reader });
     }
 
     [Fact]

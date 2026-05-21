@@ -1,19 +1,26 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useCallback } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { signOut } from "@/lib/auth";
-
-export const metadata: Metadata = {
-  title: "Sign out",
-};
-
-async function confirmSignOutAction() {
-  "use server";
-  await signOut({ redirectTo: "/" });
-}
+import { msalReady, pca } from "@/lib/auth/msal-instance";
 
 export default function SignOutPage() {
+  const handleSignOut = useCallback(() => {
+    void msalReady
+      .then(() => {
+        const account = pca.getActiveAccount() ?? pca.getAllAccounts()[0] ?? null;
+        return pca.logoutRedirect({
+          account,
+          postLogoutRedirectUri: "/",
+        });
+      })
+      .catch(() => {
+        // Redirect failure is rare; user can re-try via the button.
+      });
+  }, []);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-canvas p-6">
       <Card className="w-full max-w-md">
@@ -24,11 +31,15 @@ export default function SignOutPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={confirmSignOutAction}>
-            <Button type="submit" intent="primary" className="w-full">
-              Confirm sign out
-            </Button>
-          </form>
+          <Button
+            type="button"
+            intent="primary"
+            className="w-full"
+            onClick={handleSignOut}
+            data-testid="signout-confirm"
+          >
+            Confirm sign out
+          </Button>
         </CardContent>
       </Card>
     </div>
