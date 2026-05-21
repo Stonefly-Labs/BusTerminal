@@ -1,104 +1,83 @@
-import NextAuth, { type NextAuthConfig, type Session } from "next-auth";
-import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
-import Credentials from "next-auth/providers/credentials";
+/**
+ * Phase 2 → Phase 4 transitional shim.
+ *
+ * Phase 1 (T001) removed `next-auth` from `package.json`. The inherited
+ * 002 callers — `app/page.tsx`, `app/(authenticated)/**`, `app/(auth)/**`,
+ * `app/api/auth/[...nextauth]/route.ts`, `middleware.ts` — still import
+ * from this module. Phase 3 (T041–T047) rewires them to MSAL and Phase 4
+ * (T055) deletes this file entirely.
+ *
+ * Until then, this hand-rolled shim supplies type-compatible no-ops so
+ * `pnpm typecheck` stays green. The exports return null sessions and do
+ * not authenticate anybody — the real wiring is being rebuilt around them.
+ */
 
-declare module "next-auth" {
-  interface Session {
-    accessToken?: string;
-  }
-}
+/* eslint-disable @typescript-eslint/no-unused-vars -- transitional shim */
 
-type JwtWithAccessToken = { accessToken?: string };
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const DEV_TENANT_SENTINEL = "development";
 export const MOCK_PROVIDER_ID = "mock-dev";
+export const isMockAuthActive = false;
 
-const tenantId = process.env.AZURE_AD_TENANT_ID ?? "";
-const clientId = process.env.AZURE_AD_CLIENT_ID ?? "";
-const clientSecret = process.env.AZURE_AD_CLIENT_SECRET ?? "";
-
-const isMockTenant = tenantId === DEV_TENANT_SENTINEL;
-
-const MOCK_USER = {
-  id: "00000000-0000-0000-0000-000000000001",
-  name: "Dev User",
-  email: "dev.user@busterminal.local",
-} as const;
-
-const MOCK_ACCESS_TOKEN = "mock-access-token-development-only";
-
-function buildEntraProviderConfig() {
-  const base = { clientId, clientSecret };
-  if (tenantId && !isMockTenant) {
-    return { ...base, issuer: `https://login.microsoftonline.com/${tenantId}/v2.0` };
-  }
-  return base;
+export interface SessionUser {
+  readonly id?: string;
+  readonly name?: string | null;
+  readonly email?: string | null;
+  readonly image?: string | null;
 }
 
-// In mock mode, register a Credentials provider that synthesizes the dev user
-// without any OAuth redirect. This is the only provider available when
-// `AZURE_AD_TENANT_ID === "development"`, so a real OAuth round-trip is
-// impossible — the dev sign-in completes locally and never talks to Microsoft.
-// Gated to non-production environments by the `assertNonProduction` check
-// inside `authorize()`.
-const mockProvider = Credentials({
-  id: MOCK_PROVIDER_ID,
-  name: "Dev User (mock)",
-  credentials: {},
-  authorize: async () => {
-    if (process.env.NODE_ENV === "production" && process.env.ALLOW_MOCK_AUTH !== "true") {
-      throw new Error(
-        "Mock authentication is disabled in production. Set AZURE_AD_TENANT_ID to a real tenant.",
-      );
-    }
-    return {
-      id: MOCK_USER.id,
-      name: MOCK_USER.name,
-      email: MOCK_USER.email,
+export interface Session {
+  readonly accessToken?: string;
+  readonly user?: SessionUser;
+}
+
+type AuthMiddlewareResult =
+  | Response
+  | undefined
+  | void
+  | Promise<Response | undefined | void>;
+
+type AuthMiddlewareHandler = (
+  request: NextRequest & { auth: unknown },
+) => AuthMiddlewareResult;
+
+export function auth(): Promise<Session | null>;
+export function auth(
+  handler: AuthMiddlewareHandler,
+): (request: NextRequest) => Promise<Response>;
+export function auth(
+  handler?: AuthMiddlewareHandler,
+): Promise<Session | null> | ((request: NextRequest) => Promise<Response>) {
+  if (handler) {
+    return async (request: NextRequest) => {
+      const augmented = Object.assign(request, { auth: null as unknown });
+      const result = await handler(augmented as NextRequest & { auth: unknown });
+      return (result as Response | undefined) ?? NextResponse.next();
     };
-  },
-});
+  }
+  return Promise.resolve(null);
+}
 
-const providers = isMockTenant
-  ? [mockProvider]
-  : [MicrosoftEntraID(buildEntraProviderConfig())];
+interface SignInOptions {
+  readonly redirectTo?: string;
+}
 
-export const authConfig: NextAuthConfig = {
-  providers,
-  trustHost: true,
-  session: { strategy: "jwt" },
-  callbacks: {
-    async jwt({ token, account }) {
-      const extended = token as typeof token & JwtWithAccessToken;
-      if (account?.access_token) {
-        extended.accessToken = account.access_token;
-      }
-      if (isMockTenant && !extended.accessToken) {
-        extended.accessToken = MOCK_ACCESS_TOKEN;
-        extended.sub = MOCK_USER.id;
-        extended.name = MOCK_USER.name;
-        extended.email = MOCK_USER.email;
-      }
-      return extended;
-    },
-    async session({ session, token }) {
-      const extendedToken = token as typeof token & JwtWithAccessToken;
-      if (typeof extendedToken.accessToken === "string") {
-        session.accessToken = extendedToken.accessToken;
-      }
-      if (isMockTenant && session.user) {
-        session.user.name ??= MOCK_USER.name;
-        session.user.email ??= MOCK_USER.email;
-      }
-      return session satisfies Session;
-    },
-  },
-  pages: {
-    signIn: "/signin",
-    signOut: "/signout",
-  },
+export async function signIn(_provider?: string, _options?: SignInOptions): Promise<void> {
+  // Phase 3 T041 replaces every caller with MSAL `loginRedirect`.
+}
+
+interface SignOutOptions {
+  readonly redirectTo?: string;
+}
+
+export async function signOut(_options?: SignOutOptions): Promise<void> {
+  // Phase 3 T042 / T047 replace callers with MSAL `logoutRedirect`.
+}
+
+export const handlers = {
+  GET: async (_request: Request): Promise<Response> =>
+    new Response(null, { status: 410, statusText: "Gone — NextAuth removed in spec 003" }),
+  POST: async (_request: Request): Promise<Response> =>
+    new Response(null, { status: 410, statusText: "Gone — NextAuth removed in spec 003" }),
 };
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
-
-export const isMockAuthActive = isMockTenant;

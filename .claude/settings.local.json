@@ -186,7 +186,10 @@
       "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/index.json\")",
       "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\)['versions']; stable=[x for x in v if '-' not in x]; print\\('latest 3.x:', [x for x in stable if x.startswith\\('3.'\\)][-5:]\\)\")",
       "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.5/microsoft.graph.core.nuspec\")",
-      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.6/microsoft.graph.core.nuspec\")"
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.6/microsoft.graph.core.nuspec\")",
+      "Bash(grep -v \"^--$\")",
+      "Bash(grep -i \"\\\\.tf$\\\\|\\\\.tf\\\\.\")",
+      "Bash(echo \"EXIT=$?\")"
     ]
   },
   "enabledMcpjsonServers": [

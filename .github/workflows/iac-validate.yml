@@ -85,6 +85,7 @@ jobs:
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
       # The plan uses placeholder image refs — actual rollouts happen via cd-dev.yml.
       TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
       TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
