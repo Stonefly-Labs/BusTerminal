@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import "@/lib/observability/register-adapters";
 import { Providers } from "./providers";
+import { MsalProvider } from "@/components/auth/msal-provider";
 import { directionForLocale } from "@/lib/i18n";
 import { THEME_STORAGE_KEY } from "@/lib/theme-provider-constants";
 import {
@@ -94,7 +95,9 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-surface-canvas text-foreground-default">
-        <Providers>{children}</Providers>
+        <MsalProvider>
+          <Providers>{children}</Providers>
+        </MsalProvider>
       </body>
     </html>
   );

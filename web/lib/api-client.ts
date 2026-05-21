@@ -1,18 +1,23 @@
 /**
  * Typed API client for the BusTerminal backend.
  *
- * Wraps `httpFetch` (which already injects W3C `traceparent` and emits a
- * custom observability event) and adds:
- *   - `Authorization: Bearer <session.accessToken>` from the active Auth.js session
- *   - 401 handling that surfaces a discriminated-union result so callers do
- *     not have to throw/catch
- *   - JSON parsing into a typed `data` field
+ * - Acquires the API access token from MSAL via `acquireTokenSilent` when the
+ *   caller does not pass one explicitly. Falls back to `acquireTokenRedirect`
+ *   when interaction is required.
+ * - Propagates a W3C `traceparent` header on every request (constitution-bound
+ *   trace-context requirement).
+ * - On a 401 response (after an MSAL-acquired token), retries the call once
+ *   with `forceRefresh: true` to dislodge a stale silent-cache entry.
  *
- * Server-component callers should pass an explicit session (fetched via
- * `auth()` in the calling component) so we don't reach for `auth()` at module
- * import time and accidentally couple `lib/auth.ts` to non-server code paths.
+ * Callers may pass an explicit `accessToken` to bypass MSAL entirely — useful
+ * for tests and for any short-lived callers that hold a token directly. When
+ * an explicit token is supplied, the 401 retry path is skipped.
  */
 
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+
+import { msalReady, pca } from "@/lib/auth/msal-instance";
+import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 import { httpFetch, type HttpFetchOptions } from "@/lib/http/client";
 import { generateTraceparent } from "@/lib/telemetry/trace-context";
 
@@ -52,6 +57,35 @@ function buildUrl(path: string): string {
   return `${base}${suffix}`;
 }
 
+async function acquireAccessToken(forceRefresh: boolean): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    await msalReady;
+  } catch {
+    return null;
+  }
+  const account = pca.getActiveAccount() ?? pca.getAllAccounts()[0] ?? null;
+  if (!account) {
+    return null;
+  }
+  try {
+    const response = await pca.acquireTokenSilent({
+      scopes: [...API_SCOPE_REQUEST.scopes],
+      account,
+      forceRefresh,
+    });
+    return response.accessToken;
+  } catch (err) {
+    if (err instanceof InteractionRequiredAuthError) {
+      await pca.acquireTokenRedirect({ scopes: [...API_SCOPE_REQUEST.scopes] });
+      return null;
+    }
+    return null;
+  }
+}
+
 export async function apiGet<T>(
   path: string,
   options: ApiCallOptions = {},
@@ -64,14 +98,25 @@ export async function apiCall<T>(
   method: string,
   options: ApiCallOptions = {},
 ): Promise<ApiResult<T>> {
-  const { accessToken, headers: userHeaders, init, ...rest } = options;
+  return performCall<T>(path, method, options, false);
+}
+
+async function performCall<T>(
+  path: string,
+  method: string,
+  options: ApiCallOptions,
+  hasRetried: boolean,
+): Promise<ApiResult<T>> {
+  const { accessToken: explicitToken, headers: userHeaders, init, ...rest } = options;
+  const usingExplicitToken = typeof explicitToken === "string";
+  const token = usingExplicitToken ? explicitToken : await acquireAccessToken(false);
+
   const headers: Record<string, string> = {
     accept: "application/json",
     ...(userHeaders ?? {}),
   };
-
-  if (accessToken) {
-    headers.authorization = `Bearer ${accessToken}`;
+  if (token) {
+    headers.authorization = `Bearer ${token}`;
   }
 
   const traceparent = headers[TRACE_HEADER_NAME] ?? generateTraceparent();
@@ -86,6 +131,12 @@ export async function apiCall<T>(
     });
 
     if (response.status === 401) {
+      if (!hasRetried && !usingExplicitToken) {
+        const refreshed = await acquireAccessToken(true);
+        if (refreshed) {
+          return performCall<T>(path, method, options, true);
+        }
+      }
       return { ok: false, error: "unauthenticated", traceparent };
     }
     if (response.status === 403) {

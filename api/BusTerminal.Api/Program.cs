@@ -1,7 +1,9 @@
+using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Health;
 using BusTerminal.Api.Features.Identity;
 using BusTerminal.Api.Infrastructure.Authentication;
 using BusTerminal.Api.Infrastructure.Configuration;
+using BusTerminal.Api.Infrastructure.Credentials;
 using BusTerminal.Api.Infrastructure.Observability;
 using Serilog;
 
@@ -18,6 +20,10 @@ builder.WebHost.ConfigureKestrel(options =>
 
 builder.Services.AddBusTerminalAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddBusTerminalHealthChecks(builder.Configuration);
+
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IPlatformPrincipalAccessor, PrincipalAccessor>();
+builder.Services.AddSingleton<IAzureCredentialFactory, AzureCredentialFactory>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();

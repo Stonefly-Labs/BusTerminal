@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Security.Claims;
-using BusTerminal.Api.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace BusTerminal.Api.Features.Identity;
@@ -12,7 +11,7 @@ public static class WhoAmIEndpoint
     public static IEndpointRouteBuilder MapWhoAmIEndpoint(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/whoami", HandleAsync)
-            .RequireAuthorization(AuthenticationExtensions.RequireAuthenticatedUserPolicy)
+            .RequireAuthorization()
             .WithName("WhoAmI");
 
         return endpoints;
