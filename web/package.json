@@ -28,6 +28,8 @@
     "audit:review-records": "node scripts/audit-review-records.mjs"
   },
   "dependencies": {
+    "@azure/msal-browser": "^4",
+    "@azure/msal-react": "^3",
     "@hookform/resolvers": "^3.9.1",
     "@microsoft/applicationinsights-react-js": "^17.3.6",
     "@microsoft/applicationinsights-web": "^3.4.1",
@@ -52,7 +54,6 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "^16",
-    "next-auth": "5.0.0-beta.31",
     "next-themes": "^0.4.6",
     "react": "^19",
     "react-dom": "^19",

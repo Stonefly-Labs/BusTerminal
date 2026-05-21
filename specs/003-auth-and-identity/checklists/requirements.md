@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain *(3 deliberate markers — see Clarifications section in spec.md; resolve via `/speckit-clarify` before `/speckit-plan`)*
+- [X] No [NEEDS CLARIFICATION] markers remain *(all 3 originally-deliberate markers resolved in the 2026-05-19 clarify session; spec.md grep confirms zero remaining markers)*
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -33,5 +33,5 @@
 
 - The spec deliberately names the four platform roles (BusTerminal.Admin/Operator/Reader/Developer) because they come from the source artifact and are part of the product contract — naming them is requirements content, not an implementation detail.
 - The spec mentions Microsoft Entra ID, OpenTofu, Key Vault, Cosmos DB, AI Search, Azure OpenAI, Service Bus, App Configuration, Log Analytics, Application Insights, GitHub OIDC, and Microsoft Graph by name. These are not implementation choices being decided in the spec — they are the *platform context* established by the constitution and prior specs. Naming them is necessary for the spec to be unambiguous about which integration boundaries are in scope.
-- Three [NEEDS CLARIFICATION] markers are intentionally retained for `/speckit-clarify`: (1) the NextAuth-vs-MSAL question affects scope materially; (2) app-roles-vs-groups affects the Tofu module shape; (3) Admin-bootstrap policy affects the operational documentation deliverable. All three meet the "significantly impacts scope" bar; defaults are documented in Assumptions so planning can proceed against the defaults if clarification is deferred.
-- Spec quality criteria pass except the one [NEEDS CLARIFICATION] item, which is deferred to `/speckit-clarify` by design.
+- Three [NEEDS CLARIFICATION] markers were originally retained for `/speckit-clarify`: (1) NextAuth-vs-MSAL, (2) app-roles-vs-groups, (3) Admin-bootstrap policy. **All three were resolved in the 2026-05-19 clarify session** (see `## Clarifications` in spec.md), along with two additional follow-ups (operation-class matrix, Graph permission scope). Spec now contains zero `[NEEDS CLARIFICATION]` markers.
+- Spec quality criteria fully pass as of 2026-05-20.

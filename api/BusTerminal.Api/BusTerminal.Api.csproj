@@ -13,6 +13,12 @@
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
+    <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
+         which pins Microsoft.Kiota.* 1.21.1 (GHSA-7j59-v9qr-6fq9). Forcing Graph.Core
+         3.2.6 brings Kiota.* 1.22.1 (patched). Remove this override when Microsoft.Graph
+         ships a release whose transitive Graph.Core is >= 3.2.6. -->
+    <PackageReference Include="Microsoft.Graph.Core" Version="3.2.6" />
     <PackageReference Include="Microsoft.Identity.Web" Version="4.9.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />

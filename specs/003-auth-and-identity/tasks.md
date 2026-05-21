@@ -33,12 +33,12 @@ description: "Task list for Auth and Identity (spec 003)"
 
 **Purpose**: Add the new tooling (libraries, IaC providers) the slice depends on. No business logic.
 
-- [ ] T001 [P] Remove `next-auth` from `web/package.json` dependencies and run `pnpm install` to update `pnpm-lock.yaml`.
-- [ ] T002 [P] Add `@azure/msal-browser@^4` and `@azure/msal-react@^3` to `web/package.json` dependencies; run `pnpm install` to update `pnpm-lock.yaml`.
-- [ ] T003 [P] Add `Microsoft.Graph` (latest v5.x) NuGet package reference to `api/BusTerminal.Api/BusTerminal.Api.csproj`.
-- [ ] T004 Add `hashicorp/azuread` provider pinned to `~> 3.1` to `iac/environments/dev/providers.tf` alongside the existing `azurerm` provider; run `tofu init -upgrade` to download the provider.
-- [ ] T005 [P] Update `web/.env.local.example` to replace NextAuth variables (`AZURE_AD_*`, `NEXTAUTH_*`) with MSAL variables (`NEXT_PUBLIC_AZURE_AD_TENANT_ID`, `NEXT_PUBLIC_AZURE_AD_CLIENT_ID`, `NEXT_PUBLIC_API_SCOPE`, `NEXT_PUBLIC_API_BASE_URL`) per `quickstart.md` § C.3.
-- [ ] T006 [P] Update `api/BusTerminal.Api/appsettings.Development.json.example` to document the `AzureAd:Audience` setting required by `Microsoft.Identity.Web` for token validation against the API app registration (per `quickstart.md` § C.3).
+- [X] T001 [P] Remove `next-auth` from `web/package.json` dependencies and run `pnpm install` to update `pnpm-lock.yaml`.
+- [X] T002 [P] Add `@azure/msal-browser@^4` and `@azure/msal-react@^3` to `web/package.json` dependencies; run `pnpm install` to update `pnpm-lock.yaml`.
+- [X] T003 [P] Add `Microsoft.Graph` (latest v5.x) NuGet package reference to `api/BusTerminal.Api/BusTerminal.Api.csproj`. *(Resolved 5.105.0; transitive override `Microsoft.Graph.Core 3.2.6` added to dodge GHSA-7j59-v9qr-6fq9 in Kiota 1.21.1 — removable when Graph ships a release whose transitive Graph.Core is ≥ 3.2.6.)*
+- [X] T004 Add `hashicorp/azuread` provider pinned to `~> 3.1` to `iac/environments/dev/providers.tf` alongside the existing `azurerm` provider; run `tofu init -upgrade` to download the provider. *(Initialized via `tofu init -upgrade -backend=false` per backend.tf's documented local-dev path; azuread resolved to v3.8.0.)*
+- [X] T005 [P] Update `web/.env.local.example` to replace NextAuth variables (`AZURE_AD_*`, `NEXTAUTH_*`) with MSAL variables (`NEXT_PUBLIC_AZURE_AD_TENANT_ID`, `NEXT_PUBLIC_AZURE_AD_CLIENT_ID`, `NEXT_PUBLIC_API_SCOPE`, `NEXT_PUBLIC_API_BASE_URL`) per `quickstart.md` § C.3. *(File did not previously exist; created it. Also added `!.env*.example` exception to `web/.gitignore` so source-controlled templates are not swept up by the blanket `.env*` rule.)*
+- [X] T006 [P] Update `api/BusTerminal.Api/appsettings.Development.json.example` to document the `AzureAd:Audience` setting required by `Microsoft.Identity.Web` for token validation against the API app registration (per `quickstart.md` § C.3).
 
 ---
 

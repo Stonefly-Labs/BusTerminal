@@ -177,7 +177,16 @@
       "Bash(git fetch *)",
       "Bash(git pull *)",
       "Bash(git stash *)",
-      "Bash(git -c core.pager=cat log --oneline -5)"
+      "Bash(git -c core.pager=cat log --oneline -5)",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph/index.json\")",
+      "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\)['versions']; v5=[x for x in v if x.startswith\\('5.'\\) and '-' not in x]; print\\('latest 5.x stable:', v5[-1] if v5 else 'NONE'\\); print\\('count 5.x:', len\\(v5\\)\\)\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.kiota.abstractions/index.json\")",
+      "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\)['versions']; stable=[x for x in v if '-' not in x]; print\\('latest stable:', stable[-1] if stable else 'NONE'\\); print\\('recent stable:', stable[-5:]\\)\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph/5.105.0/microsoft.graph.nuspec\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/index.json\")",
+      "Bash(python3 -c \"import json,sys; v=json.load\\(sys.stdin\\)['versions']; stable=[x for x in v if '-' not in x]; print\\('latest 3.x:', [x for x in stable if x.startswith\\('3.'\\)][-5:]\\)\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.5/microsoft.graph.core.nuspec\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.graph.core/3.2.6/microsoft.graph.core.nuspec\")"
     ]
   },
   "enabledMcpjsonServers": [
