@@ -146,9 +146,17 @@ jobs:
 
       - name: Comment plan on PR
         uses: actions/github-script@v7
+        env:
+          # Pass the plan text via an env var, not via `${{ ... }}` expression
+          # interpolation directly into the script body. The plan output can
+          # contain backticks (e.g., AVM deprecation warnings like
+          # ``metric`` has been deprecated…``) which would otherwise close
+          # the JS template literal early and break script parsing with
+          # `SyntaxError: Unexpected identifier 'metric'`.
+          PLAN: ${{ steps.plan.outputs.plan }}
         with:
           script: |
-            const plan = `${{ steps.plan.outputs.plan }}`;
+            const plan = process.env.PLAN || '(empty plan output)';
             const body = [
               '### OpenTofu plan — `dev`',
               '',
