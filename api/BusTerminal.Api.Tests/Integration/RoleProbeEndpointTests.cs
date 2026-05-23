@@ -5,9 +5,13 @@ using System.Text.Json;
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.RoleProbes;
 using BusTerminal.Api.Infrastructure.Authentication;
+using BusTerminal.Api.Infrastructure.Graph;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Xunit;
 
 namespace BusTerminal.Api.Tests.Integration;
@@ -166,5 +170,30 @@ public sealed class RoleProbeAppFactory : WebApplicationFactory<Program>
         builder.UseSetting("AzureAd:Instance", "https://login.microsoftonline.com/");
         builder.UseSetting("AzureAd:ClientId", "00000000-0000-0000-0000-000000000000");
         builder.UseSetting("AzureAd:Audience", "api://busterminal-dev");
+
+        // Replace the real GraphClient with a stub so integration tests don't
+        // round-trip to the dev tenant (slow, requires admin consent, ties
+        // test outcomes to network/tenant state). GraphClient's own behavior
+        // is covered by Unit/Graph/GraphClientTests; this stub keeps the
+        // /probe/developer endpoint's response-shape contract verifiable
+        // without that coupling.
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IGraphClient>();
+            services.AddScoped<IGraphClient, StubGraphClient>();
+        });
+    }
+
+    private sealed class StubGraphClient : IGraphClient
+    {
+        public Task<GraphUser?> ResolveUserAsync(string objectId, CancellationToken cancellationToken)
+        {
+            // Mock-auth oids look like 00000000-0000-0000-0000-00000000000X.
+            // Returning null mimics the "User.Read.All consent not yet granted"
+            // path that the probe endpoint handles gracefully — the response
+            // shape (200 with graphResolvedDisplayName: null) is what we want
+            // to assert against in the matrix tests.
+            return Task.FromResult<GraphUser?>(null);
+        }
     }
 }

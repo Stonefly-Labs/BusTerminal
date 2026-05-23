@@ -5,6 +5,7 @@ using BusTerminal.Api.Features.RoleProbes;
 using BusTerminal.Api.Infrastructure.Authentication;
 using BusTerminal.Api.Infrastructure.Configuration;
 using BusTerminal.Api.Infrastructure.Credentials;
+using BusTerminal.Api.Infrastructure.Graph;
 using BusTerminal.Api.Infrastructure.Observability;
 using Microsoft.AspNetCore.Authorization;
 using Serilog;
@@ -28,6 +29,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IPlatformPrincipalAccessor, PrincipalAccessor>();
 builder.Services.AddSingleton<IAzureCredentialFactory>(azureCredentialFactory);
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BusTerminalAuthorizationMiddlewareResultHandler>();
+builder.Services.AddBusTerminalGraphClient();
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();

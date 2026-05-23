@@ -371,6 +371,23 @@ module "probe_job_internal_caller" {
   tags = local.shared_tags
 }
 
+# Spec 003 / US6 / FR-024 — Microsoft Graph application-permission grant on
+# the API app registration. Declares `User.Read.All` (the sole permission this
+# slice grants — `contracts/graph-permissions-inventory.md` is the binding
+# inventory). Admin consent is NOT performed by Tofu (FR-024 + research § 9):
+# after `tofu apply`, a tenant admin must grant consent in the Entra portal
+# (or `az ad app permission admin-consent --id <bt-dev-api-app-id>`) before
+# any `IGraphClient` call succeeds. See quickstart.md § A.2.3.
+module "graph_permissions" {
+  source = "../../modules/graph-permissions"
+
+  api_application_id = data.azuread_application.api.id
+
+  granted_application_permission_ids = [
+    "df021288-bdef-4463-88db-98f22de89214", # User.Read.All (Application)
+  ]
+}
+
 module "app_registration_roles" {
   source = "../../modules/app-registration-roles"
 
