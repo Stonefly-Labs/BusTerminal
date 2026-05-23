@@ -227,7 +227,15 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(j['name'], '->', [\\(s['name'], s['conclusion']\\) for s in j['steps']]\\) for j in d['jobs']]\")",
       "Bash(awk '/GITHUB_TOKEN Permissions/,/endgroup/')",
       "Bash(gh api *)",
-      "WebFetch(domain:www.githubstatus.com)"
+      "WebFetch(domain:www.githubstatus.com)",
+      "Bash(az account show *)",
+      "Bash(tofu output *)",
+      "Bash(TF_VAR_subscription_id=08b37dc0-0011-4841-84c0-0349a5c65883 TF_VAR_unique_suffix=chdev01 TF_VAR_github_org_repo=Stonefly-Labs/BusTerminal TF_VAR_entra_tenant_id=596c1564-6e95-4c35-a80b-2dbe45a162f3 TF_VAR_entra_api_client_id=9fb329a3-7b5b-4fdf-a46a-71f7df1d6716 TF_VAR_entra_web_client_id=84ca372d-8d45-4527-967f-868a3336985b TF_VAR_kv_operator_object_ids='[\"62936c0c-a840-43e8-a24e-22304b7d7c89\"]' TF_VAR_frontend_image=mcr.microsoft.com/azuredocs/aci-helloworld:latest TF_VAR_backend_image=mcr.microsoft.com/azuredocs/aci-helloworld:latest ARM_USE_OIDC=false ARM_USE_AZUREAD=true tofu plan -out=tfplan -compact-warnings)",
+      "Bash(tofu show *)",
+      "Bash(rm -f tfplan)",
+      "Bash(rm -rf .terraform .terraform.lock.hcl)",
+      "Bash(awk *)",
+      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-credentials.sh)"
     ]
   },
   "enabledMcpjsonServers": [
