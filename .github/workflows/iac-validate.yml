@@ -134,7 +134,13 @@ jobs:
         id: plan
         run: |
           set +e
-          tofu plan -no-color -out=tfplan > plan.out 2>&1
+          # `-lock-timeout=300s` lets the plan wait up to 5 minutes if a
+          # concurrent `tofu apply` (typically `cd-dev.yml` triggered by a
+          # push to `main`) is holding the state lock. Without this, plan
+          # exits 1 on lock contention and the PR check flakes for reasons
+          # unrelated to the diff. 5 minutes comfortably covers a worst-case
+          # cd-dev apply window.
+          tofu plan -no-color -lock-timeout=300s -out=tfplan > plan.out 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           # Cap comment size at ~60KB to stay under the GitHub comment limit.
           head -c 60000 plan.out > plan.trimmed
