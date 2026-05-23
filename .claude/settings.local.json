@@ -223,7 +223,11 @@
       "Bash(python3 -c \"import sys, tomllib\")",
       "Bash(yq *)",
       "Bash(gh pr *)",
-      "Bash(grep -v \"^\\\\s*$\")"
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(j['name'], '->', [\\(s['name'], s['conclusion']\\) for s in j['steps']]\\) for j in d['jobs']]\")",
+      "Bash(awk '/GITHUB_TOKEN Permissions/,/endgroup/')",
+      "Bash(gh api *)",
+      "WebFetch(domain:www.githubstatus.com)"
     ]
   },
   "enabledMcpjsonServers": [
