@@ -221,7 +221,9 @@
       "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-iam.sh)",
       "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.github/workflows/iac-validate.yml'\\)\\)\")",
       "Bash(python3 -c \"import sys, tomllib\")",
-      "Bash(yq *)"
+      "Bash(yq *)",
+      "Bash(gh pr *)",
+      "Bash(grep -v \"^\\\\s*$\")"
     ]
   },
   "enabledMcpjsonServers": [
