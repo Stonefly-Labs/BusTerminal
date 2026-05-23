@@ -11,7 +11,8 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddBusTerminalKeyVault(builder.Environment);
+var azureCredentialFactory = new AzureCredentialFactory(builder.Environment);
+builder.Configuration.AddBusTerminalKeyVault(builder.Environment, azureCredentialFactory);
 
 builder.AddBusTerminalTelemetry();
 
@@ -25,7 +26,7 @@ builder.Services.AddBusTerminalHealthChecks(builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IPlatformPrincipalAccessor, PrincipalAccessor>();
-builder.Services.AddSingleton<IAzureCredentialFactory, AzureCredentialFactory>();
+builder.Services.AddSingleton<IAzureCredentialFactory>(azureCredentialFactory);
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BusTerminalAuthorizationMiddlewareResultHandler>();
 
 builder.Services.AddOpenApi();

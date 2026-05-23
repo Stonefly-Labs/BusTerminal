@@ -215,7 +215,9 @@
       "Bash(gitleaks detect *)",
       "mcp__microsoft-learn__microsoft_code_sample_search",
       "Bash(tflint --recursive)",
-      "Bash(TF_VAR_probe_job_enabled=true tofu validate)"
+      "Bash(TF_VAR_probe_job_enabled=true tofu validate)",
+      "Bash(bash *)",
+      "Bash(command -v gitleaks)"
     ]
   },
   "enabledMcpjsonServers": [

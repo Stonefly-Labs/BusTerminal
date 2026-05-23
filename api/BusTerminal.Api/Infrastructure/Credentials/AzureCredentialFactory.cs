@@ -19,9 +19,19 @@ public sealed class AzureCredentialFactory : IAzureCredentialFactory
 
     public TokenCredential CreateCredential(string? userAssignedClientId = null)
     {
-        if (_environment.IsDevelopment())
+        var options = BuildOptions(_environment, userAssignedClientId);
+        return options is null
+            ? new DefaultAzureCredential()
+            : new DefaultAzureCredential(options);
+    }
+
+    internal static DefaultAzureCredentialOptions? BuildOptions(
+        IHostEnvironment environment,
+        string? userAssignedClientId)
+    {
+        if (environment.IsDevelopment())
         {
-            return new DefaultAzureCredential();
+            return null;
         }
 
         var options = new DefaultAzureCredentialOptions();
@@ -29,6 +39,6 @@ public sealed class AzureCredentialFactory : IAzureCredentialFactory
         {
             options.ManagedIdentityClientId = userAssignedClientId;
         }
-        return new DefaultAzureCredential(options);
+        return options;
     }
 }

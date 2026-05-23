@@ -118,6 +118,11 @@ The frontend's MSAL config still signs in to the **dev** tenant for local develo
 
 ### C.1 First-time setup (extending the slice-002 quickstart)
 
+> **Authoritative developer-onboarding reference**: `docs/local-development.md` § 0 lists
+> the prerequisite Entra-account + role-grant + `az login` steps that the
+> `scripts/start-local.{sh,ps1}` launcher validates on every run. This section
+> mirrors them for operators preparing developer access.
+
 After completing the slice-002 prerequisites (Part 1–2 of `specs/002-solution-foundation/quickstart.md`):
 
 ```powershell
