@@ -124,8 +124,8 @@ components:
           type: string
           description: Object ID (UUID) of the signed-in principal in Entra ID.
         displayName:
-          type: string
-          description: Display name as known to Entra ID. May be null for some token shapes (then this field is omitted).
+          type: [string, "null"]
+          description: Display name as known to Entra ID. Null when the access token did not carry a usable display-name claim.
         preferredUsername:
           type: [string, "null"]
           description: UPN-like identifier suitable for display. Optional; null when the access token did not carry a `preferred_username` claim.

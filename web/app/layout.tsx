@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import "@/lib/observability/register-adapters";
@@ -88,9 +87,8 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <Script
+        <script
           id="bt-anti-fouc"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: ANTI_FOUC_SCRIPT }}
         />
       </head>

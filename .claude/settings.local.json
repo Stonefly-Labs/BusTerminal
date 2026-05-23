@@ -191,7 +191,13 @@
       "Bash(grep -i \"\\\\.tf$\\\\|\\\\.tf\\\\.\")",
       "Bash(echo \"EXIT=$?\")",
       "mcp__microsoft-learn__microsoft_docs_fetch",
-      "Bash(awk '{print NR, $0}')"
+      "Bash(awk '{print NR, $0}')",
+      "Bash(awk -F'\\\\t' '{print $1}' /Users/christopherhouse/.claude/projects/-Users-christopherhouse-projects-BusTerminal/c7bd66be-66be-4547-9f80-65beb15dea8b/tool-results/bxqoh3wzs.txt)",
+      "Bash(npx --yes @redocly/cli@latest lint specs/002-solution-foundation/contracts/whoami.openapi.yaml)",
+      "Bash(python3 -c \"import json, sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('version'\\)\\)\")",
+      "Bash(git -C /Users/christopherhouse/projects/BusTerminal log --oneline -- web/next.config.ts)",
+      "Bash(git -C /Users/christopherhouse/projects/BusTerminal status --short)",
+      "mcp__next-devtools__nextjs_docs"
     ]
   },
   "enabledMcpjsonServers": [

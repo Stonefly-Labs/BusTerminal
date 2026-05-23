@@ -26,10 +26,38 @@
 
 import { test, expect, type Page } from "@playwright/test";
 
-async function setDirectionRtl(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.documentElement.dir = "rtl";
-  });
+async function seedDirectionAndTheme(
+  page: Page,
+  theme: "light" | "dark",
+): Promise<void> {
+  // Seed BEFORE navigation so the anti-FOUC script reads the right
+  // theme and React hydrates against an already-`rtl` document. Mutating
+  // `dir` / theme classes after hydration causes React to re-render and
+  // can drop the Details button's just-attached click handler, leaving
+  // the Sheet unable to open.
+  await page.addInitScript(
+    ({ key, val }) => {
+      try {
+        window.localStorage.setItem(key, val);
+      } catch {
+        /* localStorage may be blocked */
+      }
+      const apply = () => {
+        document.documentElement.dir = "rtl";
+        if (val === "dark") {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      };
+      if (document.documentElement) {
+        apply();
+      } else {
+        document.addEventListener("DOMContentLoaded", apply, { once: true });
+      }
+    },
+    { key: "bt:theme", val: theme },
+  );
 }
 
 async function viewportHorizontalOverflow(page: Page): Promise<number> {
@@ -41,25 +69,18 @@ async function viewportHorizontalOverflow(page: Page): Promise<number> {
   });
 }
 
-async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
-  await page.evaluate((t) => {
-    window.localStorage.setItem("bt:theme", t);
-    if (t === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-  }, theme);
-}
 
 test.describe("RTL smoke (T111 / SC-011)", () => {
   for (const theme of ["dark", "light"] as const) {
     test(`every primitive renders without breakage in RTL · ${theme} theme`, async ({
       page,
     }) => {
+      await seedDirectionAndTheme(page, theme);
       await page.goto("/showcase", { waitUntil: "domcontentloaded" });
-      await setTheme(page, theme);
-      await setDirectionRtl(page);
+      // Wait for hydration — the Refresh button's onClick attaches
+      // post-hydration, so its presence signals the React tree is
+      // interactive and subsequent clicks fire their handlers.
+      await page.getByRole("button", { name: "Refresh" }).waitFor({ state: "visible" });
 
       // 1) No viewport-level horizontal overflow.
       const overflow = await viewportHorizontalOverflow(page);
