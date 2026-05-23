@@ -199,7 +199,15 @@
       "Bash(git -C /Users/christopherhouse/projects/BusTerminal status --short)",
       "mcp__next-devtools__nextjs_docs",
       "Bash(ANALYZE=true pnpm exec next build)",
-      "Bash(az ad *)"
+      "Bash(az ad *)",
+      "Bash(npm view *)",
+      "Bash(pnpm audit *)",
+      "Bash(pnpm list *)",
+      "Bash(awk 'NR==1,/^importers:/' pnpm-lock.yaml)",
+      "Bash(echo \"---EXIT $?---\")",
+      "Bash(echo \"EXIT $?\")",
+      "Bash(git *)",
+      "Bash(pnpm update *)"
     ]
   },
   "enabledMcpjsonServers": [
