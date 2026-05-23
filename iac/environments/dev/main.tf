@@ -82,8 +82,9 @@ resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
 
 # Operator standing access — populated via `kv_operator_object_ids`. Each
 # entry gets `Key Vault Secrets Officer` scoped to the env KV so on-call
-# humans can set bootstrap secrets (WebClientSecret, NextAuthSecret) via
-# `az keyvault secret set` without an out-of-band grant.
+# humans can set any future bootstrap secrets via `az keyvault secret set`
+# without an out-of-band grant. (Spec 003 removed the NextAuth/web-client
+# secrets; this access is now reserved for future workload secrets only.)
 resource "azurerm_role_assignment" "operator_kv_secrets_officer" {
   for_each             = toset(var.kv_operator_object_ids)
   scope                = module.keyvault.id
@@ -246,26 +247,22 @@ module "frontend_app" {
   memory                        = "1Gi"
 
   env_vars = {
-    NODE_ENV                 = "production"
-    PORT                     = tostring(local.frontend_target_port)
-    NEXT_PUBLIC_API_BASE_URL = "https://${module.backend_app.fqdn_url}"
-    NEXTAUTH_URL             = "https://${local.frontend_app_name}.${module.container_apps_env.default_domain}"
-    AZURE_AD_TENANT_ID       = var.entra_tenant_id
-    AZURE_AD_CLIENT_ID       = var.entra_web_client_id
-    AZURE_KEY_VAULT_URI      = module.keyvault.uri
-    AZURE_CLIENT_ID          = module.workload_identity.client_id
+    NODE_ENV                       = "production"
+    PORT                           = tostring(local.frontend_target_port)
+    NEXT_PUBLIC_API_BASE_URL       = "https://${module.backend_app.fqdn_url}"
+    NEXT_PUBLIC_AZURE_AD_TENANT_ID = var.entra_tenant_id
+    NEXT_PUBLIC_AZURE_AD_CLIENT_ID = var.entra_web_client_id
+    NEXT_PUBLIC_API_SCOPE          = "api://${var.entra_api_client_id}/.default"
+    AZURE_KEY_VAULT_URI            = module.keyvault.uri
+    AZURE_CLIENT_ID                = module.workload_identity.client_id
   }
 
   secret_env_vars = {
-    AZURE_AD_CLIENT_SECRET                    = "web-client-secret"
-    NEXTAUTH_SECRET                           = "nextauth-secret"
     NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING = "appinsights-connection-string"
   }
 
   key_vault_secrets = {
     appinsights-connection-string = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
-    web-client-secret             = "${module.keyvault.uri}secrets/WebClientSecret"
-    nextauth-secret               = "${module.keyvault.uri}secrets/NextAuthSecret"
   }
 
   tags = local.shared_tags

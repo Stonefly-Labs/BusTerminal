@@ -69,15 +69,16 @@ Two Entra ID applications must exist per environment before the first deploy:
 - **Backend API registration** (audience for the JWT the backend validates)
   - Application ID URI: `api://<api-client-id>`
   - Exposed scope: `access_as_user`
-- **Frontend (web) registration** (NextAuth.js initiates sign-in here)
-  - Redirect URI: `https://<frontend-fqdn>/api/auth/callback/microsoft-entra-id`
-  - A client secret stored in Key Vault as `WebClientSecret`
+  - Platform app roles: `BusTerminal.{Admin,Operator,Reader,Developer}` declared via IaC (`module.app_registration_roles`)
+- **Frontend (web) SPA registration** (MSAL Authorization Code + PKCE sign-in lands here)
+  - Single-page application (SPA) platform with redirect URI `https://<frontend-fqdn>` and `http://localhost:3000` for local dev
+  - **No client secret** — SPAs are public clients; PKCE replaces the secret
   - API permission: `access_as_user` on the backend API registration, admin consented
 
-A separate `docs/identity-and-secrets.md` (slice US4) will walk through
-creating these. For US2, the only requirement is that the resulting client IDs
-are configured as environment variables above and that `WebClientSecret` and
-`NextAuthSecret` exist in the environment's Key Vault.
+See [`identity-and-secrets.md`](./identity-and-secrets.md) for the
+authoritative explanation of every credential mechanism BusTerminal uses.
+For deploy, the only requirement is that the resulting client IDs are
+configured as the `entra_*_client_id` IaC variables above.
 
 ---
 
@@ -224,5 +225,5 @@ that is the test US5 measures.
 | `tofu apply` fails with `RoleAssignmentExists` | Pre-existing identical assignment from a prior manual setup. | Import the conflict (`tofu import`) or remove the manual assignment. |
 | Container App revision never reaches `Healthy` | `/healthz/ready` returning 503 → backend cannot reach Entra metadata or Key Vault. | Check Container Apps logs in App Insights for the failing dependency. |
 | Authenticated smoke step warns "Could not acquire API-scope token" | App-role grant in § 5 is missing. | Apply the Graph API grant once per environment. |
-| Frontend reaches 200 but redirects loop | `NEXTAUTH_URL` does not match the actual ingress URL. | Verify the Container App FQDN in `outputs.tf` matches what NextAuth.js expects. |
+| Frontend reaches 200 but immediately redirects to `/signin` | The SPA app registration's redirect URI does not include the actual ingress URL (or `http://localhost:3000` for local). | Add the URL to the SPA platform's redirect URIs in Entra portal; MSAL rejects redirects to unregistered URIs. |
 | Deploy wall-clock > 20 minutes | First-ever deploy (image cold cache); or large IaC plan. | Subsequent no-infra-change deploys should hit SC-002 (< 20 min). |

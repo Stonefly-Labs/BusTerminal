@@ -81,7 +81,7 @@ variable "entra_api_client_id" {
 }
 
 variable "entra_web_client_id" {
-  description = "Entra ID application (client) ID of the frontend (web) registration. Used by NextAuth.js to initiate sign-in."
+  description = "Entra ID application (client) ID of the frontend (web) SPA registration. Consumed by MSAL (`@azure/msal-browser`) as the `auth.clientId` for Authorization Code + PKCE sign-in."
   type        = string
 }
 
@@ -124,9 +124,10 @@ variable "kv_operator_object_ids" {
     automatically via `azurerm_role_assignment.pipeline_kv_secrets_officer`.
 
     Each ID listed here gets a separate role assignment scoped to the env KV
-    so on-call operators can set bootstrap secrets (e.g., `WebClientSecret`,
-    `NextAuthSecret`) via `az keyvault secret set` during initial env stand-up
-    without an out-of-band manual grant.
+    so on-call operators can set any future workload secrets via
+    `az keyvault secret set` without an out-of-band manual grant. (Spec 003
+    removed the original NextAuth/web-client secrets; this access is now
+    reserved for future workload secrets only.)
 
     Wire from CI via `TF_VAR_kv_operator_object_ids` (JSON-encoded list).
   EOT

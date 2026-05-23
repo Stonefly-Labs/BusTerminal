@@ -132,8 +132,10 @@ dotnet test api/BusTerminal.slnx  # Backend
 
 | Symptom | Cause / fix |
 |---------|-------------|
-| `/signin` shows but the dev-mode button doesn't appear | `AZURE_AD_TENANT_ID` is not `development`. Re-seed `appsettings.Development.json` or export the env var before running `start-local`. |
-| Sign-in redirects back to `/signin` instead of `/platform-status` | `NEXTAUTH_SECRET` / `AUTH_SECRET` not set or changed since the last sign-in. Clear cookies and re-run. The local scripts seed a dev-only secret automatically. |
+| `/signin` redirects to `login.microsoftonline.com` then errors `AADSTS50011 — redirect URI mismatch` | The SPA app registration is missing a redirect URI for your local URL. Add `http://localhost:3000` to the SPA platform's redirect URIs in Entra portal. |
+| `/signin` redirects to `login.microsoftonline.com` then errors `AADSTS700016 — application not found` | `NEXT_PUBLIC_AZURE_AD_CLIENT_ID` in `web/.env.local` is wrong or missing. Copy the value from `web/.env.local.example` and the dev tenant's app registration. |
+| Sign-in completes but the app redirects to `/no-access` | Your dev-tenant account has not been assigned a `BusTerminal.*` app role. See `docs/identity-role-administration.md` for the grant procedure. |
+| Backend 401 `Bearer error="invalid_token"` against `/whoami` | `IAzureCredentialFactory` couldn't acquire a token, or the API audience doesn't match `NEXT_PUBLIC_API_SCOPE`. Run `az login --tenant 596c1564-6e95-4c35-a80b-2dbe45a162f3` and verify the scope env var. |
 | Backend 401 even with mock auth | The dev tenant value is missing on the API process. Confirm `AzureAd__TenantId=development` is reaching the API (env vars or appsettings). |
 | Web cannot reach the backend | Check `NEXT_PUBLIC_API_BASE_URL` — defaults to `http://localhost:5000`. The container build defaults to `http://api:8080` inside the compose network. |
 | `dotnet watch` keeps restarting | Confirm no other process is bound to port 5000 — `lsof -i :5000` on macOS/Linux. |

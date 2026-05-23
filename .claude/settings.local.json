@@ -207,7 +207,12 @@
       "Bash(echo \"---EXIT $?---\")",
       "Bash(echo \"EXIT $?\")",
       "Bash(git *)",
-      "Bash(pnpm update *)"
+      "Bash(pnpm update *)",
+      "Bash(sed -n '80,100p' /Users/christopherhouse/projects/BusTerminal/iac/environments/dev/main.tf)",
+      "Bash(sed -n '240,280p' /Users/christopherhouse/projects/BusTerminal/iac/environments/dev/main.tf)",
+      "Bash(echo \"---FMT EXIT $?---\")",
+      "Bash(gitleaks version *)",
+      "Bash(gitleaks detect *)"
     ]
   },
   "enabledMcpjsonServers": [
