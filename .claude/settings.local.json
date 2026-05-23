@@ -217,7 +217,8 @@
       "Bash(tflint --recursive)",
       "Bash(TF_VAR_probe_job_enabled=true tofu validate)",
       "Bash(bash *)",
-      "Bash(command -v gitleaks)"
+      "Bash(command -v gitleaks)",
+      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-iam.sh)"
     ]
   },
   "enabledMcpjsonServers": [

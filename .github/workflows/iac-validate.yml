@@ -67,6 +67,15 @@ jobs:
           directory: iac
           config_file: iac/.checkov.yaml
 
+      # Spec 003 / US5 / T078 — fail the build if a new `azurerm_role_assignment`,
+      # `azurerm_user_assigned_identity`, `azurerm_federated_identity_credential`,
+      # or `azuread_application_federated_identity_credential` lands inline at
+      # `iac/environments/*/main.tf`. Identity / federation / RBAC must compose
+      # from the modules under `iac/modules/`. Allowlist with rationale lives
+      # inside the script.
+      - name: Lint · no inline IAM in env compositions
+        run: ./scripts/lint-iac-inline-iam.sh
+
   plan-dev:
     name: tofu plan (dev) · PR comment
     runs-on: ubuntu-latest

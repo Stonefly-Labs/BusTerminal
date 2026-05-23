@@ -318,13 +318,23 @@ resource "azurerm_monitor_diagnostic_setting" "frontend_app" {
 # Entra-issued tokens via the workload's user-assigned MI when needed by future
 # slices (e.g., post-deploy smoke test using the pipeline identity to call the
 # deployed `/whoami`). Subject scopes the credential to this environment.
-resource "azurerm_federated_identity_credential" "workload_environment" {
+#
+# Spec 003 / US5 / FR-029 — composed via the generalized
+# `federated-credential` module. Issuer + audience use the module's GitHub
+# Actions / Entra-workload-identity defaults. The `moved` block keeps Tofu
+# state intact across the refactor.
+module "workload_federation_environment" {
+  source = "../../modules/federated-credential"
+
   name                = "github-environment-${var.environment_name}-workload"
   resource_group_name = azurerm_resource_group.this.name
   parent_id           = module.workload_identity.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
   subject             = "repo:${var.github_org_repo}:environment:${var.environment_name}"
+}
+
+moved {
+  from = azurerm_federated_identity_credential.workload_environment
+  to   = module.workload_federation_environment.azurerm_federated_identity_credential.this
 }
 
 # Spec 003 — platform app roles on the API app registration.

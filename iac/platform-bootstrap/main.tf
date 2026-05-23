@@ -129,15 +129,30 @@ module "pipeline_identity" {
   tags                = merge(local.shared_tags, { environment = each.key })
 }
 
-resource "azurerm_federated_identity_credential" "pipeline_environment" {
+# Spec 003 / US5 / FR-029 — pipeline-MI federated credentials composed via
+# the generalized `federated-credential` module so future workload additions
+# follow the same pattern (no inline FIC resource blocks at env-level main.tf).
+# The `moved` block below preserves Tofu state for the existing per-env
+# credentials so the refactor is a zero-destructive-change plan.
+module "pipeline_federation" {
   for_each = toset(var.environments)
+
+  source = "../modules/federated-credential"
 
   name                = "github-environment-${each.key}"
   resource_group_name = azurerm_resource_group.tfstate.name
   parent_id           = module.pipeline_identity[each.key].resource_id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
   subject             = "repo:${var.github_org_repo}:environment:${each.key}"
+  # `issuer` (GitHub Actions) and `audience` (`api://AzureADTokenExchange`)
+  # use the module defaults — same values the inline resource encoded.
+}
+
+# `moved` blocks must be enumerated per for_each instance (Tofu does not
+# support for_each on moved blocks). Today only the `dev` instance is in
+# state; add additional blocks here when `var.environments` is extended.
+moved {
+  from = azurerm_federated_identity_credential.pipeline_environment["dev"]
+  to   = module.pipeline_federation["dev"].azurerm_federated_identity_credential.this
 }
 
 resource "azurerm_role_assignment" "pipeline_storage_data" {
