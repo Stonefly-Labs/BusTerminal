@@ -76,6 +76,15 @@ jobs:
       - name: Lint · no inline IAM in env compositions
         run: ./scripts/lint-iac-inline-iam.sh
 
+      # Spec 003 / Polish / T101 — fail the build on any new inline
+      # Azure-service connection-string / account-key / SAS-token / shared-
+      # access-key assignment inside `iac/` HCL. Future-proofs FR-015 as
+      # later slices land Cosmos / AI Search / Storage / OpenAI / Service Bus
+      # / App Configuration resources. Allowlist with rationale lives inside
+      # the script.
+      - name: Lint · no inline Azure-service credentials
+        run: ./scripts/lint-iac-inline-credentials.sh
+
   plan-dev:
     name: tofu plan (dev) · PR comment
     runs-on: ubuntu-latest

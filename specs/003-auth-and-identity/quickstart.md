@@ -295,6 +295,33 @@ curl -H "Authorization: $token" https://ca-bt-dev-api.<env>/probe/developer
 
 The probe's response includes the `displayName` resolved via Graph for the caller's `oid` — proof the app-only Graph flow works end-to-end without any client secret.
 
+### W3C Trace Context — `traceparent` propagation (constitution)
+
+Every UI-originated HTTP request must carry a W3C `traceparent` header so the
+frontend trace correlates with the backend OpenTelemetry trace in Azure
+Monitor. This is **non-optional** regardless of observability adapter
+configuration (constitution + slice 001).
+
+Manual verification (recommended after any change to MSAL token acquisition,
+the API client, or the layout's `/whoami` fetch):
+
+1. With the local stack running (`pwsh scripts/start-local.ps1`), sign in
+   and reach `/platform-status`.
+2. Open the browser **DevTools → Network** tab.
+3. Click the `whoami` request. Under **Request Headers**, find
+   `traceparent`. The value must match the regex
+   `^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$` (version-trace-id-span-id-flags).
+4. Optional: also confirm any subsequent `/probe/*` requests carry their own
+   `traceparent`. Each request gets a fresh span id; the trace id stays
+   stable across the page session.
+5. In Application Insights' end-to-end transaction view, the browser request
+   and the backend request must appear as **one** correlated trace.
+
+Automated coverage: the Playwright spec at
+`web/tests/e2e/msal-sign-in-and-whoami.spec.ts` (T093 / T096) asserts the
+header presence and shape on `/whoami` after the MSAL fixture lands. Until
+then, the manual check above is the durable signal.
+
 ---
 
 ## Troubleshooting cheat sheet
