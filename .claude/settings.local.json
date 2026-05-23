@@ -197,7 +197,9 @@
       "Bash(python3 -c \"import json, sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('version'\\)\\)\")",
       "Bash(git -C /Users/christopherhouse/projects/BusTerminal log --oneline -- web/next.config.ts)",
       "Bash(git -C /Users/christopherhouse/projects/BusTerminal status --short)",
-      "mcp__next-devtools__nextjs_docs"
+      "mcp__next-devtools__nextjs_docs",
+      "Bash(ANALYZE=true pnpm exec next build)",
+      "Bash(az ad *)"
     ]
   },
   "enabledMcpjsonServers": [

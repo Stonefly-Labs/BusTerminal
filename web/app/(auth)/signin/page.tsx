@@ -1,13 +1,13 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { msalReady, pca } from "@/lib/auth/msal-instance";
 import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 
-export default function SignInPage() {
+function SignInRedirect() {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") ?? "/platform-status";
 
@@ -35,6 +35,10 @@ export default function SignInPage() {
     };
   }, [callbackUrl]);
 
+  return null;
+}
+
+export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-canvas p-6">
       <Card className="w-full max-w-md">
@@ -52,6 +56,9 @@ export default function SignInPage() {
             data-testid="signin-pending"
             className="h-1 w-full animate-pulse rounded bg-border-default"
           />
+          <Suspense fallback={null}>
+            <SignInRedirect />
+          </Suspense>
         </CardContent>
       </Card>
     </div>
