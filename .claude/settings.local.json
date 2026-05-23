@@ -212,7 +212,10 @@
       "Bash(sed -n '240,280p' /Users/christopherhouse/projects/BusTerminal/iac/environments/dev/main.tf)",
       "Bash(echo \"---FMT EXIT $?---\")",
       "Bash(gitleaks version *)",
-      "Bash(gitleaks detect *)"
+      "Bash(gitleaks detect *)",
+      "mcp__microsoft-learn__microsoft_code_sample_search",
+      "Bash(tflint --recursive)",
+      "Bash(TF_VAR_probe_job_enabled=true tofu validate)"
     ]
   },
   "enabledMcpjsonServers": [

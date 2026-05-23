@@ -17,7 +17,10 @@ public sealed class MockAuthenticationHandler : AuthenticationHandler<MockAuthen
     public const string DevPrincipalDisplayName = "Dev User";
     public const string DevPrincipalUpn = "dev.user@busterminal.local";
     public const string DevTenantId = "00000000-0000-0000-0000-000000000002";
+    public const string DevWorkloadOid = "00000000-0000-0000-0000-000000000003";
     public const string MockRolesHeader = "X-Mock-Roles";
+    public const string MockCallerTypeHeader = "X-Mock-Caller-Type";
+    public const string WorkloadCallerType = "Workload";
 
     private readonly IHostEnvironment _environment;
 
@@ -39,15 +42,34 @@ public sealed class MockAuthenticationHandler : AuthenticationHandler<MockAuthen
                 "MockAuthenticationHandler is gated to the Development environment and must never be reachable in Production.");
         }
 
+        var isWorkload = string.Equals(
+            Request.Headers[MockCallerTypeHeader].ToString(),
+            WorkloadCallerType,
+            StringComparison.OrdinalIgnoreCase);
+
+        var oid = isWorkload ? DevWorkloadOid : DevPrincipalOid;
+
         var claims = new List<Claim>
         {
-            new("oid", DevPrincipalOid),
-            new(ClaimTypes.NameIdentifier, DevPrincipalOid),
-            new(ClaimTypes.Name, DevPrincipalDisplayName),
-            new("name", DevPrincipalDisplayName),
-            new("preferred_username", DevPrincipalUpn),
+            new("oid", oid),
+            new(ClaimTypes.NameIdentifier, oid),
             new("tid", DevTenantId),
         };
+
+        if (isWorkload)
+        {
+            // `idtyp=app` is what `PrincipalAccessor` reads to classify the
+            // caller as `CallerType.Workload` — matches the real Entra
+            // app-only token shape that the inherited Microsoft.Identity.Web
+            // pipeline emits for client-credentials / managed-identity flows.
+            claims.Add(new Claim("idtyp", "app"));
+        }
+        else
+        {
+            claims.Add(new Claim(ClaimTypes.Name, DevPrincipalDisplayName));
+            claims.Add(new Claim("name", DevPrincipalDisplayName));
+            claims.Add(new Claim("preferred_username", DevPrincipalUpn));
+        }
 
         foreach (var role in ParseRolesHeader(Request.Headers[MockRolesHeader]))
         {

@@ -156,14 +156,29 @@ module "container_registry" {
   tags = local.shared_tags
 }
 
+# Spec 003 — workload MI promoted to the generalized `workload-identity` module
+# so it can carry API app-role assignments (FR-022) alongside its existing
+# Azure RBAC. Internal addresses are preserved against the old `identity`
+# module — no `moved` blocks needed for the UAMI / RBAC state.
+#
+# The `BusTerminal.Reader` app-role assignment grants the workload MI standing
+# read access to the API: this is what an internal Container Apps Job /
+# Functions caller exercises via `DefaultAzureCredential` → `az get-access-token`
+# → `Authorization: Bearer <token>` → API role policy (FR-022 / SC-003).
+data "azuread_service_principal" "api" {
+  client_id = var.entra_api_client_id
+}
+
 module "workload_identity" {
-  source = "../../modules/identity"
+  source = "../../modules/workload-identity"
 
   name                = local.workload_identity_name
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
+  environment         = var.environment_name
+  workload            = "workload"
 
-  role_assignments = {
+  assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
       scope                = module.container_registry.id
@@ -172,6 +187,12 @@ module "workload_identity" {
       role_definition_name = "Key Vault Secrets User"
       scope                = module.keyvault.id
     }
+  }
+
+  api_service_principal_object_id = data.azuread_service_principal.api.object_id
+
+  assigned_api_app_roles = {
+    reader = module.app_registration_roles.role_ids.reader
   }
 
   tags = local.shared_tags
@@ -316,6 +337,28 @@ resource "azurerm_federated_identity_credential" "workload_environment" {
 # apply here. See iac/modules/app-registration-roles/README.md.
 data "azuread_application" "api" {
   client_id = var.entra_api_client_id
+}
+
+# Spec 003 / US3 / SC-003 — opt-in internal-caller probe job. Disabled by
+# default; flip `probe_job_enabled` to true (via `-var` or tfvars) to
+# provision the smoke. The job exits 0 on `GET /probe/read` returning 200
+# using a token acquired by the workload MI. See
+# `iac/modules/probe-job-internal-caller/README.md` and
+# `docs/internal-workload-callers.md` § Worked example.
+module "probe_job_internal_caller" {
+  count  = var.probe_job_enabled ? 1 : 0
+  source = "../../modules/probe-job-internal-caller"
+
+  name                          = "caj-${var.naming_prefix}-probe-internal-caller"
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  container_apps_environment_id = module.container_apps_env.id
+  managed_identity_id           = module.workload_identity.id
+  workload_identity_client_id   = module.workload_identity.client_id
+  api_url                       = "https://${module.backend_app.fqdn_url}"
+  api_scope                     = "api://${var.entra_api_client_id}/.default"
+
+  tags = local.shared_tags
 }
 
 module "app_registration_roles" {

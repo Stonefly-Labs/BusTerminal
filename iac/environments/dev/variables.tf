@@ -115,6 +115,18 @@ variable "platform_role_ids" {
   }
 }
 
+variable "probe_job_enabled" {
+  description = <<-EOT
+    Toggle for the internal-caller probe Container Apps Job
+    (`iac/modules/probe-job-internal-caller`). Off by default — set to true
+    only when you want to deploy the re-runnable SC-003 smoke that proves
+    the workload MI can authenticate to the BusTerminal API. See
+    `docs/internal-workload-callers.md` § Worked example.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "kv_operator_object_ids" {
   description = <<-EOT
     Entra ID object IDs of humans (or break-glass service principals) who need
