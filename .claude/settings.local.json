@@ -218,7 +218,10 @@
       "Bash(TF_VAR_probe_job_enabled=true tofu validate)",
       "Bash(bash *)",
       "Bash(command -v gitleaks)",
-      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-iam.sh)"
+      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-iam.sh)",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.github/workflows/iac-validate.yml'\\)\\)\")",
+      "Bash(python3 -c \"import sys, tomllib\")",
+      "Bash(yq *)"
     ]
   },
   "enabledMcpjsonServers": [
