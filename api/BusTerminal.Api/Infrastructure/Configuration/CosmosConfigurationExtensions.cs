@@ -92,6 +92,9 @@ public static class CosmosConfigurationExtensions
         services.AddSingleton<IValidationRule, DanglingReferenceRule>();
         services.AddSingleton<IRelationshipValidationRule, RelationshipTypeValidityRule>();
 
+        // Spec 004 / T116 — US4 contract compatibility lineage health.
+        services.AddSingleton<IValidationRule, ContractCompatibilityRule>();
+
         // Spec 004 / FR-008 / T105 — relationship graph traversal helper.
         // Scoped because it depends on ICanonicalResourceStore (scoped).
         services.AddScoped<RelationshipGraph>();
