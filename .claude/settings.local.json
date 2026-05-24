@@ -282,7 +282,9 @@
       "Bash(openssl s_client -connect localhost:8081 -servername localhost -tls1_2)",
       "Bash(docker port busterminal-cosmos-emulator *)",
       "Bash(openssl s_client -connect localhost:10255 -servername localhost)",
-      "Bash(openssl s_client -connect localhost:10250 -servername localhost)"
+      "Bash(openssl s_client -connect localhost:10250 -servername localhost)",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('iac/.checkov.yaml'\\)\\)\")",
+      "Bash(command -v yq)"
     ]
   },
   "enabledMcpjsonServers": [
