@@ -66,7 +66,7 @@ jobs:
       # side `/whoami` round-trip). Mock auth is active so no real Entra tenant
       # is contacted; the .NET mock handler synthesizes the dev user.
       - name: Setup .NET 10 (for E2E backend)
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
@@ -141,7 +141,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
 
