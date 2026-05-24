@@ -276,7 +276,13 @@
       "Bash(python3 -c \"import json; print\\(len\\(json.load\\(open\\('api/BusTerminal.Api/Fixtures/01-base.json'\\)\\)['resources']\\)\\)\")",
       "Bash(curl -sk -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)",
       "Bash(curl -sk --max-time 3 https://localhost:8081/_explorer/emulator.pem)",
-      "Bash(curl -sk --max-time 3 -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)"
+      "Bash(curl -sk --max-time 3 -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)",
+      "Bash(docker exec busterminal-cosmos-emulator *)",
+      "Bash(curl *)",
+      "Bash(openssl s_client -connect localhost:8081 -servername localhost -tls1_2)",
+      "Bash(docker port busterminal-cosmos-emulator *)",
+      "Bash(openssl s_client -connect localhost:10255 -servername localhost)",
+      "Bash(openssl s_client -connect localhost:10250 -servername localhost)"
     ]
   },
   "enabledMcpjsonServers": [

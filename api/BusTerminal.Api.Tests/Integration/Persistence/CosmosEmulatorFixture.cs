@@ -24,6 +24,14 @@ namespace BusTerminal.Api.Tests.Integration.Persistence;
 public sealed class CosmosEmulatorFixture : IAsyncLifetime
 {
     private const string EmulatorEndpoint = "https://localhost:8081";
+
+    // The vnext-preview emulator exposes a dedicated plain-HTTP readiness probe
+    // on port 8080 (`/ready`). The previous probe URL (`_explorer/emulator.pem`
+    // on 8081) belongs to the legacy Windows emulator and isn't served by the
+    // vnext gateway — it returned HTTP 400 and made the fixture think the
+    // emulator was down even when the SDK could connect fine.
+    private const string EmulatorReadinessProbe = "http://localhost:8080/ready";
+
     private const string EmulatorKey =
         "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==";
     private const string DatabaseName = "busterminal-canonical";
@@ -89,29 +97,24 @@ public sealed class CosmosEmulatorFixture : IAsyncLifetime
 
     private static async Task EnsureEmulatorReachableAsync()
     {
-        // The emulator's TLS cert is self-signed; accept it explicitly for this
-        // reachability check. Mirrors CosmosClientFactory's HttpClientHandler.
-        using var handler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
-            SslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
-        };
-        using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(5) };
+        // Use the dedicated readiness probe (plain HTTP on port 8080) per the
+        // current vnext-preview docs — no TLS handshake needed for the probe.
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
 
         try
         {
-            var response = await http.GetAsync(new Uri($"{EmulatorEndpoint}/_explorer/emulator.pem")).ConfigureAwait(false);
+            var response = await http.GetAsync(new Uri(EmulatorReadinessProbe)).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 throw new InvalidOperationException(
-                    $"Cosmos emulator at {EmulatorEndpoint} responded with HTTP {(int)response.StatusCode}. " +
+                    $"Cosmos emulator readiness probe at {EmulatorReadinessProbe} responded with HTTP {(int)response.StatusCode}. " +
                     "Start the emulator via `docker compose up cosmos-emulator` before running integration tests.");
             }
         }
         catch (HttpRequestException ex)
         {
             throw new InvalidOperationException(
-                $"Cosmos emulator not reachable at {EmulatorEndpoint}. Start it via " +
+                $"Cosmos emulator not reachable at {EmulatorReadinessProbe}. Start it via " +
                 "`docker compose up cosmos-emulator` before running integration tests.",
                 ex);
         }

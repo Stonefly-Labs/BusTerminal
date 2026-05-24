@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BusTerminal.Api.Domain.Resources;
 
@@ -22,6 +23,7 @@ public sealed record Subscription : Resource
     public JsonElement? OperationalMetadata { get; init; }
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<FilterKind>))]
 public enum FilterKind
 {
     Sql,
@@ -33,6 +35,7 @@ public sealed record FilterDefinition(FilterKind Kind, string Expression);
 
 public sealed record RuleDefinition(string Kind, string Expression);
 
+[JsonConverter(typeof(JsonStringEnumConverter<DeliverySemantics>))]
 public enum DeliverySemantics
 {
     AtLeastOnce,

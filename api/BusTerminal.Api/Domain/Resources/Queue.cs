@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BusTerminal.Api.Domain.Resources;
 
@@ -34,12 +35,14 @@ public sealed record Queue : Resource
 
 public sealed record DuplicateDetectionPolicy(bool Enabled, int WindowSeconds);
 
+[JsonConverter(typeof(JsonStringEnumConverter<OrderingPolicy>))]
 public enum OrderingPolicy
 {
     Fifo,
     Unordered,
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter<ExpirationAction>))]
 public enum ExpirationAction
 {
     DeadLetter,

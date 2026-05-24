@@ -22,6 +22,7 @@ public sealed record MessageContract : Resource
     public ContractValidationMetadata? ValidationMetadata { get; init; }
 }
 
+[System.Text.Json.Serialization.JsonConverter(typeof(System.Text.Json.Serialization.JsonStringEnumConverter<ContractFormat>))]
 public enum ContractFormat
 {
     JsonSchema,
