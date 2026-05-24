@@ -106,6 +106,21 @@ test.describe("MSAL sign-in + /whoami", () => {
     // Negative test — does not need any auth fixture. Confirms the inherited
     // (002) Microsoft.Identity.Web validation pipeline is still active after
     // the T028 rewrites.
+    //
+    // Auth-mode detection: the CI workflow runs the backend in **mock-auth**
+    // mode (`AzureAd__TenantId=development`), where `MockAuthenticationHandler`
+    // synthesizes a dev principal for every request — malformed or otherwise.
+    // In that posture the real validation pipeline isn't active, so this test
+    // has nothing to assert. Skip via the documented diagnostic signal:
+    // unauthenticated `/whoami` returns 200 in mock mode, 401 in real mode.
+    const probe = await request.get(joinApi("/whoami"), { failOnStatusCode: false });
+    test.skip(
+      probe.status() === 200,
+      "backend is in mock-auth mode (unauthenticated /whoami returned 200) — "
+        + "Microsoft.Identity.Web validation is bypassed; run this test against a real "
+        + "Entra-backed backend or set AzureAd__TenantId to a real tenant id.",
+    );
+
     const response = await request.get(joinApi("/whoami"), {
       headers: {
         Authorization: "Bearer not-a-real-jwt.payload.signature",

@@ -18,10 +18,19 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Attribute names forbidden from appearing on the LHS of an assignment inside
-# `iac/`. Patterns are matched against `<name>\s*=` so they trigger on actual
-# resource arguments, not on free-text mentions in comments.
-DENYLIST_PATTERN='(AccountKey|SharedAccessKey|connection_string|primary_access_key|secondary_access_key|primary_connection_string|secondary_connection_string|sas_token|shared_access_policy_key)[[:space:]]*='
+# Attribute names forbidden from appearing on the LHS of a *literal-string*
+# assignment inside `iac/`. Two safety properties:
+#
+#  1. **Anchored to line start** (after HCL indent whitespace) so that a
+#     compound attribute name like `dapr_application_insights_connection_string`
+#     does NOT trip the rule via substring match on bare `connection_string`.
+#
+#  2. **RHS must be a literal string** (`= "..."`) — references like
+#     `connection_string = azurerm_application_insights.this.connection_string`
+#     or `= var.foo` are fine: the credential lives in the referenced resource,
+#     not in source code, which is exactly the posture FR-015 mandates. Only
+#     literal-string assignments embed the secret in HCL.
+DENYLIST_PATTERN='^[[:space:]]*(AccountKey|SharedAccessKey|connection_string|primary_access_key|secondary_access_key|primary_connection_string|secondary_connection_string|sas_token|shared_access_policy_key)[[:space:]]*=[[:space:]]*"'
 
 # Fully-qualified file:line entries that may remain despite the denylist.
 # Keep small; each entry must capture *why* the exception is safe (e.g., the
@@ -31,11 +40,19 @@ ALLOWLIST=(
   # (empty — no current exceptions in slice 003)
 )
 
-# Scan every .tf and .tf.json file under iac/.
+# Scan every .tf / .tf.json file under iac/, but skip vendored provider /
+# module caches under `.terraform/` (those mirror upstream code we don't
+# control). `-prune` is the canonical idiom for directory exclusion and is
+# more reliable across find implementations than the `! -path '*/...'` form.
 FILES=()
 while IFS= read -r path; do
   FILES+=("$path")
-done < <(find iac -type f \( -name '*.tf' -o -name '*.tf.json' \) ! -path '*/.terraform/*' | sort)
+done < <(
+  find iac \
+    \( -type d -name '.terraform' -prune \) -o \
+    \( -type f \( -name '*.tf' -o -name '*.tf.json' \) -print \) \
+  | sort
+)
 
 if [[ ${#FILES[@]} -eq 0 ]]; then
   echo "lint-iac-inline-credentials: no .tf files found under iac/" >&2
