@@ -272,7 +272,9 @@
       "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(x['name']\\) for x in data if x['name'].startswith\\('variables'\\)]\")",
       "Bash(curl -s \"https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/variables.sql.tf\")",
       "Bash(checkov -d modules/cosmos-account -d modules/cosmos-canonical-store --quiet --compact)",
-      "Bash(checkov -d modules/cosmos-account --check CKV_AZURE_140 --compact)"
+      "Bash(checkov -d modules/cosmos-account --check CKV_AZURE_140 --compact)",
+      "Bash(python3 -c \"import json; print\\(len\\(json.load\\(open\\('api/BusTerminal.Api/Fixtures/01-base.json'\\)\\)['resources']\\)\\)\")",
+      "Bash(curl -sk -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)"
     ]
   },
   "enabledMcpjsonServers": [

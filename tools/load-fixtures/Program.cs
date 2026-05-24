@@ -1,57 +1,95 @@
+using System.Diagnostics.CodeAnalysis;
+using BusTerminal.Tools.LoadFixtures.Commands;
+
 namespace BusTerminal.Tools.LoadFixtures;
 
-// Scaffold for the BusTerminal canonical-store fixture-load CLI.
-// Subcommands are stubbed; bodies are filled in by later spec-004 tasks
-// (T079, T080, T081, T082, T097, T109, T124, T125, T143, T144, T145).
-
+// BusTerminal canonical-store fixture-load CLI. Hybrid verb + flag-as-action
+// dispatcher to honor the spec quickstart (Path A uses flag style; smoke
+// validations use verb style).
 internal static class Program
 {
-    private static int Main(string[] args)
+    // Top-level catch-all is intentional: a CLI exit code is more useful to
+    // operators than an unhandled-exception stack trace.
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types",
+        Justification = "Top-level CLI handler must convert any failure to an exit code.")]
+    private static async Task<int> Main(string[] args)
     {
-        if (args.Length == 0)
+        CliOptions options;
+        try
         {
+            options = CliOptions.Parse(args);
+        }
+        catch (ArgumentException ex)
+        {
+            Console.Error.WriteLine($"busterminal-load-fixtures: {ex.Message}");
             PrintUsage();
-            return 1;
+            return 64;
         }
 
-        var verb = args[0].ToLowerInvariant();
-        var verbArgs = args.AsSpan(1).ToArray();
-
-        return verb switch
+        if (options.Verb is "help" or "--help" or "-h")
         {
-            "create-database" => NotImplemented(verb, "T079"),
-            "import" => NotImplemented(verb, "T080"),
-            "export" => NotImplemented(verb, "T143"),
-            "show" => NotImplemented(verb, "T081"),
-            "show-owner" => NotImplemented(verb, "T097"),
-            "traverse" => NotImplemented(verb, "T109"),
-            "transition" => NotImplemented(verb, "T124"),
-            "soft-delete" => NotImplemented(verb, "T124"),
-            "restore" => NotImplemented(verb, "T124"),
-            "changelog" => NotImplemented(verb, "T125"),
-            "truncate" => NotImplemented(verb, "T082"),
-            "--help" or "-h" or "help" => Help(),
-            _ => Unknown(verb),
+            PrintUsage();
+            return 0;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        Console.CancelKeyPress += (_, e) =>
+        {
+            e.Cancel = true;
+            cancellation.Cancel();
         };
+
+        try
+        {
+            await using var services = ServiceHost.Build(options);
+            return await DispatchAsync(options.Verb, services, options, cancellation.Token).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"busterminal-load-fixtures: {ex.Message}");
+            return 64;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"busterminal-load-fixtures: unexpected error: {ex.Message}");
+            return 70;
+        }
     }
 
-    private static int NotImplemented(string verb, string ownerTask)
+    private static Task<int> DispatchAsync(
+        string verb,
+        IServiceProvider services,
+        CliOptions options,
+        CancellationToken cancellationToken) => verb switch
+    {
+        "create-database" => CreateDatabaseCommand.RunAsync(services, cancellationToken),
+        "import" => ImportCommand.RunAsync(services, options, cancellationToken),
+        "show" => ShowCommand.RunAsync(services, options, cancellationToken),
+        "truncate" => TruncateCommand.RunAsync(services, cancellationToken),
+
+        // Verbs landing in later user-story phases.
+        "show-owner" => NotImplemented(verb, "T097 (US2)"),
+        "traverse" => NotImplemented(verb, "T109 (US3)"),
+        "transition" => NotImplemented(verb, "T124 (US5)"),
+        "soft-delete" => NotImplemented(verb, "T124 (US5)"),
+        "restore" => NotImplemented(verb, "T124 (US5)"),
+        "changelog" => NotImplemented(verb, "T125 (US5)"),
+        "export" => NotImplemented(verb, "T143 (US8)"),
+
+        _ => Unknown(verb),
+    };
+
+    private static Task<int> NotImplemented(string verb, string ownerTask)
     {
         Console.Error.WriteLine($"busterminal-load-fixtures: '{verb}' is not yet implemented (owner task: {ownerTask}).");
-        return 64; // EX_USAGE-ish
+        return Task.FromResult(64);
     }
 
-    private static int Unknown(string verb)
+    private static Task<int> Unknown(string verb)
     {
         Console.Error.WriteLine($"busterminal-load-fixtures: unknown verb '{verb}'.");
         PrintUsage();
-        return 64;
-    }
-
-    private static int Help()
-    {
-        PrintUsage();
-        return 0;
+        return Task.FromResult(64);
     }
 
     private static void PrintUsage()
@@ -61,21 +99,25 @@ internal static class Program
 
             Usage:
               busterminal-load-fixtures <verb> [options]
+              busterminal-load-fixtures [options]   (flag-style — verb inferred from --create-database / --fixtures-dir / --input)
 
-            Verbs:
-              create-database     Create the canonical database and containers (idempotent).
-              import              Import an envelope or directory of envelopes.
-              export              Export the canonical store to a portable envelope.
-              show                Show a single resource by id.
-              show-owner          Show the structured ownership block for a resource.
-              traverse            Traverse the relationship graph from a starting resource.
-              transition          Move a resource to a new lifecycle state.
-              soft-delete         Mark a resource as deleted (preserves identifier + audit + change log).
-              restore             Restore a soft-deleted resource to its prior lifecycle state.
-              changelog           Show the ordered change-event log for a resource.
-              truncate            Delete all documents from both canonical containers.
+            Common options:
+              --endpoint <url>        Cosmos account endpoint (required for everything except `help`).
+              --auth <mode>           emulator-key (default, dev only) | aad (DefaultAzureCredential).
 
-            Subcommand options and behavior land in later spec-004 implementation tasks.
+            Verbs (Phase 3 — Spec 004 US1):
+              create-database         Create the canonical database + containers (idempotent).
+              import                  Load envelope(s) into the store. Use --fixtures-dir or --fixtures.
+              show                    Print a single resource by id. Use --resource-id [--include-deleted] [--format json].
+              truncate                Delete every document from both canonical containers.
+
+            Verbs (deferred to later user stories):
+              show-owner              US2 / T097.
+              traverse                US3 / T109.
+              transition              US5 / T124.
+              soft-delete, restore    US5 / T124.
+              changelog               US5 / T125.
+              export                  US8 / T143.
             """);
     }
 }

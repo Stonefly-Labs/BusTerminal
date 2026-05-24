@@ -1,6 +1,9 @@
+using System.Text.Json;
 using BusTerminal.Api.Domain;
+using BusTerminal.Api.Domain.Resources;
 using BusTerminal.Api.Domain.Serialization;
 using BusTerminal.Api.Domain.Validation;
+using BusTerminal.Api.Domain.Validation.Rules;
 using BusTerminal.Api.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -29,18 +32,38 @@ public static class CosmosConfigurationExtensions
             .Bind(configuration.GetSection(CosmosOptions.SectionName));
         services.AddSingleton<IValidateOptions<CosmosOptions>, CosmosOptionsValidator>();
 
-        // ResourceTypeRegistry is mutated at startup as per-type modules register
-        // themselves (US1 / T072), so it must be a singleton.
-        services.AddSingleton<ResourceTypeRegistry>();
+        // ResourceTypeRegistry is pre-populated with the 14 first-class types at
+        // composition time (Spec 004 / T072). Hand-maintained static map per
+        // tech-stack.md §1 — explicit over reflection. New types added in future
+        // slices register themselves here.
+        services.AddSingleton(_ =>
+        {
+            var registry = new ResourceTypeRegistry();
+            registry.Register(ResourceTypeDiscriminators.Namespace, typeof(Namespace));
+            registry.Register(ResourceTypeDiscriminators.Broker, typeof(Broker));
+            registry.Register(ResourceTypeDiscriminators.Queue, typeof(Queue));
+            registry.Register(ResourceTypeDiscriminators.Topic, typeof(Topic));
+            registry.Register(ResourceTypeDiscriminators.Subscription, typeof(Subscription));
+            registry.Register(ResourceTypeDiscriminators.MessageContract, typeof(MessageContract));
+            registry.Register(ResourceTypeDiscriminators.ProducerApplication, typeof(ProducerApplication));
+            registry.Register(ResourceTypeDiscriminators.ConsumerApplication, typeof(ConsumerApplication));
+            registry.Register(ResourceTypeDiscriminators.Team, typeof(Team));
+            registry.Register(ResourceTypeDiscriminators.Environment, typeof(EnvironmentResource));
+            registry.Register(ResourceTypeDiscriminators.Tag, typeof(TagResource));
+            registry.Register(ResourceTypeDiscriminators.Policy, typeof(Policy));
+            registry.Register(ResourceTypeDiscriminators.IntegrationFlow, typeof(IntegrationFlow));
+            registry.Register(ResourceTypeDiscriminators.DocumentationAsset, typeof(DocumentationAsset));
+            return registry;
+        });
 
         // Serialization: the JsonResourceSerializer + its converters are singletons
         // so a single STJ options graph is shared across persistence and
-        // import/export paths. The unknown-resource factory defaults to throwing —
-        // US1 T071 replaces it with a real factory that wraps the raw JsonElement.
+        // import/export paths. The unknown-resource factory routes through
+        // UnknownResourceFactory.Create to materialize UnknownResource records that
+        // preserve the raw payload for diagnostic surfacing (Q4).
         services.AddSingleton<ExtensionsJsonConverter>();
-        services.AddSingleton<Func<string, System.Text.Json.JsonElement, Resource>>(_ =>
-            (_, _) => throw new InvalidOperationException(
-                "UnknownResource factory not registered. US1 / T071 wires the real factory; until then, persisting a document with an unknown resourceType is unsupported."));
+        services.AddSingleton<Func<string, JsonElement, JsonSerializerOptions, Resource>>(_ =>
+            UnknownResourceFactory.Create);
         services.AddSingleton<ResourceJsonConverter>();
         services.AddSingleton<JsonResourceSerializer>();
         services.AddSingleton<IResourceSerializer>(sp => sp.GetRequiredService<JsonResourceSerializer>());
@@ -53,9 +76,16 @@ public static class CosmosConfigurationExtensions
         services.AddScoped<IChangeEventLog, CosmosChangeEventLog>();
 
         // Validation engine is scoped — a single context per request / per fixture
-        // load. Rule implementations are registered by per-story modules as
-        // singletons (most are pure-CPU, no per-request state).
+        // load. Rule implementations are registered as singletons (pure-CPU, no
+        // per-request state). Per-story modules layer in additional rules.
         services.AddScoped<ValidationEngine>();
+        services.AddSingleton<IValidationRule, RequiredFieldsRule>();
+        services.AddSingleton<IValidationRule, NamingStandardsRule>();
+        services.AddSingleton<IValidationRule, UnknownResourceTypeRule>();
+
+        // Spec 004 / FR-003 — NamespaceInheritance traverses the parent chain via
+        // ICanonicalResourceStore.QueryAsync, so it shares the store's scope.
+        services.AddScoped<NamespaceInheritance>();
 
         services.TryAddSingleton(TimeProvider.System);
 

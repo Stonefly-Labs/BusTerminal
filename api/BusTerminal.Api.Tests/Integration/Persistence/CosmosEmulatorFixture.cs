@@ -1,17 +1,14 @@
 using System.Net.Http;
 using System.Net.Security;
 using System.Security.Authentication;
-using BusTerminal.Api.Domain;
 using BusTerminal.Api.Domain.Serialization;
-using BusTerminal.Api.Domain.Validation;
+using BusTerminal.Api.Infrastructure.Configuration;
 using BusTerminal.Api.Infrastructure.Credentials;
 using BusTerminal.Api.Infrastructure.Persistence;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
-using System.Text.Json;
 
 namespace BusTerminal.Api.Tests.Integration.Persistence;
 
@@ -63,21 +60,11 @@ public sealed class CosmosEmulatorFixture : IAsyncLifetime
         services.AddSingleton(NullLoggerFactory.Instance);
         services.AddLogging();
         services.AddSingleton<IAzureCredentialFactory>(new AzureCredentialFactory(new TestHostEnvironment()));
-        services.AddSingleton<Func<string, JsonElement, Resource>>(_ =>
-            (discriminator, raw) => throw new InvalidOperationException(
-                $"UnknownResource factory not wired in CosmosEmulatorFixture. Discriminator: {discriminator}."));
-        services.AddSingleton<ResourceTypeRegistry>();
-        services.AddSingleton<ExtensionsJsonConverter>();
-        services.AddSingleton<ResourceJsonConverter>();
-        services.AddSingleton<JsonResourceSerializer>();
-        services.AddSingleton<IResourceSerializer>(sp => sp.GetRequiredService<JsonResourceSerializer>());
-        services.AddSingleton<CosmosStjSerializer>();
-        services.AddOptions<CosmosOptions>().Bind(configuration.GetSection(CosmosOptions.SectionName));
-        services.AddSingleton<CosmosClientFactory>();
-        services.AddSingleton(sp => sp.GetRequiredService<CosmosClientFactory>().Create());
-        services.AddSingleton(TimeProvider.System);
-        services.AddScoped<IChangeEventLog, CosmosChangeEventLog>();
-        services.AddScoped<ICanonicalResourceStore, CosmosCanonicalResourceStore>();
+
+        // Production DI registration — picks up registry population + the
+        // UnknownResource factory automatically. Keeps the fixture in lockstep
+        // with Program.cs wiring; any divergence is a bug, not a fixture quirk.
+        services.AddCosmosCanonicalStore(configuration);
 
         Services = services.BuildServiceProvider();
         Client = Services.GetRequiredService<CosmosClient>();

@@ -1,0 +1,378 @@
+{
+  "schemaVersion": "2026-05-23",
+  "exportedAt": "2026-05-23T00:00:00Z",
+  "sourceSystem": "tools/load-fixtures (01-base.json)",
+  "resources": [
+    {
+      "id": "11111111-1111-1111-1111-000000000001",
+      "resourceType": "team",
+      "name": "payments-platform",
+      "displayName": "Payments Platform",
+      "description": "Team responsible for the payments platform domain.",
+      "namespacePath": "enterprise/payments",
+      "environments": [],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z",
+        "sourceSystem": "tools/load-fixtures"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "slug": "payments-platform",
+      "contactEmail": "payments-platform@example.com",
+      "operationalTier": "tier1"
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000002",
+      "resourceType": "namespace",
+      "name": "payments",
+      "displayName": "Payments",
+      "namespacePath": "enterprise/payments",
+      "environments": [],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "parentNamespaceId": null
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000003",
+      "resourceType": "broker",
+      "name": "primary-service-bus",
+      "displayName": "Primary Azure Service Bus",
+      "namespacePath": "enterprise/payments",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "brokerKind": "AzureServiceBus",
+      "endpoint": "sb://busterminal-primary.servicebus.windows.net/",
+      "capabilities": { "queues": true, "topics": true, "sessions": true, "transactions": true }
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000004",
+      "resourceType": "queue",
+      "name": "payments-orders-processing",
+      "displayName": "Payments — Orders Processing",
+      "description": "Primary queue for order processing events.",
+      "namespacePath": "enterprise/payments/order-processing",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 4, "patch": 0, "compatibility": "backward" },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "queueKind": "AzureServiceBus",
+      "requiresSession": false,
+      "ordering": "fifo",
+      "partitioned": false,
+      "deadLetterBehavior": { "maxDeliveryCount": 10, "expirationAction": "deadLetter" },
+      "ttlSeconds": 86400,
+      "maxMessageSizeBytes": 262144,
+      "contractAssociations": [],
+      "producers": [],
+      "consumers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000005",
+      "resourceType": "topic",
+      "name": "payments-events",
+      "displayName": "Payments Events",
+      "namespacePath": "enterprise/payments/events",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "ordering": "unordered",
+      "partitioned": true,
+      "subscriptionIds": ["11111111-1111-1111-1111-000000000006"],
+      "contractAssociations": [],
+      "producers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000006",
+      "resourceType": "subscription",
+      "name": "risk-scoring",
+      "displayName": "Risk Scoring",
+      "namespacePath": "enterprise/payments/events",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier2"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "parentTopicId": "11111111-1111-1111-1111-000000000005",
+      "deliverySemantics": "atLeastOnce",
+      "consumers": [],
+      "deadLetter": { "maxDeliveryCount": 5, "expirationAction": "deadLetter" },
+      "retry": { "maxAttempts": 3, "initialBackoffSeconds": 0.5, "maxBackoffSeconds": 30 }
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000007",
+      "resourceType": "messageContract",
+      "name": "order-placed",
+      "displayName": "OrderPlaced v1",
+      "namespacePath": "enterprise/payments/contracts",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0, "compatibility": "backward" },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "format": "jsonSchema",
+      "schemaReference": { "externalUri": "https://schemas.example.com/order-placed/v1.json" },
+      "examplePayloads": [],
+      "compatibility": "backward",
+      "producers": [],
+      "consumers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000008",
+      "resourceType": "producerApplication",
+      "name": "orders-api",
+      "displayName": "Orders API",
+      "namespacePath": "enterprise/payments/applications",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "applicationKind": "WebService",
+      "repository": "https://github.com/example/orders-api"
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000009",
+      "resourceType": "consumerApplication",
+      "name": "risk-engine",
+      "displayName": "Risk Engine",
+      "namespacePath": "enterprise/payments/applications",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier2"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "applicationKind": "BatchJob",
+      "repository": "https://github.com/example/risk-engine"
+    },
+    {
+      "id": "11111111-1111-1111-1111-00000000000a",
+      "resourceType": "environment",
+      "name": "production",
+      "displayName": "Production",
+      "namespacePath": "enterprise/environments",
+      "environments": [],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "classification": "production",
+      "region": "eastus2"
+    },
+    {
+      "id": "11111111-1111-1111-1111-00000000000b",
+      "resourceType": "tag",
+      "name": "payments",
+      "displayName": "Payments",
+      "namespacePath": "enterprise/tags",
+      "environments": [],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "category": "domain",
+      "color": "#1e40af"
+    },
+    {
+      "id": "11111111-1111-1111-1111-00000000000c",
+      "resourceType": "policy",
+      "name": "payments-retention",
+      "displayName": "Payments retention policy",
+      "namespacePath": "enterprise/payments/policies",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "policyKind": "Retention",
+      "ruleBody": "{\"retentionDays\":2555}",
+      "scope": { "kind": "namespace", "targetNamespacePath": "enterprise/payments" }
+    },
+    {
+      "id": "11111111-1111-1111-1111-00000000000d",
+      "resourceType": "integrationFlow",
+      "name": "orders-to-risk",
+      "displayName": "Orders → Risk integration flow",
+      "namespacePath": "enterprise/payments/flows",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "producerApplicationId": "11111111-1111-1111-1111-000000000008",
+      "messagingResourceId": "11111111-1111-1111-1111-000000000005",
+      "consumerApplicationIds": ["11111111-1111-1111-1111-000000000009"],
+      "businessPurpose": "Orders are placed by the Orders API, risk-scored by the Risk Engine before downstream settlement."
+    },
+    {
+      "id": "11111111-1111-1111-1111-00000000000e",
+      "resourceType": "documentationAsset",
+      "name": "payments-runbook",
+      "displayName": "Payments runbook",
+      "namespacePath": "enterprise/payments/docs",
+      "environments": [],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "assetKind": "runbook",
+      "uri": "https://wiki.example.com/payments/runbook",
+      "attachedResourceIds": ["11111111-1111-1111-1111-000000000004"]
+    }
+  ],
+  "relationships": []
+}

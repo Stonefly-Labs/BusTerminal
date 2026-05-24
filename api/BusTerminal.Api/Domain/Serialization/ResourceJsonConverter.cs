@@ -15,11 +15,11 @@ namespace BusTerminal.Api.Domain.Serialization;
 public sealed class ResourceJsonConverter : JsonConverter<Resource>
 {
     private readonly ResourceTypeRegistry _registry;
-    private readonly Func<string, JsonElement, Resource> _unknownFactory;
+    private readonly Func<string, JsonElement, JsonSerializerOptions, Resource> _unknownFactory;
 
     public ResourceJsonConverter(
         ResourceTypeRegistry registry,
-        Func<string, JsonElement, Resource> unknownFactory)
+        Func<string, JsonElement, JsonSerializerOptions, Resource> unknownFactory)
     {
         _registry = registry;
         _unknownFactory = unknownFactory;
@@ -51,8 +51,10 @@ public sealed class ResourceJsonConverter : JsonConverter<Resource>
             return resource;
         }
 
-        // Unknown discriminator — hand the raw element to the registered factory.
-        return _unknownFactory(discriminator, root.Clone());
+        // Unknown discriminator — hand the raw element + the active options to the
+        // registered factory (factory deserializes base fields with these options).
+        var concreteOptionsForUnknown = CreateConcreteOptions(options);
+        return _unknownFactory(discriminator, root.Clone(), concreteOptionsForUnknown);
     }
 
     public override void Write(
