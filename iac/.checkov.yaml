@@ -48,6 +48,41 @@ skip-check:
   - CKV_AZURE_59
   - CKV_AZURE_244
 
+  # CKV_AZURE_99 — "Ensure Cosmos DB accounts have restricted access".
+  # CKV_AZURE_101 — "Ensure that Azure Cosmos DB disables public network access".
+  # The Cosmos DB account in `modules/cosmos-account` is intentionally public-
+  # endpoint in this slice. Recorded as an explicit deviation in
+  # `specs/004-core-domain-model/plan.md` § Complexity Tracking: Private Link
+  # + VNet integration is a separable operational slice that requires VNet
+  # infrastructure not yet provisioned (003 did not introduce a VNet).
+  # Compensating controls already in place: `local_authentication_disabled =
+  # true` (AAD-only data plane, no account keys), encryption at rest (default),
+  # AAD-RBAC for the API's managed identity, no payload history persisted.
+  # Re-evaluate when the VNet slice lands.
+  - CKV_AZURE_99
+  - CKV_AZURE_101
+
+  # CKV_AZURE_100 — "Ensure that Cosmos DB accounts have customer-managed keys
+  # to encrypt data at rest". No CMK in this slice — per
+  # `specs/004-core-domain-model/plan.md` § Constraints: "Encryption at rest
+  # is on by default in Cosmos DB (AVM-confirmed) — we do not opt out and do
+  # not introduce customer-managed keys in this slice (no compliance
+  # requirement is on the table yet)." CMK introduces a Key Vault key +
+  # rotation workflow + access-policy dependency that future compliance slices
+  # will own as a single coherent change.
+  - CKV_AZURE_100
+
+  # CKV_AZURE_132 — "Ensure cosmosdb does not allow privileged escalation by
+  # restricting management plane changes". The rule looks for
+  # `access_key_metadata_writes_enabled = false`. Our `azurerm_cosmosdb_account`
+  # sets `local_authentication_disabled = true`, which disables key-based auth
+  # entirely (data + management plane) and is the strictly broader control —
+  # the per-key metadata-write toggle is moot when no keys can authenticate.
+  # Checkov's static analyzer doesn't recognize this equivalence. The plan's
+  # FR-018 + Constraints "Managed Identity for SDK auth ... no account keys"
+  # explicitly establishes AAD-only as the chosen mechanism.
+  - CKV_AZURE_132
+
   # ─────────────────────────────────────────────────────────────────────────
   # AVM internals that already satisfy the control but checkov can't see it
   # ─────────────────────────────────────────────────────────────────────────

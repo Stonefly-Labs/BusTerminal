@@ -151,8 +151,13 @@ jobs:
       - name: Build (no restore, warnings as errors enforced by csproj)
         run: dotnet build api/BusTerminal.slnx --configuration Release --no-restore
 
-      - name: Test
-        run: dotnet test api/BusTerminal.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+      - name: Test (unit tier; integration tier is gated by T150)
+        # Spec 004 / T150 — the integration tier requires the Cosmos vnext-preview
+        # emulator running as a CI service container. Wiring that into the backend
+        # job (and the per-tier split) is tracked as T150 in Phase 11. Until that
+        # lands, the integration tier runs locally only (`docker compose up
+        # cosmos-emulator` + `dotnet test --filter "Category=Integration"`).
+        run: dotnet test api/BusTerminal.slnx --configuration Release --no-build --filter "Category!=Integration" --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
 
       - name: Upload test results
         if: always()
