@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/relationship.schema.json",
+  "title": "Relationship (edge document)",
+  "description": "Explicit, directional, typed edge between two resources (FR-008). Stored as a peer document type in the canonical container.",
+  "type": "object",
+  "required": ["id", "resourceType", "sourceId", "targetId", "type", "audit", "isDeleted"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "resourceType": { "const": "relationship" },
+    "sourceId": { "type": "string", "format": "uuid" },
+    "targetId": { "type": "string", "format": "uuid" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "publishesTo",
+        "consumedBy",
+        "subscriptionOf",
+        "usesContract",
+        "owns",
+        "attachedTo",
+        "replaces",
+        "partOfFlow"
+      ],
+      "description": "Closed enum for v1. See contracts/relationship-types.md for source/target type rules per relationship type."
+    },
+    "annotations": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Optional metadata on the edge."
+    },
+    "audit": { "$ref": "audit.schema.json" },
+    "validationState": { "$ref": "validation-result.schema.json" },
+    "isDeleted": { "type": "boolean" },
+    "_etag": { "type": "string" }
+  },
+  "additionalProperties": false
+}

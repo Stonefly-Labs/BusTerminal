@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/team.schema.json",
+  "title": "Team",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "team" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "entraGroupId": { "type": ["string", "null"], "format": "uuid", "description": "Populated by the future Graph-integration slice." },
+    "contactEmail": { "type": ["string", "null"], "format": "email" },
+    "operationalTier": {
+      "type": ["string", "null"],
+      "enum": ["tier1", "tier2", "tier3", "bestEffort", null]
+    }
+  },
+  "required": ["resourceType", "slug"]
+}

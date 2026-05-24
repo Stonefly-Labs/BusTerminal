@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/version-info.schema.json",
+  "title": "Version Info (semantic)",
+  "description": "Reusable semantic-version block (FR-011). Available at both resource-level and contract-level.",
+  "type": "object",
+  "required": ["major", "minor", "patch"],
+  "properties": {
+    "major": { "type": "integer", "minimum": 0 },
+    "minor": { "type": "integer", "minimum": 0 },
+    "patch": { "type": "integer", "minimum": 0 },
+    "compatibility": {
+      "type": ["string", "null"],
+      "enum": ["backward", "forward", "full", "none", null]
+    },
+    "currentVersionRef": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["major", "minor", "patch"],
+          "properties": {
+            "major": { "type": "integer", "minimum": 0 },
+            "minor": { "type": "integer", "minimum": 0 },
+            "patch": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      ],
+      "description": "For historical versions, points to the currently-active version."
+    },
+    "versionHistory": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["major", "minor", "patch", "lifecycle"],
+        "properties": {
+          "major": { "type": "integer", "minimum": 0 },
+          "minor": { "type": "integer", "minimum": 0 },
+          "patch": { "type": "integer", "minimum": 0 },
+          "lifecycle": { "type": "string", "enum": ["draft", "active", "deprecated", "retired", "archived"] },
+          "deprecatedAt": { "type": ["string", "null"], "format": "date-time" },
+          "replacedBy": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "required": ["major", "minor", "patch"],
+                "properties": {
+                  "major": { "type": "integer", "minimum": 0 },
+                  "minor": { "type": "integer", "minimum": 0 },
+                  "patch": { "type": "integer", "minimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "Per-version lineage with per-version lifecycle (satisfies Edge Case 'Lifecycle of a contract version')."
+    }
+  },
+  "additionalProperties": false
+}

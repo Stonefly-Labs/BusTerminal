@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/ownership.schema.json",
+  "title": "Ownership Record",
+  "description": "Reusable ownership block carried by every operational resource (FR-009).",
+  "type": "object",
+  "required": ["owningTeamId", "operationalTier"],
+  "properties": {
+    "owningTeamId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Reference to a Team resource by stable identifier. Resolved by DanglingReferenceRule."
+    },
+    "technicalContact": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/contactReference" }
+      ]
+    },
+    "businessContact": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/contactReference" }
+      ]
+    },
+    "escalationReference": { "type": ["string", "null"] },
+    "supportReference": { "type": ["string", "null"] },
+    "operationalTier": {
+      "type": "string",
+      "enum": ["tier1", "tier2", "tier3", "bestEffort"]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "contactReference": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["kind", "objectId"],
+          "properties": {
+            "kind": { "const": "entra" },
+            "objectId": { "type": "string", "format": "uuid" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "freeform" },
+            "value": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/change-event.schema.json",
+  "title": "Change Event",
+  "description": "Immutable per-resource change log entry (FR-015 + Q5). Stored in the change-events Cosmos container, partitioned by /resourceId. Append-only.",
+  "type": "object",
+  "required": ["id", "resourceId", "resourceType", "eventType", "actor", "timestamp", "concurrencyTokenAfter"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "resourceId": { "type": "string", "format": "uuid" },
+    "resourceType": {
+      "type": "string",
+      "description": "Mirror of the resource's type at event time; frozen and does not migrate if the type is later renamed."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": ["created", "updated", "lifecycleTransitioned", "softDeleted", "restored"]
+    },
+    "actor": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["kind", "objectId"],
+          "properties": {
+            "kind": { "enum": ["human", "workload"] },
+            "objectId": { "type": "string", "format": "uuid" },
+            "displayName": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["kind", "systemName"],
+          "properties": {
+            "kind": { "const": "system" },
+            "systemName": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "sourceSystem": { "type": ["string", "null"] },
+    "concurrencyTokenBefore": { "type": ["string", "null"] },
+    "concurrencyTokenAfter": { "type": "string" },
+    "lifecycleBefore": {
+      "type": ["string", "null"],
+      "enum": ["draft", "active", "deprecated", "retired", "archived", null]
+    },
+    "lifecycleAfter": {
+      "type": ["string", "null"],
+      "enum": ["draft", "active", "deprecated", "retired", "archived", null]
+    },
+    "diff": {
+      "type": ["array", "null"],
+      "description": "RFC 6902 JSON Patch describing the change. Present on Updated events."
+    },
+    "snapshot": {
+      "type": ["object", "null"],
+      "description": "Full snapshot of the resource as of the event. Always present on Created; optional otherwise (v1 stores snapshots on every event)."
+    }
+  },
+  "additionalProperties": false
+}

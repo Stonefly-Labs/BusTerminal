@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/validation-result.schema.json",
+  "title": "Validation Result",
+  "description": "Structured validation findings persisted on the resource (FR-013 + Q3). Severity is one of Error, Warning, Info. Error findings block writes; Warning and Info findings are persisted but non-blocking.",
+  "type": "object",
+  "required": ["evaluatedAt", "findings", "overallSeverity"],
+  "properties": {
+    "evaluatedAt": { "type": "string", "format": "date-time" },
+    "overallSeverity": { "type": "string", "enum": ["error", "warning", "info", "none"] },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": ["ruleId", "severity", "message", "evaluatedAt"],
+      "properties": {
+        "ruleId": {
+          "type": "string",
+          "description": "Stable identifier (e.g., 'ownership.required', 'naming.standards', 'relationship.dangling', 'lifecycle.transition', 'duplicate.detection', 'contract.compatibility', 'unknown.resourceType')."
+        },
+        "severity": { "type": "string", "enum": ["error", "warning", "info"] },
+        "message": { "type": "string" },
+        "fieldRef": {
+          "type": ["string", "null"],
+          "description": "JSON Pointer to the offending field (RFC 6901), when applicable."
+        },
+        "relationshipRef": {
+          "type": ["string", "null"],
+          "format": "uuid",
+          "description": "Identifier of the offending relationship, when applicable."
+        },
+        "evaluatedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/documentation-asset.schema.json",
+  "title": "Documentation Asset",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "documentationAsset" },
+    "assetKind": { "type": "string", "enum": ["runbook", "wiki", "asyncApiSpec", "architectureDiagram", "operationalGuide", "externalRepository"] },
+    "uri": { "type": "string", "format": "uri" },
+    "attachedResourceIds": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" }
+    }
+  },
+  "required": ["resourceType", "assetKind", "uri"]
+}

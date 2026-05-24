@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/topic.schema.json",
+  "title": "Topic",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "topic" },
+    "ordering": { "type": "string", "enum": ["fifo", "unordered"] },
+    "partitioned": { "type": "boolean" },
+    "subscriptionIds": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "description": "Backward-pointer to subscriptions. Relationships remain the authoritative source."
+    },
+    "contractAssociations": {
+      "type": "array",
+      "items": { "type": "object", "required": ["contractId"], "properties": { "contractId": { "type": "string", "format": "uuid" } } }
+    },
+    "producers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "governance": { "type": ["object", "null"] }
+  },
+  "required": ["resourceType", "ordering"]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/tag.schema.json",
+  "title": "Tag",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "tag" },
+    "category": { "type": ["string", "null"] },
+    "color": { "type": ["string", "null"] }
+  },
+  "required": ["resourceType"]
+}

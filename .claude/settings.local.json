@@ -245,7 +245,8 @@
       "Bash(PLAYWRIGHT_SKIP_WEB_SERVER=1 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 pnpm -C web exec playwright test tests/e2e/msal-sign-in-and-whoami.spec.ts --project=chromium --reporter=list)",
       "Bash(pkill -f \"dotnet.*BusTerminal.Api\")",
       "Bash(lsof -i:8080)",
-      "Bash(kill 50530)"
+      "Bash(kill 50530)",
+      "Skill(speckit-git-feature)"
     ]
   },
   "enabledMcpjsonServers": [
