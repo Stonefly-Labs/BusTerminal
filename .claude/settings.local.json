@@ -248,7 +248,13 @@
       "Bash(kill 50530)",
       "Skill(speckit-git-feature)",
       "Bash(Tag)",
-      "Bash(grep -rn \"canonical-fixtures.json\\\\|Domain/Tag\\\\.cs\\\\|`Tag`\" /Users/christopherhouse/projects/BusTerminal/specs/004-core-domain-model/)"
+      "Bash(grep -rn \"canonical-fixtures.json\\\\|Domain/Tag\\\\.cs\\\\|`Tag`\" /Users/christopherhouse/projects/BusTerminal/specs/004-core-domain-model/)",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/microsoft.azure.cosmos/index.json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); v=[x for x in d['versions'] if 'preview' not in x and 'beta' not in x and 'rc' not in x and x.startswith\\('3.'\\)]; print\\('Cosmos latest 3.x stable:', v[-1]\\)\")",
+      "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/yamldotnet/index.json\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); v=[x for x in d['versions'] if 'preview' not in x and 'beta' not in x and 'rc' not in x and x.startswith\\('16.'\\)]; print\\('YamlDotNet latest 16.x stable:', v[-1] if v else 'NONE'\\)\")",
+      "Bash(dotnet run *)",
+      "Bash(docker compose *)"
     ]
   },
   "enabledMcpjsonServers": [

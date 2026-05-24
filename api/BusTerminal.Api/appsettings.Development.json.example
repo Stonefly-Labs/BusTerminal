@@ -11,5 +11,15 @@
     "TenantId": "development",
     "ClientId": "00000000-0000-0000-0000-000000000000",
     "Audience": "api://busterminal-dev"
+  },
+  "_Cosmos_comment": "Azure Cosmos DB canonical-store configuration introduced by spec 004. Endpoint precedence at construction time (see CosmosClientFactory in slice 004): (1) value here in appsettings binds CosmosOptions; (2) standard ASP.NET Core configuration providers (environment variables prefixed Cosmos__, command-line) override file values. AUTHENTICATION: Production / dev Azure environments use Managed Identity via DefaultAzureCredential — LocalEmulatorKey is ignored. Local emulator (endpoint host == 'localhost') falls back to the well-known master key below; that key is Microsoft public test data, NOT a secret, and is the only persistence-layer credential string committed to source. Override Endpoint via the COSMOS__ENDPOINT env var when pointing at dev Azure from a developer machine.",
+  "Cosmos": {
+    "Endpoint": "https://localhost:8081",
+    "Database": "busterminal-canonical",
+    "Containers": {
+      "Resources": "resources",
+      "ChangeEvents": "change-events"
+    },
+    "LocalEmulatorKey": "C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw=="
   }
 }

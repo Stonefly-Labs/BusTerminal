@@ -1,4 +1,25 @@
 services:
+  # Azure Cosmos DB Linux emulator for local integration tests against the canonical store
+  # introduced by spec 004. AAD-RBAC against the emulator is on Microsoft's roadmap but not
+  # yet GA, so the local persistence path uses the emulator's well-known master key, which
+  # is published Microsoft public test data (not a secret). Production / dev Azure
+  # environments always use Managed Identity / DefaultAzureCredential — never this key.
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    container_name: busterminal-cosmos-emulator
+    ports:
+      - "8081:8081"
+      - "10250-10255:10250-10255"
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: "4"
+      AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: "127.0.0.1"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sSk https://localhost:8081/_explorer/emulator.pem -o /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   api:
     build:
       context: ./api

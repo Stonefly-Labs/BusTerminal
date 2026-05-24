@@ -5,6 +5,13 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Microsoft.Azure.Cosmos 3.x emits a build-time check requiring Newtonsoft.Json.
+         Spec 004 research §6 explicitly chose System.Text.Json (injected at runtime via
+         CosmosClientOptions.Serializer) over dragging in a second JSON library; this
+         property is the Microsoft-blessed opt-out for that scenario. Remove this if a
+         future Cosmos release ships STJ as the default serializer with no Newtonsoft
+         build dependency. -->
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +24,7 @@
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
     <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
          which pins Microsoft.Kiota.* 1.21.1 (GHSA-7j59-v9qr-6fq9). Forcing Graph.Core
@@ -26,6 +34,7 @@
     <PackageReference Include="Microsoft.Identity.Web" Version="4.9.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.OpenTelemetry" Version="4.2.0" />
+    <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
 </Project>
