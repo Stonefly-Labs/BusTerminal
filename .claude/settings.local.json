@@ -246,7 +246,9 @@
       "Bash(pkill -f \"dotnet.*BusTerminal.Api\")",
       "Bash(lsof -i:8080)",
       "Bash(kill 50530)",
-      "Skill(speckit-git-feature)"
+      "Skill(speckit-git-feature)",
+      "Bash(Tag)",
+      "Bash(grep -rn \"canonical-fixtures.json\\\\|Domain/Tag\\\\.cs\\\\|`Tag`\" /Users/christopherhouse/projects/BusTerminal/specs/004-core-domain-model/)"
     ]
   },
   "enabledMcpjsonServers": [

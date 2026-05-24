@@ -180,7 +180,7 @@ specs/004-core-domain-model/
       SemanticVersion.cs                          # NEW — major.minor.patch + compatibility metadata; FR-011
       OwnershipRecord.cs                          # NEW — Team ref + technical/business contacts + escalation + support + operational tier; FR-009
       AuditRecord.cs                              # NEW — created-by/at + modified-by/at + source-system + sync metadata; FR-015 latest-state
-      Tag.cs                                      # NEW — value type for tag references
+      TagReference.cs                             # NEW — value type for in-document references to TagResource entries (renamed from Tag per analysis N1)
       Extensions.cs                               # NEW — IReadOnlyDictionary<string, JsonElement> surface; namespaced keys; FR-012
       Resource.cs                                 # NEW — abstract base type; FR-001
       Resources/                                  # NEW — one record per first-class resource type, inheriting Resource
@@ -241,8 +241,12 @@ specs/004-core-domain-model/
         ConcurrencyExceptionMapper.cs             # NEW — translates Cosmos 412 PreconditionFailed → ConcurrencyConflictException
       Configuration/
         CosmosConfigurationExtensions.cs          # NEW — DI wiring for CosmosOptions + factory + store
-    Fixtures/                                     # NEW — first-party fixture set (also reachable via tools/load-fixtures)
-      canonical-fixtures.json                     # NEW — one of each first-class type + the FR-008 example relationship graph
+    Fixtures/                                     # NEW — first-party fixture set; tools/load-fixtures imports every *.json in lexicographic order so stories can add per-concern files without merge conflicts (per analysis F1)
+      01-base.json                                # NEW (US1) — one of each first-class type
+      02-relationships.json                       # NEW (US3) — relationship-graph cluster matching the FR-008 example
+      03-contracts.json                           # NEW (US4) — multi-format contracts + version-history fixture
+      04-extensions.json                          # NEW (US6) — patch-style extension overlay with multi-vendor coexistence
+      05-environments.json                        # NEW (US7) — patch-style env-association overlay with all six minimum envs on a single queue
   BusTerminal.Api.Tests/
     Unit/
       Domain/
@@ -297,7 +301,7 @@ specs/004-core-domain-model/
   cosmos-operations.md                            # NEW — operator runbook: how the canonical store is structured, partition strategy, troubleshooting concurrency conflicts, soft-delete behavior, change-log queries
 
 /tools/                                           # NEW (or modify if already exists)
-  load-fixtures/                                  # NEW — `dotnet run` CLI that pushes Fixtures/canonical-fixtures.json into a target Cosmos account (emulator or dev)
+  load-fixtures/                                  # NEW — `dotnet run` CLI that imports every envelope under Fixtures/ into a target Cosmos account (emulator or dev) in lexicographic filename order
     LoadFixtures.csproj
     Program.cs
 

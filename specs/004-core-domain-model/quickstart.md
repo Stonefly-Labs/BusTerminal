@@ -39,10 +39,10 @@ This creates the `busterminal-canonical` database and the two containers (`resou
 dotnet run --project tools/load-fixtures -- \
   --endpoint https://localhost:8081 \
   --auth emulator-key \
-  --fixtures api/BusTerminal.Api/Fixtures/canonical-fixtures.json
+  --fixtures-dir api/BusTerminal.Api/Fixtures
 ```
 
-Expected output: `Loaded 30 resources, 24 relationships. Validation: 30 OK, 0 Error, 2 Warning, 5 Info.` The Warning and Info findings are expected — the fixture set deliberately includes a deprecated message contract version (Warning), several unknown-type extension surfaces (Info), and a soft-deleted-target relationship (Warning).
+The directory contains per-concern envelope files (`01-base.json`, `02-relationships.json`, `03-contracts.json`, `04-extensions.json`, `05-environments.json`) loaded in lexicographic order. Expected output (approximate — exact counts depend on the fixture authoring): `Loaded ~30 resources, ~17 relationships. Findings: 0 Error, ~2 Warning, ~5 Info (~25 resources without any finding).` The Warning and Info findings are expected — the fixtures deliberately include a deprecated message contract version (Warning), several unknown-type extension surfaces (Info), and a soft-deleted-target relationship (Warning). "Resources without any finding" reports the count whose validation passed with zero severity findings of any kind.
 
 **Maps to SC-001** (fixture set materializes), **SC-008** (validation produces graded severity findings).
 
@@ -103,7 +103,7 @@ grep -r "<account-name>.*key" iac/ api/ web/ docs/ || echo "No key references fo
 dotnet run --project tools/load-fixtures -- \
   --endpoint https://<account-name>.documents.azure.com:443/ \
   --auth aad \
-  --fixtures api/BusTerminal.Api/Fixtures/canonical-fixtures.json
+  --fixtures-dir api/BusTerminal.Api/Fixtures
 ```
 
 `--auth aad` uses `DefaultAzureCredential`. Locally that resolves to your `az login` identity. The dev environment grants your identity the same `Cosmos DB Built-in Data Contributor` role on the canonical database (per `iac/environments/dev/main.tf` developer-access block).

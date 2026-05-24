@@ -26,7 +26,7 @@ The shared shape every first-class entity inherits. Implemented as an abstract C
 | `Ownership` | `OwnershipRecord?` | Required for operational resources; null permitted on Tag / Environment / Documentation Asset / Policy (the non-operational classifications). FR-009. Validated by `OwnershipPresenceRule`. |
 | `Audit` | `AuditRecord` | Latest-state audit metadata. FR-015. |
 | `Classification` | `ClassificationMetadata?` | Criticality, data sensitivity, compliance scope, availability tier, business domain, operational tier. FR-018. |
-| `Tags` | `IReadOnlyCollection<TagReference>` | Tag value types referencing TagResource by id. |
+| `Tags` | `IReadOnlyCollection<TagReference>` | `TagReference` value types pointing at first-class `TagResource` entries by stable identifier. |
 | `Extensions` | `Extensions` (dictionary) | Namespaced extension surface (`contoso:costCenter` etc.). Structured JSON values preserved via `JsonElement`. Per-extension indexing-inclusion control via the `__indexable` sibling key. FR-012. |
 | `Documentation` | `IReadOnlyCollection<DocumentationReference>` | Linked runbooks, wikis, AsyncAPI specs, etc. FR-019. |
 | `ValidationState` | `ValidationResult` | Persisted result of the last validation pass against this resource. FR-013. |
