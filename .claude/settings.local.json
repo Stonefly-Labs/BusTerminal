@@ -235,7 +235,17 @@
       "Bash(rm -f tfplan)",
       "Bash(rm -rf .terraform .terraform.lock.hcl)",
       "Bash(awk *)",
-      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-credentials.sh)"
+      "Bash(/Users/christopherhouse/projects/BusTerminal/scripts/lint-iac-inline-credentials.sh)",
+      "Bash(tofu -chdir=iac fmt -check -recursive -diff)",
+      "Bash(gh auth *)",
+      "Bash(AzureAd__TenantId=development AzureAd__ClientId=00000000-0000-0000-0000-000000000001 AzureAd__Audience=api://00000000-0000-0000-0000-000000000001 ASPNETCORE_ENVIRONMENT=Development dotnet run --no-build --no-launch-profile)",
+      "Bash(curl -fsS http://localhost:8080/healthz/live)",
+      "Bash(break)",
+      "Bash(curl -s -o /dev/null -w \"no-auth /whoami HTTP %{http_code}\\\\n\" http://localhost:8080/whoami)",
+      "Bash(PLAYWRIGHT_SKIP_WEB_SERVER=1 NEXT_PUBLIC_API_BASE_URL=http://localhost:8080 pnpm -C web exec playwright test tests/e2e/msal-sign-in-and-whoami.spec.ts --project=chromium --reporter=list)",
+      "Bash(pkill -f \"dotnet.*BusTerminal.Api\")",
+      "Bash(lsof -i:8080)",
+      "Bash(kill 50530)"
     ]
   },
   "enabledMcpjsonServers": [
