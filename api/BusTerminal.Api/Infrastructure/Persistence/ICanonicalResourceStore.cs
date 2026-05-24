@@ -1,4 +1,5 @@
 using BusTerminal.Api.Domain;
+using BusTerminal.Api.Domain.Relationships;
 
 namespace BusTerminal.Api.Infrastructure.Persistence;
 
@@ -44,5 +45,24 @@ public interface ICanonicalResourceStore
         ConcurrencyToken token,
         PrincipalReference actor,
         string? sourceSystem,
+        CancellationToken cancellationToken);
+
+    // Relationship CRUD/query. Spec 004 / FR-008 / T104. Relationships live in
+    // the same Cosmos container as Resources, under partition key
+    // `resourceType` = "relationship".
+
+    Task<Relationship> CreateRelationshipAsync(
+        Relationship relationship,
+        PrincipalReference actor,
+        string? sourceSystem,
+        CancellationToken cancellationToken);
+
+    Task<Relationship?> GetRelationshipAsync(
+        ResourceId id,
+        bool includeDeleted,
+        CancellationToken cancellationToken);
+
+    IAsyncEnumerable<Relationship> QueryRelationshipsAsync(
+        RelationshipQuery query,
         CancellationToken cancellationToken);
 }

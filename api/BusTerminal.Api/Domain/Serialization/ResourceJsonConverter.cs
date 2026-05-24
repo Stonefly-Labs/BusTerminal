@@ -41,6 +41,19 @@ public sealed class ResourceJsonConverter : JsonConverter<Resource>
 
         var discriminator = discriminatorProperty.GetString()!;
 
+        // Spec 004 / T103. Relationship documents are a peer type that lives in the
+        // same Cosmos container as Resources. They are NOT Resource subtypes, so the
+        // Resource converter cannot materialize them — surface misuse loudly so a
+        // caller routing relationship JSON through the wrong path gets a structured
+        // failure rather than a confusing UnknownResource fallback.
+        if (discriminator == ResourceTypeDiscriminators.Relationship)
+        {
+            throw new JsonException(
+                "Encountered a 'relationship' document while deserializing as Resource. " +
+                "Relationships are peer documents — deserialize via JsonSerializer.Deserialize<Relationship>(...) " +
+                "or read them through ICanonicalResourceStore's relationship API.");
+        }
+
         if (_registry.TryGetType(discriminator, out var clrType))
         {
             // Deserialize as the concrete type using the same options minus this

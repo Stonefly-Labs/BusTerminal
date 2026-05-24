@@ -67,9 +67,9 @@ internal static class Program
         "show" => ShowCommand.RunAsync(services, options, cancellationToken),
         "show-owner" => ShowOwnerCommand.RunAsync(services, options, cancellationToken),
         "truncate" => TruncateCommand.RunAsync(services, cancellationToken),
+        "traverse" => TraverseCommand.RunAsync(services, options, cancellationToken),
 
         // Verbs landing in later user-story phases.
-        "traverse" => NotImplemented(verb, "T109 (US3)"),
         "transition" => NotImplemented(verb, "T124 (US5)"),
         "soft-delete" => NotImplemented(verb, "T124 (US5)"),
         "restore" => NotImplemented(verb, "T124 (US5)"),
@@ -112,8 +112,10 @@ internal static class Program
               show-owner              Print the structured ownership block for a resource + resolved Team display name. Use --resource-id.
               truncate                Delete every document from both canonical containers.
 
+            Verbs (Phase 5 — Spec 004 US3):
+              traverse                Traverse the relationship graph from a resource. --from <id> [--max-hops N] [--to outbound|inbound|both] [--types publishesTo,owns,...].
+
             Verbs (deferred to later user stories):
-              traverse                US3 / T109.
               transition              US5 / T124.
               soft-delete, restore    US5 / T124.
               changelog               US5 / T125.

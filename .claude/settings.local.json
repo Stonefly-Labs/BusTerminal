@@ -275,7 +275,8 @@
       "Bash(checkov -d modules/cosmos-account --check CKV_AZURE_140 --compact)",
       "Bash(python3 -c \"import json; print\\(len\\(json.load\\(open\\('api/BusTerminal.Api/Fixtures/01-base.json'\\)\\)['resources']\\)\\)\")",
       "Bash(curl -sk -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)",
-      "Bash(curl -sk --max-time 3 https://localhost:8081/_explorer/emulator.pem)"
+      "Bash(curl -sk --max-time 3 https://localhost:8081/_explorer/emulator.pem)",
+      "Bash(curl -sk --max-time 3 -o /dev/null -w \"%{http_code}\\\\n\" https://localhost:8081/_explorer/emulator.pem)"
     ]
   },
   "enabledMcpjsonServers": [

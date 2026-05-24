@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using BusTerminal.Api.Domain;
 using BusTerminal.Api.Domain.Lifecycle;
+using BusTerminal.Api.Domain.Relationships;
 using BusTerminal.Api.Domain.Serialization;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -383,12 +384,177 @@ public sealed partial class CosmosCanonicalResourceStore : ICanonicalResourceSto
 
     private static string BaseSelect(string? predicate, bool includeDeleted)
     {
-        var where = predicate is null
-            ? (includeDeleted ? string.Empty : " WHERE c.isDeleted = false")
-            : includeDeleted
-                ? $" WHERE {predicate}"
-                : $" WHERE c.isDeleted = false AND {predicate}";
+        // Resource queries always exclude relationship peer documents — the
+        // Resource converter cannot deserialize them and they have their own
+        // query surface (QueryRelationshipsAsync).
+        const string ExcludeRelationships = "c.resourceType != 'relationship'";
+
+        var fullPredicate = predicate is null
+            ? ExcludeRelationships
+            : $"{ExcludeRelationships} AND {predicate}";
+
+        var where = includeDeleted
+            ? $" WHERE {fullPredicate}"
+            : $" WHERE c.isDeleted = false AND {fullPredicate}";
 
         return $"SELECT * FROM c{where}";
     }
+
+    // -----------------------------------------------------------------------
+    // Spec 004 / T104 — Relationship CRUD + query surface.
+    // Relationships are peer documents in the same `resources` container under
+    // partition key /resourceType = "relationship". They do not emit change
+    // events in v1 (the change-event log is keyed by ResourceId of a Resource);
+    // a future slice can extend if relationship history becomes important.
+    // -----------------------------------------------------------------------
+
+    public async Task<Relationship> CreateRelationshipAsync(
+        Relationship relationship,
+        PrincipalReference actor,
+        string? sourceSystem,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(relationship);
+        ArgumentNullException.ThrowIfNull(actor);
+
+        var now = _time.GetUtcNow();
+        var stamped = relationship with
+        {
+            ResourceType = ResourceTypeDiscriminators.Relationship,
+            Audit = relationship.Audit with
+            {
+                CreatedBy = actor,
+                CreatedAt = now,
+                ModifiedBy = actor,
+                ModifiedAt = now,
+                SourceSystem = sourceSystem,
+            },
+        };
+
+        var response = await _container.CreateItemAsync(
+            stamped,
+            new PartitionKey(ResourceTypeDiscriminators.Relationship),
+            cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        return response.Resource with { ConcurrencyToken = new ConcurrencyToken(response.ETag) };
+    }
+
+    public async Task<Relationship?> GetRelationshipAsync(
+        ResourceId id,
+        bool includeDeleted,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var response = await _container.ReadItemAsync<Relationship>(
+                id.ToString(),
+                new PartitionKey(ResourceTypeDiscriminators.Relationship),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (response.Resource is null)
+            {
+                return null;
+            }
+
+            return (!includeDeleted && response.Resource.IsDeleted)
+                ? null
+                : response.Resource with { ConcurrencyToken = new ConcurrencyToken(response.ETag) };
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    public async IAsyncEnumerable<Relationship> QueryRelationshipsAsync(
+        RelationshipQuery query,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var (sql, parameters) = BuildRelationshipQuery(query);
+
+        var requestOptions = new QueryRequestOptions
+        {
+            PartitionKey = new PartitionKey(ResourceTypeDiscriminators.Relationship),
+        };
+
+        var definition = new QueryDefinition(sql);
+        foreach (var (name, value) in parameters)
+        {
+            definition = definition.WithParameter(name, value);
+        }
+
+        using var iterator = _container.GetItemQueryIterator<Relationship>(definition, requestOptions: requestOptions);
+        while (iterator.HasMoreResults)
+        {
+            var page = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var item in page)
+            {
+                yield return item;
+            }
+        }
+    }
+
+    private static (string Sql, IReadOnlyList<(string Name, object Value)> Parameters) BuildRelationshipQuery(RelationshipQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        return query switch
+        {
+            RelationshipQuery.All all => (
+                BaseRelSelect(predicate: null, all.IncludeDeleted),
+                Array.Empty<(string, object)>()),
+
+            RelationshipQuery.ByType byType => (
+                BaseRelSelect("c.type = @type", byType.IncludeDeleted),
+                [("@type", RelationshipTypeWire.Of(byType.Type))]),
+
+            RelationshipQuery.ByEndpoint byEndpoint => (
+                BaseRelSelect(BuildEndpointPredicate(byEndpoint.Direction), byEndpoint.IncludeDeleted),
+                [("@id", byEndpoint.EndpointId.ToString())]),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(query), query, "Unhandled RelationshipQuery variant."),
+        };
+    }
+
+    private static string BuildEndpointPredicate(Direction direction) => direction switch
+    {
+        Direction.Outbound => "c.sourceId = @id",
+        Direction.Inbound => "c.targetId = @id",
+        Direction.Both => "(c.sourceId = @id OR c.targetId = @id)",
+        _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, "Unhandled Direction."),
+    };
+
+    private static string BaseRelSelect(string? predicate, bool includeDeleted)
+    {
+        var typeFilter = "c.resourceType = 'relationship'";
+
+        var fullPredicate = predicate is null
+            ? typeFilter
+            : $"{typeFilter} AND {predicate}";
+
+        var where = includeDeleted
+            ? $" WHERE {fullPredicate}"
+            : $" WHERE c.isDeleted = false AND {fullPredicate}";
+
+        return $"SELECT * FROM c{where}";
+    }
+}
+
+// Wire-format helper for RelationshipType — the enum's JsonStringEnumConverter
+// already emits camelCase strings in JSON, but ad-hoc SQL parameters bypass that
+// converter so the WHERE clause needs an explicit camelCase mapping.
+internal static class RelationshipTypeWire
+{
+    public static string Of(RelationshipType type) => type switch
+    {
+        RelationshipType.PublishesTo => "publishesTo",
+        RelationshipType.ConsumedBy => "consumedBy",
+        RelationshipType.SubscriptionOf => "subscriptionOf",
+        RelationshipType.UsesContract => "usesContract",
+        RelationshipType.Owns => "owns",
+        RelationshipType.AttachedTo => "attachedTo",
+        RelationshipType.Replaces => "replaces",
+        RelationshipType.PartOfFlow => "partOfFlow",
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, "Unknown RelationshipType."),
+    };
 }

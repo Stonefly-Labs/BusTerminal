@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BusTerminal.Api.Domain;
+using BusTerminal.Api.Domain.Relationships;
 using BusTerminal.Api.Domain.Resources;
 using BusTerminal.Api.Domain.Serialization;
 using BusTerminal.Api.Domain.Validation;
@@ -83,6 +84,17 @@ public static class CosmosConfigurationExtensions
         services.AddSingleton<IValidationRule, NamingStandardsRule>();
         services.AddSingleton<IValidationRule, UnknownResourceTypeRule>();
         services.AddSingleton<IValidationRule, OwnershipPresenceRule>();
+
+        // Spec 004 / T106 + T107 / T108 — US3 relationship rules. DanglingReferenceRule
+        // operates on Resources (every typed FK); RelationshipTypeValidityRule operates
+        // on Relationship peer documents via the parallel IRelationshipValidationRule
+        // dispatch path.
+        services.AddSingleton<IValidationRule, DanglingReferenceRule>();
+        services.AddSingleton<IRelationshipValidationRule, RelationshipTypeValidityRule>();
+
+        // Spec 004 / FR-008 / T105 — relationship graph traversal helper.
+        // Scoped because it depends on ICanonicalResourceStore (scoped).
+        services.AddScoped<RelationshipGraph>();
 
         // Spec 004 / FR-003 — NamespaceInheritance traverses the parent chain via
         // ICanonicalResourceStore.QueryAsync, so it shares the store's scope.

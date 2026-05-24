@@ -76,9 +76,14 @@ internal static class ImportCommand
                 loadedResources++;
             }
 
-            if (envelope.Relationships.Count > 0)
+            foreach (var relationship in envelope.Relationships)
             {
-                Console.WriteLine($"  [info] Skipped {envelope.Relationships.Count} relationship(s) in '{Path.GetFileName(file)}' — relationship CRUD lands in US3 (T104).");
+                await store.CreateRelationshipAsync(
+                    relationship,
+                    ServiceHost.Actor,
+                    ServiceHost.SourceSystem,
+                    cancellationToken).ConfigureAwait(false);
+                loadedRelationships++;
             }
         }
 
