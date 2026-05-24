@@ -1,6 +1,7 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
@@ -45,6 +46,10 @@ public static class OpenTelemetryExtensions
         builder.Host.UseSerilog();
 
         var otel = builder.Services.AddOpenTelemetry();
+
+        // Spec 004 — Cosmos SDK emits spans on its single ActivitySource. Add it
+        // here so persistence operations show up in the existing trace pipeline.
+        otel.WithTracing(tracing => tracing.AddSource("Azure.Cosmos.Operation"));
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {

@@ -127,6 +127,12 @@ variable "probe_job_enabled" {
   default     = false
 }
 
+variable "canonical_db_name" {
+  description = "Logical name of the Cosmos SQL database holding the canonical resource store and the change-event log."
+  type        = string
+  default     = "busterminal-canonical"
+}
+
 variable "kv_operator_object_ids" {
   description = <<-EOT
     Entra ID object IDs of humans (or break-glass service principals) who need

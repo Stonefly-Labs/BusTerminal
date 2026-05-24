@@ -43,6 +43,31 @@ output "application_insights_connection_string_secret_uri" {
   value       = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
 }
 
+output "cosmos_account_name" {
+  description = "Cosmos DB account name. Bound to `CosmosOptions.AccountName` when constructing the SDK client (the endpoint URL is derived from the name)."
+  value       = module.cosmos_account.account_name
+}
+
+output "cosmos_account_endpoint" {
+  description = "Cosmos DB account endpoint URL. Bound to `CosmosOptions.Endpoint`."
+  value       = module.cosmos_account.account_endpoint
+}
+
+output "cosmos_canonical_database_name" {
+  description = "Logical SQL database holding canonical resources + change-event log. Bound to `CosmosOptions.Database`."
+  value       = module.cosmos_canonical_store.database_name
+}
+
+output "cosmos_canonical_resources_container_name" {
+  description = "Container holding resource + relationship documents. Bound to `CosmosOptions.Containers.Resources`."
+  value       = module.cosmos_canonical_store.resources_container_name
+}
+
+output "cosmos_canonical_change_events_container_name" {
+  description = "Append-only change-event log container. Bound to `CosmosOptions.Containers.ChangeEvents`."
+  value       = module.cosmos_canonical_store.change_events_container_name
+}
+
 output "workload_identity_client_id" {
   description = "Client ID of the workload user-assigned managed identity. Workloads use this to acquire tokens for Key Vault, ACR, etc."
   value       = module.workload_identity.client_id

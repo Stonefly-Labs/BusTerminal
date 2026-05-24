@@ -31,6 +31,9 @@ builder.Services.AddSingleton<IAzureCredentialFactory>(azureCredentialFactory);
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, BusTerminalAuthorizationMiddlewareResultHandler>();
 builder.Services.AddBusTerminalGraphClient();
 
+// Spec 004 — canonical resource store + change-event log + validation engine.
+builder.Services.AddCosmosCanonicalStore(builder.Configuration);
+
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();
 

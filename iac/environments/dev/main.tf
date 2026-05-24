@@ -7,6 +7,7 @@ locals {
   container_registry_name      = replace("acr${var.naming_prefix}${var.unique_suffix}", "-", "")
   container_apps_env_name      = "cae-${var.naming_prefix}"
   workload_identity_name       = "mi-${var.naming_prefix}-workload"
+  cosmos_account_name          = "cosmos-${var.naming_prefix}-${var.unique_suffix}"
 
   frontend_app_name = "ca-${var.naming_prefix}-web"
   backend_app_name  = "ca-${var.naming_prefix}-api"
@@ -386,6 +387,56 @@ module "graph_permissions" {
   granted_application_permission_ids = [
     "df021288-bdef-4463-88db-98f22de89214", # User.Read.All (Application)
   ]
+}
+
+# Spec 004 — Cosmos DB account hosting the canonical metadata store.
+#
+# Public-endpoint, AAD-only data plane (no account keys) per plan.md §Constraints
+# and §Complexity Tracking (private networking is an explicit deferral). The
+# canonical store's database + containers are provisioned by the
+# cosmos-canonical-store module against this account.
+module "cosmos_account" {
+  source = "../../modules/cosmos-account"
+
+  name                       = local.cosmos_account_name
+  resource_group_name        = azurerm_resource_group.this.name
+  location                   = azurerm_resource_group.this.location
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+
+  tags = local.shared_tags
+}
+
+module "cosmos_canonical_store" {
+  source = "../../modules/cosmos-canonical-store"
+
+  cosmos_account_name = module.cosmos_account.account_name
+  resource_group_name = azurerm_resource_group.this.name
+  database_name       = var.canonical_db_name
+}
+
+# Workload UAMI gets data-contributor on the canonical database scope. The
+# built-in "Cosmos DB Built-in Data Contributor" role GUID is well-known:
+# 00000000-0000-0000-0000-000000000002. `azurerm_cosmosdb_sql_role_assignment`
+# expects the FULL resource id of the role definition, not the bare GUID.
+resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
+  resource_group_name = azurerm_resource_group.this.name
+  account_name        = module.cosmos_account.account_name
+  role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  scope               = module.cosmos_canonical_store.database_id
+  principal_id        = module.workload_identity.principal_id
+}
+
+# Developer (and pipeline) standing data-contributor on the canonical database so
+# `dotnet run --project tools/load-fixtures --auth aad` works from developer
+# machines per quickstart.md Path B. Uses the same caller identity that already
+# manages KV secrets (the pipeline MI in CI, the developer's az-login principal
+# locally).
+resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
+  resource_group_name = azurerm_resource_group.this.name
+  account_name        = module.cosmos_account.account_name
+  role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
+  scope               = module.cosmos_canonical_store.database_id
+  principal_id        = data.azurerm_client_config.current.object_id
 }
 
 module "app_registration_roles" {

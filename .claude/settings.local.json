@@ -254,7 +254,25 @@
       "Bash(curl -s \"https://api.nuget.org/v3-flatcontainer/yamldotnet/index.json\")",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); v=[x for x in d['versions'] if 'preview' not in x and 'beta' not in x and 'rc' not in x and x.startswith\\('16.'\\)]; print\\('YamlDotNet latest 16.x stable:', v[-1] if v else 'NONE'\\)\")",
       "Bash(dotnet run *)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "WebFetch(domain:registry.terraform.io)",
+      "WebFetch(domain:github.com)",
+      "Bash(curl -s 'https://api.github.com/repos/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/releases?per_page=5')",
+      "Bash(python3 -c 'import json,sys; [print\\(r[\"tag_name\"], r[\"published_at\"], \"prerelease=\" + str\\(r[\"prerelease\"]\\)\\) for r in json.load\\(sys.stdin\\)]')",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/main/variables.tf' -o /tmp/avm_cosmos_vars.tf)",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/cosmosdb_sql_container.html.markdown' -o /tmp/cosmos_container.md)",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/hashicorp/terraform-provider-azurerm/main/website/docs/r/cosmosdb_sql_role_assignment.html.markdown' -o /tmp/cosmos_role_assn.md)",
+      "Bash(curl -s 'https://api.github.com/repos/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/contents/?ref=v0.10.0')",
+      "Bash(python3 -c 'import json,sys; [print\\(f[\"name\"]\\) for f in json.load\\(sys.stdin\\) if f[\"name\"].endswith\\(\".tf\"\\)]')",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/variables.account.optionals.tf' -o /tmp/avm_opts.tf)",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/variables.tags.tf' -o /tmp/avm_tags.tf)",
+      "Bash(curl -sL 'https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/main.tf' -o /tmp/avm_main.tf)",
+      "Bash(curl -s \"https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/variables.databases.tf\")",
+      "Bash(curl -s \"https://api.github.com/repos/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/contents?ref=v0.10.0\")",
+      "Bash(python3 -c \"import json,sys; data=json.load\\(sys.stdin\\); [print\\(x['name']\\) for x in data if x['name'].startswith\\('variables'\\)]\")",
+      "Bash(curl -s \"https://raw.githubusercontent.com/Azure/terraform-azurerm-avm-res-documentdb-databaseaccount/v0.10.0/variables.sql.tf\")",
+      "Bash(checkov -d modules/cosmos-account -d modules/cosmos-canonical-store --quiet --compact)",
+      "Bash(checkov -d modules/cosmos-account --check CKV_AZURE_140 --compact)"
     ]
   },
   "enabledMcpjsonServers": [
