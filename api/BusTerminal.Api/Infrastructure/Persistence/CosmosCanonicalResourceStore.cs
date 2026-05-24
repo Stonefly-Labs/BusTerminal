@@ -189,9 +189,12 @@ public sealed partial class CosmosCanonicalResourceStore : ICanonicalResourceSto
             return existing;
         }
 
-        var marked = existing with
+        // Spec 004 / T123. Toggle IsDeleted via the pure SoftDelete.MarkDeleted
+        // helper; audit stamping is applied separately. The persisted Lifecycle
+        // is preserved across soft-delete (contracts/lifecycle-transitions.md
+        // §"Soft-delete and restoration are NOT lifecycle transitions").
+        var marked = SoftDelete.MarkDeleted(existing) with
         {
-            IsDeleted = true,
             Audit = existing.Audit with { ModifiedBy = actor, ModifiedAt = _time.GetUtcNow(), SourceSystem = sourceSystem },
         };
 
@@ -241,9 +244,14 @@ public sealed partial class CosmosCanonicalResourceStore : ICanonicalResourceSto
             return existing;
         }
 
-        var restored = existing with
+        // Spec 004 / T123. Restore via the pure SoftDelete.MarkRestored helper.
+        // The preserved Lifecycle on the stored document is the state to
+        // restore to — soft-delete does not change Lifecycle, so reading it
+        // back here is the prior lifecycle by construction. The
+        // LifecycleTransitionRule is intentionally NOT engaged because restore
+        // is not a lifecycle transition per contract.
+        var restored = SoftDelete.MarkRestored(existing, existing.Lifecycle) with
         {
-            IsDeleted = false,
             Audit = existing.Audit with { ModifiedBy = actor, ModifiedAt = _time.GetUtcNow(), SourceSystem = sourceSystem },
         };
 

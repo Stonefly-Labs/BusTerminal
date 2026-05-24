@@ -69,11 +69,13 @@ internal static class Program
         "truncate" => TruncateCommand.RunAsync(services, cancellationToken),
         "traverse" => TraverseCommand.RunAsync(services, options, cancellationToken),
 
+        // Spec 004 / US5 / T124 + T125.
+        "transition" => TransitionCommand.RunAsync(services, options, cancellationToken),
+        "soft-delete" => SoftDeleteCommand.RunAsync(services, options, cancellationToken),
+        "restore" => RestoreCommand.RunAsync(services, options, cancellationToken),
+        "changelog" => ChangelogCommand.RunAsync(services, options, cancellationToken),
+
         // Verbs landing in later user-story phases.
-        "transition" => NotImplemented(verb, "T124 (US5)"),
-        "soft-delete" => NotImplemented(verb, "T124 (US5)"),
-        "restore" => NotImplemented(verb, "T124 (US5)"),
-        "changelog" => NotImplemented(verb, "T125 (US5)"),
         "export" => NotImplemented(verb, "T143 (US8)"),
 
         _ => Unknown(verb),
@@ -115,10 +117,13 @@ internal static class Program
             Verbs (Phase 5 — Spec 004 US3):
               traverse                Traverse the relationship graph from a resource. --from <id> [--max-hops N] [--to outbound|inbound|both] [--types publishesTo,owns,...].
 
+            Verbs (Phase 7 — Spec 004 US5):
+              transition              Move a resource to a new Lifecycle. --resource-id <id> --to draft|active|deprecated|retired|archived.
+              soft-delete             Set IsDeleted=true on a resource. --resource-id <id>.
+              restore                 Clear IsDeleted on a soft-deleted resource. --resource-id <id>.
+              changelog               Print the ordered change-event log for a resource. --resource-id <id>.
+
             Verbs (deferred to later user stories):
-              transition              US5 / T124.
-              soft-delete, restore    US5 / T124.
-              changelog               US5 / T125.
               export                  US8 / T143.
             """);
     }

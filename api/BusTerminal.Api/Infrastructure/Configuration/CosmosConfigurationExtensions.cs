@@ -95,6 +95,16 @@ public static class CosmosConfigurationExtensions
         // Spec 004 / T116 — US4 contract compatibility lineage health.
         services.AddSingleton<IValidationRule, ContractCompatibilityRule>();
 
+        // Spec 004 / T120 + T121 — US5 lifecycle transition enforcement. The
+        // rule consumes ValidationContext.PreviousLifecycle, which callers
+        // populate by reading the existing resource before update and passing
+        // its Lifecycle as engine.ValidateAsync(..., previousLifecycle: ...).
+        // Soft-delete and restore are orthogonal to lifecycle transitions
+        // (contracts/lifecycle-transitions.md §"Soft-delete and restoration are
+        // NOT lifecycle transitions") and run through dedicated store paths
+        // that do not engage this rule.
+        services.AddSingleton<IValidationRule, LifecycleTransitionRule>();
+
         // Spec 004 / FR-008 / T105 — relationship graph traversal helper.
         // Scoped because it depends on ICanonicalResourceStore (scoped).
         services.AddScoped<RelationshipGraph>();
