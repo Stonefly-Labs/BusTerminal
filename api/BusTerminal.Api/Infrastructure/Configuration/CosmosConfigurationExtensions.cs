@@ -82,6 +82,7 @@ public static class CosmosConfigurationExtensions
         services.AddSingleton<IValidationRule, RequiredFieldsRule>();
         services.AddSingleton<IValidationRule, NamingStandardsRule>();
         services.AddSingleton<IValidationRule, UnknownResourceTypeRule>();
+        services.AddSingleton<IValidationRule, OwnershipPresenceRule>();
 
         // Spec 004 / FR-003 — NamespaceInheritance traverses the parent chain via
         // ICanonicalResourceStore.QueryAsync, so it shares the store's scope.

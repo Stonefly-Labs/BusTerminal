@@ -50,6 +50,15 @@ resource "azurerm_cosmosdb_sql_container" "resources" {
       path = "/*"
     }
 
+    # Spec 004 / FR-009 / T096. Ownership lookups ("all resources owned by
+    # Team X") are a first-class read path — declared here explicitly so the
+    # intent is searchable and so the index survives if /* is ever narrowed.
+    # Already covered by /* above; this entry is intent-documenting, not a
+    # behavioral change today.
+    included_path {
+      path = "/ownership/owningTeamId/?"
+    }
+
     excluded_path {
       path = "/extensions/*"
     }

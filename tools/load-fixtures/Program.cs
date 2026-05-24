@@ -65,10 +65,10 @@ internal static class Program
         "create-database" => CreateDatabaseCommand.RunAsync(services, cancellationToken),
         "import" => ImportCommand.RunAsync(services, options, cancellationToken),
         "show" => ShowCommand.RunAsync(services, options, cancellationToken),
+        "show-owner" => ShowOwnerCommand.RunAsync(services, options, cancellationToken),
         "truncate" => TruncateCommand.RunAsync(services, cancellationToken),
 
         // Verbs landing in later user-story phases.
-        "show-owner" => NotImplemented(verb, "T097 (US2)"),
         "traverse" => NotImplemented(verb, "T109 (US3)"),
         "transition" => NotImplemented(verb, "T124 (US5)"),
         "soft-delete" => NotImplemented(verb, "T124 (US5)"),
@@ -109,10 +109,10 @@ internal static class Program
               create-database         Create the canonical database + containers (idempotent).
               import                  Load envelope(s) into the store. Use --fixtures-dir or --fixtures.
               show                    Print a single resource by id. Use --resource-id [--include-deleted] [--format json].
+              show-owner              Print the structured ownership block for a resource + resolved Team display name. Use --resource-id.
               truncate                Delete every document from both canonical containers.
 
             Verbs (deferred to later user stories):
-              show-owner              US2 / T097.
               traverse                US3 / T109.
               transition              US5 / T124.
               soft-delete, restore    US5 / T124.
