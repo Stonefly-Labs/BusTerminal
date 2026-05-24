@@ -38,6 +38,15 @@ paths = [
     '''(^|/)specs/.*\.md$''',
     '''(^|/)web/public/.*''',
     '''.*\.(png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|otf|eot|pdf)$''',
+    # Claude Code agent-permission config. These files store approved
+    # **Bash command strings** that the agent is allowed to execute — not
+    # credentials. When a permission entry happens to embed multiple Azure
+    # identifiers (subscription / tenant / client / object IDs are all GUIDs;
+    # high-entropy concatenations of them trip the default `generic-api-key`
+    # rule), gitleaks misclassifies the line as a secret. The flagged values
+    # are Entra / ARM *identifiers*, not credentials — no key, no token, no
+    # SAS — so suppressing this path is correct.
+    '''(^|/)\.claude/settings(\.local)?\.json$''',
 ]
 
 # Patterns explicitly permitted as committed values: documented placeholder
