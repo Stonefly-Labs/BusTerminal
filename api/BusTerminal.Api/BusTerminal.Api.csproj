@@ -16,7 +16,7 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
     <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
          which pins Microsoft.Kiota.* 1.21.1 (GHSA-7j59-v9qr-6fq9). Forcing Graph.Core
