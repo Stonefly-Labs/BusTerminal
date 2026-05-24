@@ -38,7 +38,7 @@ jobs:
       TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Read pinned OpenTofu version
         id: tofu_version
