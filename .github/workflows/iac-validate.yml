@@ -67,6 +67,24 @@ jobs:
           directory: iac
           config_file: iac/.checkov.yaml
 
+      # Spec 003 / US5 / T078 — fail the build if a new `azurerm_role_assignment`,
+      # `azurerm_user_assigned_identity`, `azurerm_federated_identity_credential`,
+      # or `azuread_application_federated_identity_credential` lands inline at
+      # `iac/environments/*/main.tf`. Identity / federation / RBAC must compose
+      # from the modules under `iac/modules/`. Allowlist with rationale lives
+      # inside the script.
+      - name: Lint · no inline IAM in env compositions
+        run: ./scripts/lint-iac-inline-iam.sh
+
+      # Spec 003 / Polish / T101 — fail the build on any new inline
+      # Azure-service connection-string / account-key / SAS-token / shared-
+      # access-key assignment inside `iac/` HCL. Future-proofs FR-015 as
+      # later slices land Cosmos / AI Search / Storage / OpenAI / Service Bus
+      # / App Configuration resources. Allowlist with rationale lives inside
+      # the script.
+      - name: Lint · no inline Azure-service credentials
+        run: ./scripts/lint-iac-inline-credentials.sh
+
   plan-dev:
     name: tofu plan (dev) · PR comment
     runs-on: ubuntu-latest
@@ -85,6 +103,7 @@ jobs:
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
       # The plan uses placeholder image refs — actual rollouts happen via cd-dev.yml.
       TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
       TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
@@ -124,7 +143,13 @@ jobs:
         id: plan
         run: |
           set +e
-          tofu plan -no-color -out=tfplan > plan.out 2>&1
+          # `-lock-timeout=300s` lets the plan wait up to 5 minutes if a
+          # concurrent `tofu apply` (typically `cd-dev.yml` triggered by a
+          # push to `main`) is holding the state lock. Without this, plan
+          # exits 1 on lock contention and the PR check flakes for reasons
+          # unrelated to the diff. 5 minutes comfortably covers a worst-case
+          # cd-dev apply window.
+          tofu plan -no-color -lock-timeout=300s -out=tfplan > plan.out 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           # Cap comment size at ~60KB to stay under the GitHub comment limit.
           head -c 60000 plan.out > plan.trimmed
@@ -136,9 +161,23 @@ jobs:
 
       - name: Comment plan on PR
         uses: actions/github-script@v7
+        # The plan-comment is a reviewer convenience, not a gate. Transient
+        # GitHub API failures (e.g., 401 Bad credentials on a token that
+        # logs as PullRequests: write) shouldn't fail the IaC check —
+        # the dedicated "Fail job if plan errored" step below is the
+        # authoritative pass/fail signal.
+        continue-on-error: true
+        env:
+          # Pass the plan text via an env var, not via `${{ ... }}` expression
+          # interpolation directly into the script body. The plan output can
+          # contain backticks (e.g., AVM deprecation warnings like
+          # ``metric`` has been deprecated…``) which would otherwise close
+          # the JS template literal early and break script parsing with
+          # `SyntaxError: Unexpected identifier 'metric'`.
+          PLAN: ${{ steps.plan.outputs.plan }}
         with:
           script: |
-            const plan = `${{ steps.plan.outputs.plan }}`;
+            const plan = process.env.PLAN || '(empty plan output)';
             const body = [
               '### OpenTofu plan — `dev`',
               '',

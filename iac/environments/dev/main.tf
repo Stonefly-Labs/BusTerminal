@@ -82,8 +82,9 @@ resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
 
 # Operator standing access — populated via `kv_operator_object_ids`. Each
 # entry gets `Key Vault Secrets Officer` scoped to the env KV so on-call
-# humans can set bootstrap secrets (WebClientSecret, NextAuthSecret) via
-# `az keyvault secret set` without an out-of-band grant.
+# humans can set any future bootstrap secrets via `az keyvault secret set`
+# without an out-of-band grant. (Spec 003 removed the NextAuth/web-client
+# secrets; this access is now reserved for future workload secrets only.)
 resource "azurerm_role_assignment" "operator_kv_secrets_officer" {
   for_each             = toset(var.kv_operator_object_ids)
   scope                = module.keyvault.id
@@ -155,14 +156,29 @@ module "container_registry" {
   tags = local.shared_tags
 }
 
+# Spec 003 — workload MI promoted to the generalized `workload-identity` module
+# so it can carry API app-role assignments (FR-022) alongside its existing
+# Azure RBAC. Internal addresses are preserved against the old `identity`
+# module — no `moved` blocks needed for the UAMI / RBAC state.
+#
+# The `BusTerminal.Reader` app-role assignment grants the workload MI standing
+# read access to the API: this is what an internal Container Apps Job /
+# Functions caller exercises via `DefaultAzureCredential` → `az get-access-token`
+# → `Authorization: Bearer <token>` → API role policy (FR-022 / SC-003).
+data "azuread_service_principal" "api" {
+  client_id = var.entra_api_client_id
+}
+
 module "workload_identity" {
-  source = "../../modules/identity"
+  source = "../../modules/workload-identity"
 
   name                = local.workload_identity_name
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
+  environment         = var.environment_name
+  workload            = "workload"
 
-  role_assignments = {
+  assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
       scope                = module.container_registry.id
@@ -171,6 +187,12 @@ module "workload_identity" {
       role_definition_name = "Key Vault Secrets User"
       scope                = module.keyvault.id
     }
+  }
+
+  api_service_principal_object_id = data.azuread_service_principal.api.object_id
+
+  assigned_api_app_roles = {
+    reader = module.app_registration_roles.role_ids.reader
   }
 
   tags = local.shared_tags
@@ -246,26 +268,22 @@ module "frontend_app" {
   memory                        = "1Gi"
 
   env_vars = {
-    NODE_ENV                 = "production"
-    PORT                     = tostring(local.frontend_target_port)
-    NEXT_PUBLIC_API_BASE_URL = "https://${module.backend_app.fqdn_url}"
-    NEXTAUTH_URL             = "https://${local.frontend_app_name}.${module.container_apps_env.default_domain}"
-    AZURE_AD_TENANT_ID       = var.entra_tenant_id
-    AZURE_AD_CLIENT_ID       = var.entra_web_client_id
-    AZURE_KEY_VAULT_URI      = module.keyvault.uri
-    AZURE_CLIENT_ID          = module.workload_identity.client_id
+    NODE_ENV                       = "production"
+    PORT                           = tostring(local.frontend_target_port)
+    NEXT_PUBLIC_API_BASE_URL       = "https://${module.backend_app.fqdn_url}"
+    NEXT_PUBLIC_AZURE_AD_TENANT_ID = var.entra_tenant_id
+    NEXT_PUBLIC_AZURE_AD_CLIENT_ID = var.entra_web_client_id
+    NEXT_PUBLIC_API_SCOPE          = "api://${var.entra_api_client_id}/.default"
+    AZURE_KEY_VAULT_URI            = module.keyvault.uri
+    AZURE_CLIENT_ID                = module.workload_identity.client_id
   }
 
   secret_env_vars = {
-    AZURE_AD_CLIENT_SECRET                    = "web-client-secret"
-    NEXTAUTH_SECRET                           = "nextauth-secret"
     NEXT_PUBLIC_APPINSIGHTS_CONNECTION_STRING = "appinsights-connection-string"
   }
 
   key_vault_secrets = {
     appinsights-connection-string = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
-    web-client-secret             = "${module.keyvault.uri}secrets/WebClientSecret"
-    nextauth-secret               = "${module.keyvault.uri}secrets/NextAuthSecret"
   }
 
   tags = local.shared_tags
@@ -300,11 +318,109 @@ resource "azurerm_monitor_diagnostic_setting" "frontend_app" {
 # Entra-issued tokens via the workload's user-assigned MI when needed by future
 # slices (e.g., post-deploy smoke test using the pipeline identity to call the
 # deployed `/whoami`). Subject scopes the credential to this environment.
-resource "azurerm_federated_identity_credential" "workload_environment" {
+#
+# Spec 003 / US5 / FR-029 — composed via the generalized
+# `federated-credential` module. Issuer + audience use the module's GitHub
+# Actions / Entra-workload-identity defaults. The `moved` block keeps Tofu
+# state intact across the refactor.
+module "workload_federation_environment" {
+  source = "../../modules/federated-credential"
+
   name                = "github-environment-${var.environment_name}-workload"
   resource_group_name = azurerm_resource_group.this.name
   parent_id           = module.workload_identity.id
-  audience            = ["api://AzureADTokenExchange"]
-  issuer              = "https://token.actions.githubusercontent.com"
   subject             = "repo:${var.github_org_repo}:environment:${var.environment_name}"
+}
+
+moved {
+  from = azurerm_federated_identity_credential.workload_environment
+  to   = module.workload_federation_environment.azurerm_federated_identity_credential.this
+}
+
+# Spec 003 — platform app roles on the API app registration.
+#
+# The `bt-dev-api` app registration was created out-of-band in 002 and is not
+# a tofu-managed `azuread_application` resource. Reference it via a data source
+# and pass its id into the new `app-registration-roles` module. Because the
+# parent app is not a managed resource, the module's "ignore_changes = [app_role]"
+# lifecycle requirement (which applies when the parent IS managed) does not
+# apply here. See iac/modules/app-registration-roles/README.md.
+data "azuread_application" "api" {
+  client_id = var.entra_api_client_id
+}
+
+# Spec 003 / US3 / SC-003 — opt-in internal-caller probe job. Disabled by
+# default; flip `probe_job_enabled` to true (via `-var` or tfvars) to
+# provision the smoke. The job exits 0 on `GET /probe/read` returning 200
+# using a token acquired by the workload MI. See
+# `iac/modules/probe-job-internal-caller/README.md` and
+# `docs/internal-workload-callers.md` § Worked example.
+module "probe_job_internal_caller" {
+  count  = var.probe_job_enabled ? 1 : 0
+  source = "../../modules/probe-job-internal-caller"
+
+  name                          = "caj-${var.naming_prefix}-probe-internal-caller"
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  container_apps_environment_id = module.container_apps_env.id
+  managed_identity_id           = module.workload_identity.id
+  workload_identity_client_id   = module.workload_identity.client_id
+  api_url                       = "https://${module.backend_app.fqdn_url}"
+  api_scope                     = "api://${var.entra_api_client_id}/.default"
+
+  tags = local.shared_tags
+}
+
+# Spec 003 / US6 / FR-024 — Microsoft Graph application-permission grant on
+# the API app registration. Declares `User.Read.All` (the sole permission this
+# slice grants — `contracts/graph-permissions-inventory.md` is the binding
+# inventory). Admin consent is NOT performed by Tofu (FR-024 + research § 9):
+# after `tofu apply`, a tenant admin must grant consent in the Entra portal
+# (or `az ad app permission admin-consent --id <bt-dev-api-app-id>`) before
+# any `IGraphClient` call succeeds. See quickstart.md § A.2.3.
+module "graph_permissions" {
+  source = "../../modules/graph-permissions"
+
+  api_application_id = data.azuread_application.api.id
+
+  granted_application_permission_ids = [
+    "df021288-bdef-4463-88db-98f22de89214", # User.Read.All (Application)
+  ]
+}
+
+module "app_registration_roles" {
+  source = "../../modules/app-registration-roles"
+
+  api_application_id = data.azuread_application.api.id
+
+  role_definitions = {
+    admin = {
+      role_id              = var.platform_role_ids.admin
+      value                = "BusTerminal.Admin"
+      display_name         = "BusTerminal Administrator"
+      description          = "Full administrative access. Authorizes every operation class: Read, MutateDomain, OperatePlatform, Administer, DeveloperTooling."
+      allowed_member_types = ["User", "Application"]
+    }
+    operator = {
+      role_id              = var.platform_role_ids.operator
+      value                = "BusTerminal.Operator"
+      display_name         = "BusTerminal Operator"
+      description          = "Operational management access. Authorizes Read, MutateDomain, OperatePlatform."
+      allowed_member_types = ["User", "Application"]
+    }
+    reader = {
+      role_id              = var.platform_role_ids.reader
+      value                = "BusTerminal.Reader"
+      display_name         = "BusTerminal Reader"
+      description          = "Read-only access to platform and domain state."
+      allowed_member_types = ["User", "Application"]
+    }
+    developer = {
+      role_id              = var.platform_role_ids.developer
+      value                = "BusTerminal.Developer"
+      display_name         = "BusTerminal Developer"
+      description          = "API/spec/developer-tooling access. Authorizes Read and DeveloperTooling."
+      allowed_member_types = ["User", "Application"]
+    }
+  }
 }

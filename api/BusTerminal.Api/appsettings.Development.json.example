@@ -5,6 +5,7 @@
       "Microsoft.AspNetCore": "Information"
     }
   },
+  "_AzureAd_comment": "Microsoft.Identity.Web validates inbound bearer tokens against this configuration. TenantId pins the issuer; ClientId is the API app registration's application (client) id; Audience is the resource identifier the SPA requests a token for (typically api://<api-client-id>). Replace the example values with the real dev-tenant values (see quickstart.md § C.3). For backend mock-tenant integration tests, TenantId may be set to 'development' to engage the MockAuthenticationHandler.",
   "AzureAd": {
     "Instance": "https://login.microsoftonline.com/",
     "TenantId": "development",

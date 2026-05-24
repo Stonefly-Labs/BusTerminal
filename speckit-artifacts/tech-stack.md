@@ -124,10 +124,15 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Area | Standard |
 |---|---|
 | Identity platform | **Microsoft Entra ID** |
-| Service-to-service auth | **Managed Identity preferred over secrets** |
-| Access control | **RBAC, least-privilege** |
-| Embedded credentials | Prohibited |
-| Local development | Developer-friendly flows preferred: Azure CLI credential or developer Entra ID sign-in |
+| Human sign-in (SPA) | **MSAL** (`@azure/msal-browser` 4.x + `@azure/msal-react` 3.x), Authorization Code + PKCE. No client secret. (FR-003 / slice 003) |
+| Backend token validation | **Microsoft.Identity.Web** JWT bearer on the API; rejects unauthenticated calls with `401 + WWW-Authenticate: Bearer`. |
+| Service-to-service auth | **Managed Identity preferred over secrets** — user-assigned managed identity (UAMI) per workload; same UAMI is used for workload→API calls (no internal-trust bypass). (FR-012) |
+| Pipeline-to-Azure auth | **OIDC federated credentials** (GitHub Actions → short-lived JWT exchanged for an Entra token). No long-lived secrets. (FR-015) |
+| Backend Azure-SDK credentials | **`DefaultAzureCredential`** resolved through a single factory (`IAzureCredentialFactory`). Never construct inline. (FR-018) |
+| Access control | **RBAC, least-privilege.** Backend authorization is role-based via app roles on the API app registration. The role-permission matrix at `specs/003-auth-and-identity/contracts/role-permission-matrix.md` is the **binding contract** mapping `BusTerminal.Reader` / `BusTerminal.Developer` / `BusTerminal.Operator` / `BusTerminal.Admin` to the five operation classes (`Read`, `MutateDomain`, `OperatePlatform`, `Administer`, `DeveloperTooling`). Future protected endpoints **must** declare an operation class and align with this matrix; the matrix is the authoritative source if the implementation (`api/BusTerminal.Api/Authorization/RolePolicies.cs`) ever drifts. |
+| Microsoft Graph access | App-only flow via `IGraphClient`; permissions declared in `iac/modules/graph-permissions/`; admin consent is **manual** and out-of-band per environment. Permission inventory: `docs/identity-graph-permissions.md`. (FR-024) |
+| Embedded credentials | **Prohibited.** No client secrets, no SAS tokens, no connection strings with embedded keys in source or in container env. CI runs `gitleaks` on every change. |
+| Local development | `az login` once against the BusTerminal dev tenant; `DefaultAzureCredential` resolves the developer's `AzureCliCredential`. MSAL signs in to the **real** dev tenant — no frontend mock provider (FR-018, removed by slice 003). |
 
 ---
 

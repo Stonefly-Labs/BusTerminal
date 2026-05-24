@@ -1,6 +1,5 @@
 using System.Diagnostics;
-using System.Security.Claims;
-using BusTerminal.Api.Infrastructure.Authentication;
+using BusTerminal.Api.Authorization;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace BusTerminal.Api.Features.Identity;
@@ -12,24 +11,34 @@ public static class WhoAmIEndpoint
     public static IEndpointRouteBuilder MapWhoAmIEndpoint(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/whoami", HandleAsync)
-            .RequireAuthorization(AuthenticationExtensions.RequireAuthenticatedUserPolicy)
+            .RequireAuthorization()
             .WithName("WhoAmI");
 
         return endpoints;
     }
 
-    private static Ok<WhoAmIResponse> HandleAsync(HttpContext context, IHostEnvironment environment)
+    private static Ok<WhoAmIResponse> HandleAsync(
+        HttpContext context,
+        IHostEnvironment environment,
+        IPlatformPrincipalAccessor principalAccessor)
     {
-        var user = context.User;
+        var caller = principalAccessor.Current;
         var principal = new Principal(
-            Oid: GetClaim(user, "oid")
-                ?? GetClaim(user, ClaimTypes.NameIdentifier)
-                ?? string.Empty,
-            DisplayName: GetClaim(user, "name")
-                ?? user.Identity?.Name
-                ?? string.Empty,
-            PreferredUsername: GetClaim(user, "preferred_username"),
-            TenantId: GetClaim(user, "tid") ?? string.Empty);
+            Oid: caller is null || caller.ObjectId == Guid.Empty
+                ? string.Empty
+                : caller.ObjectId.ToString(),
+            DisplayName: caller?.DisplayName,
+            PreferredUsername: caller?.Username,
+            TenantId: caller is null || caller.TenantId == Guid.Empty
+                ? string.Empty
+                : caller.TenantId.ToString(),
+            CallerType: (caller?.CallerType ?? CallerType.Human).ToString(),
+            EffectiveRoles: caller is null
+                ? Array.Empty<string>()
+                : caller.EffectiveRoles
+                    .Select(r => r.ToClaimValue())
+                    .OrderBy(s => s, StringComparer.Ordinal)
+                    .ToArray());
 
         var activity = Activity.Current;
         var traceId = activity?.TraceId.ToHexString() ?? string.Empty;
@@ -48,12 +57,6 @@ public static class WhoAmIEndpoint
         return TypedResults.Ok(new WhoAmIResponse(principal, correlation, server));
     }
 
-    private static string? GetClaim(ClaimsPrincipal user, string claimType)
-    {
-        var value = user.FindFirst(claimType)?.Value;
-        return string.IsNullOrWhiteSpace(value) ? null : value;
-    }
-
     private static string NormalizeEnvironmentName(string environmentName) =>
         environmentName.ToLowerInvariant() switch
         {
@@ -67,7 +70,13 @@ public static class WhoAmIEndpoint
 
 public sealed record WhoAmIResponse(Principal Principal, Correlation Correlation, ServerInfo Server);
 
-public sealed record Principal(string Oid, string DisplayName, string? PreferredUsername, string TenantId);
+public sealed record Principal(
+    string Oid,
+    string? DisplayName,
+    string? PreferredUsername,
+    string TenantId,
+    string CallerType,
+    IReadOnlyList<string> EffectiveRoles);
 
 public sealed record Correlation(string TraceId, string SpanId, string? ReceivedTraceparent);
 

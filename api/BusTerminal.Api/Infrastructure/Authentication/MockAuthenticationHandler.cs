@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using BusTerminal.Api.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -16,6 +17,10 @@ public sealed class MockAuthenticationHandler : AuthenticationHandler<MockAuthen
     public const string DevPrincipalDisplayName = "Dev User";
     public const string DevPrincipalUpn = "dev.user@busterminal.local";
     public const string DevTenantId = "00000000-0000-0000-0000-000000000002";
+    public const string DevWorkloadOid = "00000000-0000-0000-0000-000000000003";
+    public const string MockRolesHeader = "X-Mock-Roles";
+    public const string MockCallerTypeHeader = "X-Mock-Caller-Type";
+    public const string WorkloadCallerType = "Workload";
 
     private readonly IHostEnvironment _environment;
 
@@ -37,17 +42,43 @@ public sealed class MockAuthenticationHandler : AuthenticationHandler<MockAuthen
                 "MockAuthenticationHandler is gated to the Development environment and must never be reachable in Production.");
         }
 
-        var claims = new[]
+        var isWorkload = string.Equals(
+            Request.Headers[MockCallerTypeHeader].ToString(),
+            WorkloadCallerType,
+            StringComparison.OrdinalIgnoreCase);
+
+        var oid = isWorkload ? DevWorkloadOid : DevPrincipalOid;
+
+        var claims = new List<Claim>
         {
-            new Claim("oid", DevPrincipalOid),
-            new Claim(ClaimTypes.NameIdentifier, DevPrincipalOid),
-            new Claim(ClaimTypes.Name, DevPrincipalDisplayName),
-            new Claim("name", DevPrincipalDisplayName),
-            new Claim("preferred_username", DevPrincipalUpn),
-            new Claim("tid", DevTenantId),
+            new("oid", oid),
+            new(ClaimTypes.NameIdentifier, oid),
+            new("tid", DevTenantId),
         };
 
-        var identity = new ClaimsIdentity(claims, SchemeName, "name", string.Empty);
+        if (isWorkload)
+        {
+            // `idtyp=app` is what `PrincipalAccessor` reads to classify the
+            // caller as `CallerType.Workload` — matches the real Entra
+            // app-only token shape that the inherited Microsoft.Identity.Web
+            // pipeline emits for client-credentials / managed-identity flows.
+            claims.Add(new Claim("idtyp", "app"));
+        }
+        else
+        {
+            claims.Add(new Claim(ClaimTypes.Name, DevPrincipalDisplayName));
+            claims.Add(new Claim("name", DevPrincipalDisplayName));
+            claims.Add(new Claim("preferred_username", DevPrincipalUpn));
+        }
+
+        foreach (var role in ParseRolesHeader(Request.Headers[MockRolesHeader]))
+        {
+            var value = role.ToClaimValue();
+            claims.Add(new Claim(ClaimTypes.Role, value));
+            claims.Add(new Claim(RolesClaimExtensions.RolesClaimType, value));
+        }
+
+        var identity = new ClaimsIdentity(claims, SchemeName, "name", ClaimTypes.Role);
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
@@ -58,5 +89,30 @@ public sealed class MockAuthenticationHandler : AuthenticationHandler<MockAuthen
         Response.StatusCode = StatusCodes.Status401Unauthorized;
         Response.Headers.WWWAuthenticate = $"{SchemeName} realm=\"busterminal\"";
         return Task.CompletedTask;
+    }
+
+    private static IEnumerable<PlatformRole> ParseRolesHeader(Microsoft.Extensions.Primitives.StringValues header)
+    {
+        if (header.Count == 0)
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<PlatformRole>();
+        foreach (var raw in header)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            foreach (var part in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (PlatformRoleExtensions.TryParseClaimValue(part, out var role) && seen.Add(role))
+                {
+                    yield return role;
+                }
+            }
+        }
     }
 }

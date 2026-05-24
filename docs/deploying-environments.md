@@ -69,15 +69,16 @@ Two Entra ID applications must exist per environment before the first deploy:
 - **Backend API registration** (audience for the JWT the backend validates)
   - Application ID URI: `api://<api-client-id>`
   - Exposed scope: `access_as_user`
-- **Frontend (web) registration** (NextAuth.js initiates sign-in here)
-  - Redirect URI: `https://<frontend-fqdn>/api/auth/callback/microsoft-entra-id`
-  - A client secret stored in Key Vault as `WebClientSecret`
+  - Platform app roles: `BusTerminal.{Admin,Operator,Reader,Developer}` declared via IaC (`module.app_registration_roles`)
+- **Frontend (web) SPA registration** (MSAL Authorization Code + PKCE sign-in lands here)
+  - Single-page application (SPA) platform with redirect URI `https://<frontend-fqdn>` and `http://localhost:3000` for local dev
+  - **No client secret** — SPAs are public clients; PKCE replaces the secret
   - API permission: `access_as_user` on the backend API registration, admin consented
 
-A separate `docs/identity-and-secrets.md` (slice US4) will walk through
-creating these. For US2, the only requirement is that the resulting client IDs
-are configured as environment variables above and that `WebClientSecret` and
-`NextAuthSecret` exist in the environment's Key Vault.
+See [`identity-and-secrets.md`](./identity-and-secrets.md) for the
+authoritative explanation of every credential mechanism BusTerminal uses.
+For deploy, the only requirement is that the resulting client IDs are
+configured as the `entra_*_client_id` IaC variables above.
 
 ---
 
@@ -199,24 +200,135 @@ later root-cause investigation via its logs in Application Insights.
 
 ---
 
-## 7. Adding a new environment (US5 preview)
+## 7. Adding a new environment
 
-The pattern is documented in [`iac/environments/test/README.md`](../iac/environments/test/README.md)
-(US5 deliverable). The summary:
+The summary (the per-env scaffold itself lands when the first non-dev
+environment is provisioned):
 
 1. Re-run the bootstrap with the additional environment name (`-e test`) so
-   the matching managed identity + federated credential is created.
+   the matching managed identity + federated credential is created. The
+   bootstrap uses [`modules/federated-credential`](../iac/modules/federated-credential/)
+   for the pipeline FIC, so any new env automatically inherits the right
+   subject shape.
 2. Copy `iac/environments/dev/*` to `iac/environments/test/`, renaming the
    backend key (`envs/test/terraform.tfstate`).
 3. Configure environment-scoped GitHub variables for `test`.
 4. Add `cd-test.yml` derived from `cd-dev.yml`, pointing at the new env.
 
 No changes inside `iac/modules/` should be required to add an environment —
-that is the test US5 measures.
+this is the property spec 003 US5 measures. For adding a new *workload*
+within an existing environment (a more common operation), see § 8.
 
 ---
 
-## 8. Troubleshooting
+## 8. Adding a new workload
+
+> Spec 003 / US5 / SC-005 — *adding* a workload (a new Container Apps Job,
+> Azure Function, post-deploy probe, etc.) is module-composition only. No new
+> inline `azurerm_user_assigned_identity`, `azurerm_role_assignment`,
+> `azurerm_federated_identity_credential`, or
+> `azuread_application_federated_identity_credential` resource blocks should
+> appear in `iac/environments/<env>/main.tf`. A CI lint step
+> ([`scripts/lint-iac-inline-iam.sh`](../scripts/lint-iac-inline-iam.sh), run
+> by [`iac-validate.yml`](../.github/workflows/iac-validate.yml)) enforces
+> this on every PR.
+
+The identity modules under `iac/modules/` decompose by lifetime:
+
+| Module | Lifetime | Per workload? | Purpose |
+|---|---|---|---|
+| `app-registration-roles` | one per env | no | Declares the four `BusTerminal.*` app roles on the API app registration. |
+| `workload-identity` | one per workload | **yes** | Provisions the workload's user-assigned MI + downstream Azure RBAC (ACR pull, KV secrets, future Cosmos / AI Search / Service Bus) + any `BusTerminal.*` app-role assignments the workload calls the API with. |
+| `federated-credential` | one or more per workload | **yes** (when the workload federates an external IdP, e.g., GitHub Actions) | Establishes the trust relationship between an external OIDC issuer and the workload MI. |
+| `graph-permissions` | one per env | no | Declares Microsoft Graph application permissions on the API app registration. |
+
+For most new workloads, the only module additions are `workload-identity`
+and (optionally) `federated-credential`. The other two are per-environment
+and already wired in `iac/environments/dev/main.tf`.
+
+### Worked example — a discovery worker job
+
+Walks through the minimum HCL to add a "discovery worker" Container Apps Job
+to the `dev` env. It needs:
+
+- Read on the BusTerminal API (`BusTerminal.Reader`)
+- ACR pull (to fetch its image)
+- Key Vault secret read (for App Insights connection string)
+- GitHub Actions federation so the CD workflow can roll the job's image
+  using the worker's own MI
+
+```hcl
+# iac/environments/dev/main.tf — additions only.
+
+module "discovery_worker_identity" {
+  source = "../../modules/workload-identity"
+
+  name                = "mi-${var.naming_prefix}-discovery-worker"
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+  environment         = var.environment_name
+  workload            = "discovery-worker"
+
+  assigned_azure_rbac = {
+    acr-pull = {
+      role_definition_name = "AcrPull"
+      scope                = module.container_registry.id
+    }
+    kv-secrets-user = {
+      role_definition_name = "Key Vault Secrets User"
+      scope                = module.keyvault.id
+    }
+  }
+
+  api_service_principal_object_id = data.azuread_service_principal.api.object_id
+
+  assigned_api_app_roles = {
+    reader = module.app_registration_roles.role_ids.reader
+  }
+
+  tags = local.shared_tags
+}
+
+module "discovery_worker_federation" {
+  source = "../../modules/federated-credential"
+
+  name                = "github-environment-${var.environment_name}-discovery-worker"
+  resource_group_name = azurerm_resource_group.this.name
+  parent_id           = module.discovery_worker_identity.id
+  subject             = "repo:${var.github_org_repo}:environment:${var.environment_name}"
+  # issuer (GitHub Actions) + audience (Entra workload-identity) default values.
+}
+```
+
+That's the full surface. Bringing this through `tofu plan` adds:
+
+- 1 × `azurerm_user_assigned_identity` (inside the module)
+- 2 × `azurerm_role_assignment` (ACR pull + KV secrets user, inside the module)
+- 1 × `azuread_app_role_assignment` (API `Reader` role, inside the module)
+- 1 × `azurerm_federated_identity_credential` (inside the federation module)
+
+No new top-level inline resources — the lint guard passes.
+
+### When the lint fails
+
+If `scripts/lint-iac-inline-iam.sh` rejects a change, prefer one of:
+
+1. **Compose** the resource via the appropriate module above (default path).
+2. If the resource genuinely cannot be modulized (e.g., the existing
+   `azurerm_role_assignment.pipeline_kv_secrets_officer` grant, which is on
+   the pipeline MI authoring the env composition itself), add the
+   fully-qualified address to the `ALLOWLIST` array in the script with a
+   one-line comment explaining the rationale.
+
+Per data-model.md § Federated Credential, every new federated credential
+subject MUST also appear verbatim in
+[`identity-and-secrets.md`](./identity-and-secrets.md) so a federation-drift
+failure ("subject mismatch") can be diagnosed in one step. Update that file
+in the same PR that adds the workload.
+
+---
+
+## 9. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
@@ -224,5 +336,5 @@ that is the test US5 measures.
 | `tofu apply` fails with `RoleAssignmentExists` | Pre-existing identical assignment from a prior manual setup. | Import the conflict (`tofu import`) or remove the manual assignment. |
 | Container App revision never reaches `Healthy` | `/healthz/ready` returning 503 → backend cannot reach Entra metadata or Key Vault. | Check Container Apps logs in App Insights for the failing dependency. |
 | Authenticated smoke step warns "Could not acquire API-scope token" | App-role grant in § 5 is missing. | Apply the Graph API grant once per environment. |
-| Frontend reaches 200 but redirects loop | `NEXTAUTH_URL` does not match the actual ingress URL. | Verify the Container App FQDN in `outputs.tf` matches what NextAuth.js expects. |
+| Frontend reaches 200 but immediately redirects to `/signin` | The SPA app registration's redirect URI does not include the actual ingress URL (or `http://localhost:3000` for local). | Add the URL to the SPA platform's redirect URIs in Entra portal; MSAL rejects redirects to unregistered URIs. |
 | Deploy wall-clock > 20 minutes | First-ever deploy (image cold cache); or large IaC plan. | Subsequent no-infra-change deploys should hit SC-002 (< 20 min). |

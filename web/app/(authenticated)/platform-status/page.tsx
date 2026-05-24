@@ -1,18 +1,17 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { apiGet } from "@/lib/api-client";
-import { auth } from "@/lib/auth";
-
-export const metadata: Metadata = {
-  title: "Platform status",
-};
+import { apiGet, type ApiResult } from "@/lib/api-client";
 
 interface WhoAmIPrincipal {
   oid: string;
-  displayName: string;
-  preferredUsername?: string;
+  displayName: string | null;
+  preferredUsername: string | null;
   tenantId: string;
+  callerType: "Human" | "Workload";
+  effectiveRoles: readonly string[];
 }
 
 interface WhoAmICorrelation {
@@ -42,12 +41,18 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function PlatformStatusPage() {
-  const session = await auth();
-  const result = await apiGet<WhoAmIResponse>(
-    "/whoami",
-    session?.accessToken ? { accessToken: session.accessToken } : {},
-  );
+export default function PlatformStatusPage() {
+  const [result, setResult] = useState<ApiResult<WhoAmIResponse> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiGet<WhoAmIResponse>("/whoami").then((value) => {
+      if (!cancelled) setResult(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
@@ -59,7 +64,18 @@ export default async function PlatformStatusPage() {
         </p>
       </header>
 
-      {!result.ok ? (
+      {result === null ? (
+        <Card>
+          <CardContent>
+            <div
+              aria-busy="true"
+              aria-live="polite"
+              data-testid="platform-status-loading"
+              className="h-1 w-full animate-pulse rounded bg-border-default"
+            />
+          </CardContent>
+        </Card>
+      ) : !result.ok ? (
         <Card>
           <CardHeader>
             <CardTitle>Could not reach the backend</CardTitle>
@@ -84,12 +100,24 @@ export default async function PlatformStatusPage() {
             </CardHeader>
             <CardContent>
               <dl>
-                <Field label="Display name" value={result.data.principal.displayName} />
+                <Field
+                  label="Display name"
+                  value={result.data.principal.displayName ?? "(unset)"}
+                />
                 {result.data.principal.preferredUsername ? (
                   <Field label="UPN" value={result.data.principal.preferredUsername} />
                 ) : null}
                 <Field label="Object ID" value={result.data.principal.oid} />
                 <Field label="Tenant ID" value={result.data.principal.tenantId} />
+                <Field label="Caller type" value={result.data.principal.callerType} />
+                <Field
+                  label="Effective roles"
+                  value={
+                    result.data.principal.effectiveRoles.length === 0
+                      ? "(none)"
+                      : result.data.principal.effectiveRoles.join(", ")
+                  }
+                />
               </dl>
             </CardContent>
           </Card>

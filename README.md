@@ -28,7 +28,7 @@ Principle VI — Incremental Extensibility).
 | [`.github/workflows/`](./.github/workflows) | GitHub Actions pipelines — CI on PRs and CD on `main`. |
 | [`scripts/`](./scripts) | Developer and platform helper scripts (`bootstrap.{ps1,sh}` for prerequisite checks; local-dev and platform-bootstrap helpers as they land). |
 | [`docs/`](./docs) | Onboarding, deployment, observability, identity, and architecture documentation. |
-| [`specs/`](./specs) | Spec-Driven Development feature specs. Spec 002 (solution foundation) is the active feature. |
+| [`specs/`](./specs) | Spec-Driven Development feature specs. Spec 003 (auth-and-identity) is the active feature. |
 | [`speckit-artifacts/`](./speckit-artifacts) | Foundational input documents — the constitution draft, brand foundation, tech-stack reference, and future foundational specs. |
 | [`.specify/`](./.specify) | Spec-Driven Development tooling — the constitution, templates, hooks, and the active-feature pointer. |
 | [`CLAUDE.md`](./CLAUDE.md) | Project context for coding agents. |
@@ -50,7 +50,7 @@ Read these in priority order when you need context:
    single-page consolidation of every approved technology, library,
    and infrastructure choice.
 3. **[Active feature spec](./.specify/feature.json)** — points to the
-   current spec under `specs/`. Today: spec 002 — Solution Foundation.
+   current spec under `specs/`. Today: spec 003 — Auth and Identity.
 4. **[Source artifacts](./speckit-artifacts/)** — foundational input
    documents.
 
@@ -76,7 +76,17 @@ Topline:
 - **Infrastructure-as-Code** — OpenTofu (not Bicep). Azure Verified
   Modules preferred with pinned versions.
 - **Identity** — Microsoft Entra ID; Managed Identity preferred over
-  secrets; RBAC least-privilege.
+  secrets; RBAC least-privilege. **Human sign-in** uses MSAL
+  (Authorization Code + PKCE, no client secret); **workload-to-Azure**
+  and **workload-to-API** auth use user-assigned managed identities;
+  **pipeline-to-Azure** uses OIDC-federated short-lived credentials.
+  Backend authorization is **role-based**, driven by app roles defined
+  on the API app registration and bound to four operation classes
+  (`Read`, `MutateDomain`, `OperatePlatform`, `Administer`,
+  `DeveloperTooling`) via the role-permission matrix.
+  See [identity-and-secrets.md](./docs/identity-and-secrets.md),
+  [identity-role-administration.md](./docs/identity-role-administration.md),
+  and [identity-graph-permissions.md](./docs/identity-graph-permissions.md).
 - **Secrets** — Azure Key Vault. Never commit secrets.
 - **Observability** — Azure Monitor + Application Insights +
   OpenTelemetry. All Azure services route diagnostic logs to the

@@ -1,44 +1,64 @@
-import type { Metadata } from "next";
+"use client";
 
-import { Button } from "@/components/ui/button";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MOCK_PROVIDER_ID, isMockAuthActive, signIn } from "@/lib/auth";
+import { msalReady, pca } from "@/lib/auth/msal-instance";
+import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 
-export const metadata: Metadata = {
-  title: "Sign in",
-};
+function SignInRedirect() {
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") ?? "/platform-status";
 
-async function signInAction(formData: FormData) {
-  "use server";
-  const callbackUrl = (formData.get("callbackUrl") as string) || "/platform-status";
-  const providerId = isMockAuthActive ? MOCK_PROVIDER_ID : "microsoft-entra-id";
-  await signIn(providerId, { redirectTo: callbackUrl });
+  useEffect(() => {
+    let cancelled = false;
+    void msalReady
+      .then(() => {
+        if (cancelled) return;
+        const accounts = pca.getAllAccounts();
+        if (accounts.length > 0) {
+          window.location.replace(callbackUrl);
+          return;
+        }
+        void pca.loginRedirect({
+          scopes: [...API_SCOPE_REQUEST.scopes],
+          redirectStartPage: callbackUrl,
+        });
+      })
+      .catch(() => {
+        // Initialization failure is surfaced by MSAL on the next interactive call;
+        // the page stays on the skeleton so the user can refresh / re-attempt.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [callbackUrl]);
+
+  return null;
 }
 
-interface SignInPageProps {
-  readonly searchParams: Promise<{ callbackUrl?: string }>;
-}
-
-export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const { callbackUrl = "/platform-status" } = await searchParams;
+export default function SignInPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-canvas p-6">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Sign in to BusTerminal</CardTitle>
+          <CardTitle>Signing in to BusTerminal</CardTitle>
           <CardDescription>
-            {isMockAuthActive
-              ? "Development mode — sign in as the synthetic dev user."
-              : "Authenticate with your organization's Microsoft Entra ID account."}
+            Redirecting to Microsoft Entra ID. If nothing happens within a few seconds, refresh
+            this page or contact your administrator.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={signInAction}>
-            <input type="hidden" name="callbackUrl" value={callbackUrl} />
-            <Button type="submit" intent="primary" className="w-full">
-              {isMockAuthActive ? "Continue as Dev User" : "Sign in with Microsoft Entra ID"}
-            </Button>
-          </form>
+          <div
+            aria-busy="true"
+            aria-live="polite"
+            data-testid="signin-pending"
+            className="h-1 w-full animate-pulse rounded bg-border-default"
+          />
+          <Suspense fallback={null}>
+            <SignInRedirect />
+          </Suspense>
         </CardContent>
       </Card>
     </div>

@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import "@/lib/observability/register-adapters";
 import { Providers } from "./providers";
+import { MsalProvider } from "@/components/auth/msal-provider";
 import { directionForLocale } from "@/lib/i18n";
 import { THEME_STORAGE_KEY } from "@/lib/theme-provider-constants";
 import {
@@ -87,14 +87,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <Script
+        <script
           id="bt-anti-fouc"
-          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: ANTI_FOUC_SCRIPT }}
         />
       </head>
       <body className="min-h-full flex flex-col bg-surface-canvas text-foreground-default">
-        <Providers>{children}</Providers>
+        <MsalProvider>
+          <Providers>{children}</Providers>
+        </MsalProvider>
       </body>
     </html>
   );
