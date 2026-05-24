@@ -14,6 +14,13 @@ namespace BusTerminal.Tools.LoadFixtures.Commands;
 // Output line (per spec): "Loaded N resources, M relationships. Findings:
 // E Error, W Warning, I Info (X resources without any finding)."
 // A resource with Warning/Info still loads; only Error rejects (FR-013).
+//
+// T134 (US6) — upsert semantics. When an envelope contains a resource whose
+// {id, resourceType} pair matches an already-persisted record, the import
+// path performs an Update rather than a Create. Patch-style fixture files
+// (e.g., `04-extensions.json`) carry the full resource shape (STJ requires
+// every required field) and rely on this upsert behavior to overlay
+// modifications onto records that earlier files Created.
 internal static class ImportCommand
 {
     public static async Task<int> RunAsync(
@@ -33,6 +40,7 @@ internal static class ImportCommand
         var engine = services.GetRequiredService<ValidationEngine>();
 
         var loadedResources = 0;
+        var updatedResources = 0;
         var loadedRelationships = 0;
         var rejected = 0;
         var errorFindings = 0;
@@ -72,8 +80,27 @@ internal static class ImportCommand
                     resourcesWithNoFinding++;
                 }
 
-                await store.CreateAsync(stamped, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
-                loadedResources++;
+                // T134 — if the record already exists (earlier fixture in the
+                // load sequence created it), apply this envelope as an Update so
+                // patch-style files like 04-extensions.json overlay modifications
+                // onto the base record.
+                var existing = await store.GetAsync(
+                    resource.Id,
+                    resource.ResourceType,
+                    includeDeleted: true,
+                    cancellationToken).ConfigureAwait(false);
+
+                if (existing is null)
+                {
+                    await store.CreateAsync(stamped, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
+                    loadedResources++;
+                }
+                else
+                {
+                    var patched = stamped with { ConcurrencyToken = existing.ConcurrencyToken };
+                    await store.UpdateAsync(patched, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
+                    updatedResources++;
+                }
             }
 
             foreach (var relationship in envelope.Relationships)
@@ -88,7 +115,7 @@ internal static class ImportCommand
         }
 
         Console.WriteLine(
-            $"Loaded {loadedResources} resources, {loadedRelationships} relationships. " +
+            $"Loaded {loadedResources} resources ({updatedResources} updated), {loadedRelationships} relationships. " +
             $"Findings: {errorFindings} Error, {warningFindings} Warning, {infoFindings} Info " +
             $"({resourcesWithNoFinding} resources without any finding).");
 

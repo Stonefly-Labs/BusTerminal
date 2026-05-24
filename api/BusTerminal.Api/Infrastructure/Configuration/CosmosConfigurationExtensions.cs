@@ -105,6 +105,11 @@ public static class CosmosConfigurationExtensions
         // that do not engage this rule.
         services.AddSingleton<IValidationRule, LifecycleTransitionRule>();
 
+        // Spec 004 / FR-012 / T131 + T132 — US6 namespaced extension keys. Warning
+        // severity: malformed keys are flagged but never block a write, so
+        // soft-delete + restore of legacy documents keeps working.
+        services.AddSingleton<IValidationRule, ExtensionKeyFormatRule>();
+
         // Spec 004 / FR-008 / T105 — relationship graph traversal helper.
         // Scoped because it depends on ICanonicalResourceStore (scoped).
         services.AddScoped<RelationshipGraph>();
