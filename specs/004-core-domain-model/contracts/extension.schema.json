@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/extension.schema.json",
+  "title": "Extensions",
+  "description": "Namespaced extension surface for custom metadata (FR-012). Keys MUST be vendor-prefixed in the form <vendor>:<key>. Values may be primitives or structured JSON. The reserved __indexable sibling key controls per-extension search-indexing inclusion.",
+  "type": "object",
+  "patternProperties": {
+    "^[a-z][a-z0-9-]*:[a-zA-Z][a-zA-Z0-9._-]*$": {
+      "description": "Namespaced extension key — value is arbitrary JSON.",
+      "$comment": "Vendor prefix MUST be lowercase; key after colon may be camelCase or kebab-case."
+    }
+  },
+  "properties": {
+    "__indexable": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" },
+      "description": "Map of extension key → boolean. false excludes the extension from search projections; default is true."
+    }
+  },
+  "additionalProperties": false
+}

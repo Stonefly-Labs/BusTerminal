@@ -1,0 +1,116 @@
+{
+  "schemaVersion": "2026-05-23",
+  "exportedAt": "2026-05-23T00:00:00Z",
+  "sourceSystem": "tools/load-fixtures (03-contracts.json)",
+  "resources": [
+    {
+      "id": "11111111-1111-1111-1111-000000000030",
+      "resourceType": "messageContract",
+      "name": "order-placed-versioned",
+      "displayName": "OrderPlaced (versioned lineage)",
+      "description": "Exercises FR-007 / FR-011: v1.0.0 Active with a Deprecated v0.9.0 entry in versionHistory that points back at v1.0.0 via replacedBy.",
+      "namespacePath": "enterprise/payments/contracts",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": {
+        "major": 1,
+        "minor": 0,
+        "patch": 0,
+        "compatibility": "backward",
+        "versionHistory": [
+          {
+            "major": 0,
+            "minor": 9,
+            "patch": 0,
+            "lifecycle": "deprecated",
+            "deprecatedAt": "2025-10-01T00:00:00Z",
+            "replacedBy": { "major": 1, "minor": 0, "patch": 0 }
+          }
+        ]
+      },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "format": "jsonSchema",
+      "schemaReference": { "externalUri": "https://schemas.example.com/order-placed/v1.json" },
+      "examplePayloads": [],
+      "compatibility": "backward",
+      "producers": [],
+      "consumers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000031",
+      "resourceType": "messageContract",
+      "name": "payment-settlement-proto",
+      "displayName": "PaymentSettlement (protobuf)",
+      "description": "Exercises FR-007 multi-format support: a contract whose payload is described by a Protobuf schema rather than JSON Schema.",
+      "namespacePath": "enterprise/payments/contracts",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0, "compatibility": "full" },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "format": "protobuf",
+      "schemaReference": { "externalUri": "https://schemas.example.com/payment-settlement/v1.proto" },
+      "examplePayloads": [],
+      "compatibility": "full",
+      "producers": [],
+      "consumers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000032",
+      "resourceType": "messageContract",
+      "name": "fraud-signal-cloudevent",
+      "displayName": "FraudSignal (CloudEvents)",
+      "description": "Exercises FR-007 multi-format support: a CloudEvents-typed contract carrying an inline schema definition. Multi-format coexistence with no per-format fork (SC-001 / scenario 5).",
+      "namespacePath": "enterprise/payments/contracts",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0, "compatibility": "backward" },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier2"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {},
+      "documentation": [],
+      "isDeleted": false,
+      "format": "cloudEvents",
+      "schemaReference": { "inline": "{\"type\":\"object\",\"properties\":{\"specversion\":{\"const\":\"1.0\"},\"type\":{\"const\":\"com.example.payments.fraud-signal.v1\"},\"data\":{\"type\":\"object\"}}}" },
+      "examplePayloads": [],
+      "compatibility": "backward",
+      "producers": [],
+      "consumers": []
+    }
+  ],
+  "relationships": []
+}

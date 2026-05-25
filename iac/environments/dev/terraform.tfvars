@@ -30,3 +30,8 @@ platform_role_ids = {
   reader    = "9c1f0c4d-3a4b-4c5e-9f01-72fcb8b51a03"
   developer = "9c1f0c4d-3a4b-4c5e-9f01-72fcb8b51a04"
 }
+
+# Spec 004 — canonical Cosmos SQL database name. Safe to publish (logical name,
+# not a secret). Defaults match the cosmos-canonical-store module defaults; the
+# explicit value here documents intent and gives the env a single edit point.
+canonical_db_name = "busterminal-canonical"

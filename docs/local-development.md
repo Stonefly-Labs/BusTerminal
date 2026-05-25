@@ -183,6 +183,26 @@ pnpm --filter web test:a11y       # Playwright accessibility
 dotnet test api/BusTerminal.slnx  # Backend
 ```
 
+### Canonical-store fixture and ops CLI (`tools/load-fixtures`)
+
+Spec 004 introduces a `dotnet`-based CLI at `tools/load-fixtures/` for loading
+fixture data into the canonical Cosmos store, exporting/importing portable
+envelopes, inspecting individual resources, traversing the relationship graph,
+and driving lifecycle operations. The project is included in
+`api/BusTerminal.slnx` and references `BusTerminal.Api` directly so it shares
+the domain model and persistence adapter.
+
+```bash
+dotnet run --project tools/load-fixtures -- --help
+```
+
+Subcommands are scaffolded in Phase 1 of spec 004 and filled in by later
+tasks. The full operator runbook is at `specs/004-core-domain-model/quickstart.md`.
+
+For the local emulator path, `docker compose up -d cosmos-emulator` brings up
+the Cosmos DB Linux emulator on `https://localhost:8081` before running any
+canonical-store integration tests or CLI commands.
+
 ---
 
 ## 6. Troubleshooting

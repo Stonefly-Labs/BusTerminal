@@ -10,11 +10,36 @@
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
     <PackageReference Include="FluentAssertions" Version="8.10.0" />
+    <PackageReference Include="JsonSchema.Net" Version="7.4.0" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.8" />
+    <!-- Spec 004 / T055 — pulled in so integration tests can assert against
+         CosmosException.StatusCode and use the SDK's request-options types in
+         ETag-conflict scenarios. -->
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Spec 004 / T091 — schema files + fixture JSON copied to the test output
+         so SchemaDriftGuardTests can validate fixtures against contract schemas. -->
+    <None Include="..\..\specs\004-core-domain-model\contracts\**\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Contracts\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </None>
+    <None Include="..\BusTerminal.Api\Fixtures\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Fixtures\%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Spec 004 / research §6: the test project transitively pulls Cosmos 3.x
+         via the API project; the SDK's build-time Newtonsoft.Json check needs
+         the same opt-out as the API csproj. -->
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
+  </PropertyGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />

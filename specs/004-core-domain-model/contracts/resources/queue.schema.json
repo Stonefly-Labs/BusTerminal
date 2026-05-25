@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/queue.schema.json",
+  "title": "Queue",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "queue" },
+    "queueKind": { "type": "string" },
+    "duplicateDetection": {
+      "type": ["object", "null"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "windowSeconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "requiresSession": { "type": "boolean" },
+    "ordering": { "type": "string", "enum": ["fifo", "unordered"] },
+    "partitioned": { "type": "boolean" },
+    "deadLetterBehavior": {
+      "type": "object",
+      "properties": {
+        "maxDeliveryCount": { "type": "integer", "minimum": 1 },
+        "expirationAction": { "type": "string", "enum": ["deadLetter", "drop"] }
+      },
+      "additionalProperties": false
+    },
+    "ttlSeconds": { "type": ["integer", "null"], "minimum": 0 },
+    "maxMessageSizeBytes": { "type": ["integer", "null"], "minimum": 0 },
+    "contractAssociations": {
+      "type": "array",
+      "items": { "type": "object", "required": ["contractId"], "properties": { "contractId": { "type": "string", "format": "uuid" } } }
+    },
+    "producers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "consumers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "operationalMetadata": { "type": ["object", "null"] },
+    "deprecation": {
+      "type": ["object", "null"],
+      "properties": {
+        "scheduledRetirementDate": { "type": ["string", "null"], "format": "date" },
+        "replacedByResourceId": { "type": ["string", "null"], "format": "uuid" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["resourceType", "queueKind", "ordering"]
+}

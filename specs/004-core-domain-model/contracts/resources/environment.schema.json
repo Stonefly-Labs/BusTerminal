@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/environment.schema.json",
+  "title": "Environment",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "environment" },
+    "classification": {
+      "type": "string",
+      "description": "One of the canonical classifications (development, test, qa, staging, production, disasterRecovery) or a custom string."
+    },
+    "region": { "type": ["string", "null"] },
+    "complianceScope": { "type": ["string", "null"] }
+  },
+  "required": ["resourceType", "classification"]
+}

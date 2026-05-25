@@ -1,0 +1,119 @@
+{
+  "schemaVersion": "2026-05-23",
+  "exportedAt": "2026-05-23T00:00:00Z",
+  "sourceSystem": "tools/load-fixtures (04-extensions.json)",
+  "_patchTarget": true,
+  "resources": [
+    {
+      "id": "11111111-1111-1111-1111-000000000004",
+      "resourceType": "queue",
+      "name": "payments-orders-processing",
+      "displayName": "Payments — Orders Processing",
+      "description": "Primary queue for order processing events.",
+      "namespacePath": "enterprise/payments/order-processing",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 4, "patch": 0, "compatibility": "backward" },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {
+        "contoso:costCenter": "FIN-102",
+        "contoso:sla": {
+          "target": "99.9",
+          "windowDays": 30,
+          "incidentResponseMinutes": 15
+        },
+        "__indexable": {
+          "contoso:costCenter": true,
+          "contoso:sla": false
+        }
+      },
+      "documentation": [],
+      "isDeleted": false,
+      "queueKind": "AzureServiceBus",
+      "requiresSession": false,
+      "ordering": "fifo",
+      "partitioned": false,
+      "deadLetterBehavior": { "maxDeliveryCount": 10, "expirationAction": "deadLetter" },
+      "ttlSeconds": 86400,
+      "maxMessageSizeBytes": 262144,
+      "contractAssociations": [],
+      "producers": [],
+      "consumers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000005",
+      "resourceType": "topic",
+      "name": "payments-events",
+      "displayName": "Payments Events",
+      "namespacePath": "enterprise/payments/events",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {
+        "contoso:dataClassification": "internal",
+        "__indexable": {
+          "contoso:dataClassification": false
+        }
+      },
+      "documentation": [],
+      "isDeleted": false,
+      "ordering": "unordered",
+      "partitioned": true,
+      "subscriptionIds": ["11111111-1111-1111-1111-000000000006"],
+      "contractAssociations": [],
+      "producers": []
+    },
+    {
+      "id": "11111111-1111-1111-1111-000000000008",
+      "resourceType": "producerApplication",
+      "name": "orders-api",
+      "displayName": "Orders API",
+      "namespacePath": "enterprise/payments/applications",
+      "environments": ["production"],
+      "lifecycle": "active",
+      "version": { "major": 1, "minor": 0, "patch": 0 },
+      "ownership": {
+        "owningTeamId": "11111111-1111-1111-1111-000000000001",
+        "operationalTier": "tier1"
+      },
+      "audit": {
+        "createdBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "createdAt": "2026-05-23T00:00:00Z",
+        "modifiedBy": { "kind": "system", "systemName": "tools/load-fixtures" },
+        "modifiedAt": "2026-05-23T00:00:00Z"
+      },
+      "tags": [],
+      "extensions": {
+        "fabrikam:onCallRotation": "fabrikam-platform-oncall",
+        "fabrikam:deploymentRing": "ring2",
+        "contoso:costCenter": "ENG-410"
+      },
+      "documentation": [],
+      "isDeleted": false,
+      "applicationKind": "WebService",
+      "repository": "https://github.com/example/orders-api"
+    }
+  ],
+  "relationships": []
+}

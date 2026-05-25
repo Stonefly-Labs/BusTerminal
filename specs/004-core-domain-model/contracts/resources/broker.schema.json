@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/broker.schema.json",
+  "title": "Broker",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "broker" },
+    "brokerKind": { "type": "string", "description": "v1: AzureServiceBus. Open string for future brokers." },
+    "endpoint": { "type": ["string", "null"], "description": "Logical reference — never a connection string with credentials." },
+    "capabilities": {
+      "type": "object",
+      "properties": {
+        "queues": { "type": "boolean" },
+        "topics": { "type": "boolean" },
+        "sessions": { "type": "boolean" },
+        "transactions": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["resourceType", "brokerKind"]
+}

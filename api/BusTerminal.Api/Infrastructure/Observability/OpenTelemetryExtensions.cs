@@ -1,6 +1,9 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using BusTerminal.Api.Domain.Validation;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.OpenTelemetry;
@@ -45,6 +48,18 @@ public static class OpenTelemetryExtensions
         builder.Host.UseSerilog();
 
         var otel = builder.Services.AddOpenTelemetry();
+
+        // Spec 004 — Cosmos SDK emits spans on its single ActivitySource. Add it
+        // here so persistence operations show up in the existing trace pipeline.
+        otel.WithTracing(tracing => tracing.AddSource("Azure.Cosmos.Operation"));
+
+        // Spec 004 / T153 — subscribe the validation Meter so the three finding-
+        // count counters emitted by MeteredValidationEngine flow through the OTel
+        // pipeline into Azure Monitor (or the local-dev exporter when no AI
+        // connection string is configured). Subscription is required even when
+        // UseAzureMonitor is active: UseAzureMonitor wires the exporter but does
+        // not auto-subscribe to first-party Meters.
+        otel.WithMetrics(metrics => metrics.AddMeter(ValidationMeter.Name));
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {

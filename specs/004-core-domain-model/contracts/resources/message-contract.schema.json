@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/message-contract.schema.json",
+  "title": "Message Contract",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "messageContract" },
+    "format": { "type": "string", "enum": ["jsonSchema", "avro", "protobuf", "xmlSchema", "cloudEvents", "custom"] },
+    "schemaReference": {
+      "type": "object",
+      "oneOf": [
+        { "required": ["inline"], "properties": { "inline": { "type": "string" } }, "additionalProperties": false },
+        { "required": ["externalUri"], "properties": { "externalUri": { "type": "string", "format": "uri" } }, "additionalProperties": false }
+      ]
+    },
+    "examplePayloads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "value"],
+        "properties": {
+          "name": { "type": "string" },
+          "value": {},
+          "contentType": { "type": "string" }
+        }
+      }
+    },
+    "compatibility": { "type": "string", "enum": ["backward", "forward", "full", "none"] },
+    "producers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "consumers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "deprecationStatus": {
+      "type": ["object", "null"],
+      "properties": {
+        "isDeprecated": { "type": "boolean" },
+        "scheduledRetirementDate": { "type": ["string", "null"], "format": "date" },
+        "replacementVersion": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["major", "minor", "patch"],
+              "properties": {
+                "major": { "type": "integer", "minimum": 0 },
+                "minor": { "type": "integer", "minimum": 0 },
+                "patch": { "type": "integer", "minimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "validationMetadata": {
+      "type": ["object", "null"],
+      "properties": {
+        "lastExternalValidationAt": { "type": ["string", "null"], "format": "date-time" },
+        "lastExternalValidatorId": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["resourceType", "format", "schemaReference", "compatibility"]
+}

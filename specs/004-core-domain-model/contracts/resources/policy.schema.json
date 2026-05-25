@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/policy.schema.json",
+  "title": "Policy",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "policy" },
+    "policyKind": { "type": "string" },
+    "ruleBody": { "type": "string", "description": "Opaque policy-engine-specific payload; rendered as a JSON document." },
+    "scope": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["namespace", "resourceType", "resourceInstance"] },
+        "targetId": { "type": ["string", "null"], "format": "uuid" },
+        "targetResourceType": { "type": ["string", "null"] },
+        "targetNamespacePath": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["resourceType", "policyKind", "scope"]
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/consumer-application.schema.json",
+  "title": "Consumer Application",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "consumerApplication" },
+    "applicationKind": { "type": "string" },
+    "repository": { "type": ["string", "null"] },
+    "onCallReference": { "type": ["string", "null"] }
+  },
+  "required": ["resourceType", "applicationKind"]
+}

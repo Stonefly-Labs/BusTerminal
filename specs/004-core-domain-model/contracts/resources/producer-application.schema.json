@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/producer-application.schema.json",
+  "title": "Producer Application",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "producerApplication" },
+    "applicationKind": { "type": "string" },
+    "repository": { "type": ["string", "null"] },
+    "onCallReference": { "type": ["string", "null"] }
+  },
+  "required": ["resourceType", "applicationKind"]
+}

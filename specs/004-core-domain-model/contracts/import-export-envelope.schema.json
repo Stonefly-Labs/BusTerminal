@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/import-export-envelope.schema.json",
+  "title": "Import / Export Envelope",
+  "description": "Portable serialization format for the canonical store (FR-016 / SC-009). JSON is the canonical wire format; YAML uses the same logical shape via YamlDotNet.",
+  "type": "object",
+  "required": ["schemaVersion", "exportedAt", "resources", "relationships"],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "2026-05-23",
+      "description": "Date-versioned envelope schema for forward compatibility."
+    },
+    "exportedAt": { "type": "string", "format": "date-time" },
+    "exportedBy": {
+      "type": ["object", "null"],
+      "description": "Audit principal that produced the export."
+    },
+    "sourceSystem": {
+      "type": ["string", "null"],
+      "description": "Origin store identifier (free-form)."
+    },
+    "resources": {
+      "type": "array",
+      "items": { "$ref": "canonical-resource.schema.json" }
+    },
+    "relationships": {
+      "type": "array",
+      "items": { "$ref": "relationship.schema.json" }
+    },
+    "changeEvents": {
+      "type": ["array", "null"],
+      "items": { "$ref": "change-event.schema.json" },
+      "description": "Optional — exports may include the change-event log for full history transfer."
+    },
+    "conflictResolution": {
+      "type": ["string", "null"],
+      "enum": ["reject", "skip", "overwrite", null],
+      "description": "Default policy hint for the import side; the import operation may still override. Default is reject (safest)."
+    }
+  },
+  "additionalProperties": false
+}

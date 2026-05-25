@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/audit.schema.json",
+  "title": "Audit Record (latest state)",
+  "description": "Reusable latest-state audit metadata carried by every mutable resource (FR-015). Full change history lives in the separate change-event log (change-event.schema.json) per Q5.",
+  "type": "object",
+  "required": ["createdBy", "createdAt", "modifiedBy", "modifiedAt"],
+  "properties": {
+    "createdBy": { "$ref": "#/$defs/principalReference" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "modifiedBy": { "$ref": "#/$defs/principalReference" },
+    "modifiedAt": { "type": "string", "format": "date-time" },
+    "sourceSystem": {
+      "type": ["string", "null"],
+      "description": "Origin of the change (e.g., manual-ui, sync-worker, import-job, automation-agent)."
+    },
+    "synchronization": {
+      "type": ["object", "null"],
+      "properties": {
+        "upstreamSystem": { "type": "string" },
+        "upstreamId": { "type": "string" },
+        "lastSyncedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "principalReference": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["kind", "objectId"],
+          "properties": {
+            "kind": { "const": "human" },
+            "objectId": { "type": "string", "format": "uuid" },
+            "displayName": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["kind", "objectId"],
+          "properties": {
+            "kind": { "const": "workload" },
+            "objectId": { "type": "string", "format": "uuid" },
+            "displayName": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "required": ["kind", "systemName"],
+          "properties": {
+            "kind": { "const": "system" },
+            "systemName": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

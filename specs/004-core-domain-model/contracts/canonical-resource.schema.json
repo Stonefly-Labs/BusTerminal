@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/canonical-resource.schema.json",
+  "title": "Canonical Resource (base)",
+  "description": "Base JSON Schema for every first-class BusTerminal resource. All per-type schemas under contracts/resources/ extend this with type-specific fields.",
+  "type": "object",
+  "required": [
+    "id",
+    "resourceType",
+    "name",
+    "displayName",
+    "namespacePath",
+    "lifecycle",
+    "version",
+    "audit",
+    "isDeleted"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique immutable identifier. Never embeds environment names or Azure resource IDs."
+    },
+    "resourceType": {
+      "type": "string",
+      "description": "Opaque discriminator. Known values are namespace, broker, queue, topic, subscription, messageContract, producerApplication, consumerApplication, team, environment, tag, policy, integrationFlow, documentationAsset. Unknown values deserialize as UnknownResource (Q4)."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Logical name. Lowercase, hyphen-separated, no spaces (FR-022)."
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": ["string", "null"]
+    },
+    "namespacePath": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)*$",
+      "description": "Hierarchical namespace path, slash-separated (FR-003)."
+    },
+    "environments": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Environment classifications associated with the resource. Minimum vocabulary: development, test, qa, staging, production, disasterRecovery. Custom values permitted (FR-017)."
+    },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["draft", "active", "deprecated", "retired", "archived"],
+      "description": "Lifecycle state (FR-010 / Q1)."
+    },
+    "version": {
+      "$ref": "version-info.schema.json"
+    },
+    "ownership": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "ownership.schema.json" }
+      ],
+      "description": "Required for operational resource types; null permitted on Tag / Environment / DocumentationAsset / Policy."
+    },
+    "audit": {
+      "$ref": "audit.schema.json"
+    },
+    "classification": {
+      "type": ["object", "null"],
+      "properties": {
+        "criticality": { "type": "string", "enum": ["tier1", "tier2", "tier3", "bestEffort"] },
+        "dataSensitivity": { "type": "string" },
+        "complianceScope": { "type": "string" },
+        "availabilityTier": { "type": "string" },
+        "businessDomain": { "type": "string" },
+        "operationalTier": { "type": "string", "enum": ["tier1", "tier2", "tier3", "bestEffort"] }
+      },
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tagId", "name"],
+        "properties": {
+          "tagId": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" }
+        }
+      }
+    },
+    "extensions": {
+      "$ref": "extension.schema.json"
+    },
+    "documentation": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["assetKind", "uri"],
+        "properties": {
+          "assetKind": { "type": "string", "enum": ["runbook", "wiki", "asyncApiSpec", "architectureDiagram", "operationalGuide", "externalRepository"] },
+          "uri": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "validationState": {
+      "$ref": "validation-result.schema.json"
+    },
+    "isDeleted": {
+      "type": "boolean",
+      "description": "Application-level soft-delete predicate (FR-020). Live reads filter isDeleted=false unless includeDeleted is requested."
+    },
+    "_etag": {
+      "type": "string",
+      "description": "Cosmos-managed ETag; the persisted form of ConcurrencyToken (FR-025 / Q2). Never set by callers."
+    }
+  },
+  "additionalProperties": true
+}

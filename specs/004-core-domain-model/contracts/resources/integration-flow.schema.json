@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/integration-flow.schema.json",
+  "title": "Integration Flow",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "integrationFlow" },
+    "producerApplicationId": { "type": "string", "format": "uuid" },
+    "messagingResourceId": { "type": "string", "format": "uuid", "description": "Queue or Topic." },
+    "consumerApplicationIds": {
+      "type": "array",
+      "items": { "type": "string", "format": "uuid" },
+      "minItems": 1
+    },
+    "businessPurpose": { "type": ["string", "null"] }
+  },
+  "required": ["resourceType", "producerApplicationId", "messagingResourceId", "consumerApplicationIds"]
+}

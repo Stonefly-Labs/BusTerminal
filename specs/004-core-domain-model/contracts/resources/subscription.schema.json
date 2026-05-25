@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.io/schemas/004/resources/subscription.schema.json",
+  "title": "Subscription",
+  "allOf": [
+    { "$ref": "../canonical-resource.schema.json" }
+  ],
+  "properties": {
+    "resourceType": { "const": "subscription" },
+    "parentTopicId": { "type": "string", "format": "uuid" },
+    "filter": {
+      "type": ["object", "null"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["sql", "correlation", "boolean"] },
+        "expression": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": ["object", "null"],
+      "properties": {
+        "kind": { "type": "string" },
+        "expression": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "consumers": { "type": "array", "items": { "type": "object", "required": ["applicationId"], "properties": { "applicationId": { "type": "string", "format": "uuid" } } } },
+    "deliverySemantics": { "type": "string", "enum": ["atLeastOnce", "atMostOnce"] },
+    "deadLetter": {
+      "type": "object",
+      "properties": {
+        "maxDeliveryCount": { "type": "integer", "minimum": 1 },
+        "expirationAction": { "type": "string", "enum": ["deadLetter", "drop"] }
+      },
+      "additionalProperties": false
+    },
+    "retry": {
+      "type": "object",
+      "properties": {
+        "maxAttempts": { "type": "integer", "minimum": 0 },
+        "initialBackoffSeconds": { "type": "number", "minimum": 0 },
+        "maxBackoffSeconds": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "operationalMetadata": { "type": ["object", "null"] }
+  },
+  "required": ["resourceType", "parentTopicId", "deliverySemantics"]
+}

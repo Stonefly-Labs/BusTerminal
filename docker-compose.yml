@@ -1,4 +1,35 @@
 services:
+  # Azure Cosmos DB Linux emulator for local integration tests against the canonical store
+  # introduced by spec 004. AAD-RBAC against the emulator is on Microsoft's roadmap but not
+  # yet GA, so the local persistence path uses the emulator's well-known master key, which
+  # is published Microsoft public test data (not a secret). Production / dev Azure
+  # environments always use Managed Identity / DefaultAzureCredential — never this key.
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    container_name: busterminal-cosmos-emulator
+    # The vnext-preview image defaults to HTTP, but the .NET Cosmos SDK does not
+    # support HTTP against the emulator (per MS Learn: "The .NET and Java SDKs
+    # don't support HTTP mode in the emulator"). `--protocol https` flips the
+    # gateway to HTTPS with a self-signed cert (our HttpClientHandler accepts
+    # it via DangerousAcceptAnyServerCertificateValidator).
+    command: ["--protocol", "https"]
+    ports:
+      - "8081:8081"
+      - "8080:8080"
+      - "10250-10255:10250-10255"
+    environment:
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: "4"
+      AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE: "127.0.0.1"
+    # The dedicated health probe on port 8080 is plain HTTP (per MS Learn) and
+    # is the supported way to gate readiness. The previous TLS healthcheck on
+    # 8081 was misconfigured against the HTTP-default gateway.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/ready -o /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
   api:
     build:
       context: ./api
