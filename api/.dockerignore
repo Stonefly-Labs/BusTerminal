@@ -1,0 +1,24 @@
+# Exclude build outputs from the docker build context.
+#
+# Without this, `COPY BusTerminal.Api/ BusTerminal.Api/` in the Dockerfile
+# would pull in any host-side `bin/` and `obj/` directories produced by local
+# `dotnet build` / `dotnet test` and overlay them on top of the freshly
+# restored container-side `obj/`. The mismatch surfaces at publish time as
+# `NETSDK1064: Package <name>, version <v> was not found. It might have been
+# deleted since NuGet restore.` (the package IS restored — the host's stale
+# `obj/project.assets.json` points at a different package graph than the
+# container's). CI never tripped this because runners start from a clean
+# checkout, but it breaks local `docker build` for any contributor with prior
+# `dotnet` activity in this tree.
+
+**/bin/
+**/obj/
+**/*.user
+**/.vs/
+**/TestResults/
+
+# Exclude things that have nothing to do with the runtime image.
+**/*.md
+**/.dockerignore
+**/.gitignore
+**/.editorconfig
