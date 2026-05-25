@@ -287,7 +287,15 @@
       "Bash(command -v yq)",
       "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll truncate --endpoint https://localhost:8081 --auth emulator-key)",
       "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll create-database --endpoint https://localhost:8081 --auth emulator-key)",
-      "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll export --endpoint https://localhost:8081 --auth emulator-key --output /tmp/bt-export.yaml --format yaml)"
+      "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll export --endpoint https://localhost:8081 --auth emulator-key --output /tmp/bt-export.yaml --format yaml)",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.github/workflows/ci.yml'\\)\\)\")",
+      "Bash(az cosmosdb *)",
+      "Bash(az group *)",
+      "Bash(az account *)",
+      "Bash(az acr *)",
+      "Bash(tofu plan *)",
+      "Bash(az --version)",
+      "Bash(az extension *)"
     ]
   },
   "enabledMcpjsonServers": [

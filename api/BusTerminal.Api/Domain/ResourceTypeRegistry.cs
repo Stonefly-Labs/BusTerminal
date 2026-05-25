@@ -38,6 +38,24 @@ public sealed class ResourceTypeRegistry
         _byClrType[clrType] = discriminator;
     }
 
+    // Symmetric removal — used by the additive-evolution guard test (T158 / SC-010)
+    // to simulate a future build's type vanishing from the current build's registry
+    // (a downgrade or sibling deployment scenario). Returns true if an entry was
+    // removed. Production code does not call this — entries are registered once at
+    // composition time.
+    public bool Unregister(string discriminator)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(discriminator);
+
+        if (_byDiscriminator.TryRemove(discriminator, out var clrType))
+        {
+            _byClrType.TryRemove(clrType, out _);
+            return true;
+        }
+
+        return false;
+    }
+
     public bool TryGetType(string discriminator, out Type clrType)
     {
         if (_byDiscriminator.TryGetValue(discriminator, out var found))

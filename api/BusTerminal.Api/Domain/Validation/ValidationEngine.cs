@@ -6,7 +6,7 @@ namespace BusTerminal.Api.Domain.Validation;
 
 // Spec 004 / Q3 + FR-013. Dispatches over registered rules. Rules that opt out of a
 // resource via AppliesTo() are skipped.
-public sealed partial class ValidationEngine
+public sealed partial class ValidationEngine : IValidationEngine
 {
     private readonly IEnumerable<IValidationRule> _rules;
     private readonly IEnumerable<IRelationshipValidationRule> _relationshipRules;

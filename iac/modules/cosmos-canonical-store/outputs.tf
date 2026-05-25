@@ -4,7 +4,7 @@ output "database_name" {
 }
 
 output "database_id" {
-  description = "Resource id of the SQL database. Used as the role-assignment scope for the data-contributor RBAC grant."
+  description = "ARM resource id of the SQL database. Useful for ARM-shaped references (e.g., management-plane role assignments). NOT the right shape for Cosmos data-plane RBAC scope on `azurerm_cosmosdb_sql_role_assignment.scope` — that resource expects the data-plane path form (`.../databaseAccounts/<acct>/dbs/<db>`), not the ARM form (`.../sqlDatabases/<db>`). Construct that scope at the call site from the account id + `database_name`."
   value       = azurerm_cosmosdb_sql_database.canonical.id
 }
 

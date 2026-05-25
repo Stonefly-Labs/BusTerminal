@@ -151,12 +151,12 @@ jobs:
       - name: Build (no restore, warnings as errors enforced by csproj)
         run: dotnet build api/BusTerminal.slnx --configuration Release --no-restore
 
-      - name: Test (unit tier; integration tier is gated by T150)
-        # Spec 004 / T150 — the integration tier requires the Cosmos vnext-preview
-        # emulator running as a CI service container. Wiring that into the backend
-        # job (and the per-tier split) is tracked as T150 in Phase 11. Until that
-        # lands, the integration tier runs locally only (`docker compose up
-        # cosmos-emulator` + `dotnet test --filter "Category=Integration"`).
+      - name: Test (unit tier; integration tier runs in the backend-integration job)
+        # Spec 004 / T150 — the integration tier is split into a sibling
+        # `backend-integration` job that brings up the Cosmos vnext-preview
+        # emulator via docker compose and runs `Category=Integration` against
+        # it. Keeping the unit tier in this job ensures it stays fast and is
+        # never gated on the emulator image pull.
         run: dotnet test api/BusTerminal.slnx --configuration Release --no-build --filter "Category!=Integration" --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
 
       - name: Upload test results
@@ -224,6 +224,80 @@ jobs:
         run: |
           if [ -n "${API_PID:-}" ]; then kill "$API_PID" || true; fi
 
+  backend-integration:
+    # Spec 004 / T150 — integration tier runs against the Cosmos vnext-preview
+    # emulator brought up via docker compose. The unit tier (Category!=Integration)
+    # stays in the `backend` job above and runs in parallel — this job's failure
+    # surface is isolated to integration-only regressions and the emulator
+    # readiness path.
+    name: backend · integration tier (Cosmos emulator)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Start Cosmos emulator (docker compose)
+        run: |
+          set -euo pipefail
+          docker compose up -d cosmos-emulator
+          echo "Emulator container launched; waiting for /ready probe…"
+
+      - name: Wait for emulator readiness
+        run: |
+          set -euo pipefail
+          for i in {1..120}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ready || true)
+            if [ "$code" = "200" ]; then
+              echo "Cosmos emulator ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Cosmos emulator did not become ready within 120s"
+          docker compose logs cosmos-emulator | tail -n 200 || true
+          exit 1
+
+      - name: Restore
+        run: dotnet restore api/BusTerminal.slnx
+
+      - name: Build (Release, no restore)
+        run: dotnet build api/BusTerminal.slnx --configuration Release --no-restore
+
+      - name: Test (integration tier — Cosmos emulator)
+        env:
+          # Spec 004 / T150 — keep the API's CosmosOptions endpoint aligned with
+          # the emulator. The integration test fixture also hard-codes
+          # `https://localhost:8081`; this env var keeps any WebApplicationFactory
+          # boot path consistent with the same target.
+          CosmosOptions__Endpoint: https://localhost:8081
+        run: |
+          dotnet test api/BusTerminal.slnx \
+            --configuration Release \
+            --no-build \
+            --filter "Category=Integration" \
+            --logger "trx;LogFileName=integration-test-results.trx" \
+            --results-directory ./TestResults
+
+      - name: Upload integration test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-integration-test-results
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+      - name: Stop Cosmos emulator
+        if: always()
+        run: |
+          docker compose logs cosmos-emulator | tail -n 100 || true
+          docker compose down cosmos-emulator || true
+
   iac:
     name: iac · fmt · validate · tflint · checkov
     runs-on: ubuntu-latest
@@ -273,6 +347,20 @@ jobs:
         with:
           directory: iac
           config_file: iac/.checkov.yaml
+
+      # Spec 004 / T150 (c) — explicit assertion that the cosmos-account module
+      # enforces encryption at rest (CKV_AZURE_140). The broader checkov run
+      # above already covers this rule, but a dedicated step makes the contract
+      # visible in CI logs and fails loudly if a future refactor accidentally
+      # disables it. Skip-checks in .checkov.yaml are intentionally NOT applied
+      # here — this is the one cosmos rule we MUST keep passing per plan.md.
+      - name: Checkov · CKV_AZURE_140 (Cosmos encryption at rest)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: iac/modules/cosmos-account
+          check: CKV_AZURE_140
+          quiet: true
+          soft_fail: false
 
   contracts:
     name: contracts · openapi lint

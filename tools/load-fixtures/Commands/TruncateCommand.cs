@@ -33,6 +33,11 @@ internal static class TruncateCommand
         // delete each document. For dev / emulator volumes (< 1000 docs) this is
         // fine; a production-scale truncate is out of scope (the spec defers
         // retention/TTL design entirely).
+        //
+        // Idempotency: silently swallow per-document 404s. Cosmos query results
+        // can race with concurrent deletes (test fixture teardown, prior
+        // truncate that partially failed) and "doc is already gone" is exactly
+        // the state truncate wants to reach.
         var deleted = 0;
         var idQueryDefinition = new QueryDefinition("SELECT c.id, c[\"resourceType\"] AS pk1, c.resourceId AS pk2 FROM c");
         using var iterator = container.GetItemQueryIterator<DocumentRef>(idQueryDefinition);
@@ -42,11 +47,19 @@ internal static class TruncateCommand
             foreach (var doc in page)
             {
                 var partitionKeyValue = doc.Pk1 ?? doc.Pk2 ?? throw new InvalidOperationException($"Document {doc.Id} has no partition-key value (neither resourceType nor resourceId).");
-                await container.DeleteItemAsync<object>(
-                    doc.Id,
-                    new PartitionKey(partitionKeyValue),
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-                deleted++;
+                try
+                {
+                    await container.DeleteItemAsync<object>(
+                        doc.Id,
+                        new PartitionKey(partitionKeyValue),
+                        cancellationToken: cancellationToken).ConfigureAwait(false);
+                    deleted++;
+                }
+                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    // Already gone — count it as a successful truncate of that id.
+                    deleted++;
+                }
             }
         }
 

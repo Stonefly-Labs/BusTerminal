@@ -418,11 +418,22 @@ module "cosmos_canonical_store" {
 # built-in "Cosmos DB Built-in Data Contributor" role GUID is well-known:
 # 00000000-0000-0000-0000-000000000002. `azurerm_cosmosdb_sql_role_assignment`
 # expects the FULL resource id of the role definition, not the bare GUID.
+#
+# Spec 004 / T156 — the `scope` argument MUST use the Cosmos data-plane path
+# form (`.../databaseAccounts/<acct>/dbs/<db>`), NOT the ARM resource id form
+# (`.../sqlDatabases/<db>`) that the SQL-database resource exposes via `.id`.
+# Submitting the ARM form returns HTTP 400 "Expected path segment [dbs] at
+# position [0] but found [sqlDatabases]" from the Cosmos provider. Build the
+# correct shape from the account id + database name at the call site.
+locals {
+  cosmos_canonical_database_role_scope = "${module.cosmos_account.account_id}/dbs/${module.cosmos_canonical_store.database_name}"
+}
+
 resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = module.cosmos_canonical_store.database_id
+  scope               = local.cosmos_canonical_database_role_scope
   principal_id        = module.workload_identity.principal_id
 }
 
@@ -435,7 +446,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = module.cosmos_canonical_store.database_id
+  scope               = local.cosmos_canonical_database_role_scope
   principal_id        = data.azurerm_client_config.current.object_id
 }
 

@@ -324,6 +324,18 @@ The fixture set lives in `BusTerminal.Api/Fixtures/` (a runtime asset embedded a
 |-----------|------------|-------------------------------------|
 | **Cosmos DB account is public-endpoint (no Private Link / VNet integration) in this slice** | The 003 slice did not provision VNet infrastructure. Adding Private Link + Cosmos private endpoint + Container Apps Environment VNet integration is a multi-day infrastructure change that is genuinely separable from the domain-model work and would gate the slice on unrelated networking design. AAD-only data plane access (no account keys) plus encryption at rest are the substantive security mitigations; the public endpoint accepts only AAD-authenticated requests. | Provisioning VNet + private endpoint + DNS zones + Container Apps VNet integration in this slice would balloon scope by ~500 HCL LOC, force a redeploy of the Container Apps Environment (002 inheritance), and is a clean operational slice on its own. Recorded as an explicit deviation; a follow-up operational slice should add private networking before the registry holds production data. Mitigation: AAD-only access, Managed Identity, encryption at rest, denylist scan for credential-shaped fields, IP firewall on the Cosmos account restricting writes to the Container Apps Environment outbound IPs + the developer access IP allowlist. |
 
+**Post-implementation re-check (T157 / 2026-05-25)**: No new constitutional deviations surfaced during Phase 3–11 implementation. The single Complexity Tracking entry above (public-endpoint Cosmos with AAD-only access) is verified in the deployed dev-env state: `cosmos-bt-dev-chdev01` provisioned with `local_authentication_disabled = true`, encryption at rest on by default, and AAD-only data-plane access. The Phase 11 quickstart Path B run (T156) wrote and read the fixture set via `DefaultAzureCredential` end-to-end against the live account.
+
+Implementation surfaced three CODE defects that were fixed inline during Phase 11 (none constitutional):
+
+1. **`tools/load-fixtures` ImportCommand** passed `relationshipResolver: _ => null` (a US1-vintage placeholder) which broke fixture load after US3's `DanglingReferenceRule` landed — every cross-file reference was rejected as dangling. Fixed by pre-deserializing the envelope set and resolving against the in-memory union map.
+2. **`tools/load-fixtures` TruncateCommand** raced with concurrent deletes (test-fixture teardown, partial prior truncate) and 404'd on the second delete attempt. Fixed by swallowing per-document `HttpStatusCode.NotFound` in the delete loop — truncate is now idempotent.
+3. **`iac/environments/dev/main.tf`** built Cosmos data-plane role-assignment `scope` from the SQL database's ARM resource id (`.../sqlDatabases/<db>`); the Cosmos provider expects the data-plane path shape (`.../dbs/<db>`) and returned HTTP 400. Fixed by constructing the scope from the account id + database name in a `locals` block; `cosmos-canonical-store` module's `database_id` output now carries a usage-warning comment.
+
+Two minor documentation drifts captured for follow-up (not blocking):
+- `quickstart.md` Path A expected output names "~2 Warning, ~5 Info" findings; the shipped fixtures produce 0/0/0. Either tighten the fixtures to trip the deprecation/soft-delete-target rules or update the quickstart text. Documentation-only.
+- `quickstart.md` Path B § B.4 calls `az cosmosdb sql query` which is not a built-in subcommand in current `azure-cli` (2.86.0). Replace with the `load-fixtures show` and `load-fixtures changelog` verbs or document the required extension. Documentation-only.
+
 ---
 
 ## Phase 0 (research.md) — completed in this run

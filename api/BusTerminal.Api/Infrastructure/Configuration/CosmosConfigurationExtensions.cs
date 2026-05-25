@@ -5,6 +5,7 @@ using BusTerminal.Api.Domain.Resources;
 using BusTerminal.Api.Domain.Serialization;
 using BusTerminal.Api.Domain.Validation;
 using BusTerminal.Api.Domain.Validation.Rules;
+using BusTerminal.Api.Infrastructure.Observability;
 using BusTerminal.Api.Infrastructure.Persistence;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -86,7 +87,17 @@ public static class CosmosConfigurationExtensions
         // Validation engine is scoped — a single context per request / per fixture
         // load. Rule implementations are registered as singletons (pure-CPU, no
         // per-request state). Per-story modules layer in additional rules.
+        //
+        // Spec 004 / T153 — IValidationEngine resolves to MeteredValidationEngine,
+        // a thin decorator over the concrete ValidationEngine that emits OTel
+        // counters (busterminal.validation.finding_count_{error,warning,info})
+        // per validation pass. The concrete ValidationEngine remains registered
+        // so unit tests can construct or resolve it directly without going
+        // through the meter factory.
         services.AddScoped<ValidationEngine>();
+        services.AddScoped<IValidationEngine>(sp => new MeteredValidationEngine(
+            sp.GetRequiredService<ValidationEngine>(),
+            sp.GetRequiredService<System.Diagnostics.Metrics.IMeterFactory>()));
         services.AddSingleton<IValidationRule, RequiredFieldsRule>();
         services.AddSingleton<IValidationRule, NamingStandardsRule>();
         services.AddSingleton<IValidationRule, UnknownResourceTypeRule>();

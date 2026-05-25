@@ -57,6 +57,30 @@ internal static class ImportCommand
         var store = services.GetRequiredService<ICanonicalResourceStore>();
         var engine = services.GetRequiredService<ValidationEngine>();
 
+        // T155 fix — pre-deserialize every envelope file so the relationship
+        // resolver knows about cross-file references inside the fixture set
+        // before any resource is written. US3's DanglingReferenceRule consults
+        // this resolver; the previous `_ => null` shim treated every reference
+        // as dangling and rejected the entire fixture set whenever a Team /
+        // Topic / Application appeared in a different file than the resource
+        // that names it. The resolver also falls through to the store so
+        // existing documents (re-import after a partial load) resolve too.
+        var envelopes = new List<(string File, ImportExportEnvelope Envelope)>(files.Count);
+        var unionMap = new Dictionary<ResourceId, Resource>();
+        foreach (var file in files)
+        {
+            var envelope = serializer.DeserializeEnvelopeFromJson(
+                await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false));
+            envelopes.Add((file, envelope));
+            foreach (var r in envelope.Resources)
+            {
+                unionMap[r.Id] = r;
+            }
+        }
+
+        Resource? Resolve(ResourceId id)
+            => unionMap.TryGetValue(id, out var fromEnvelope) ? fromEnvelope : null;
+
         var loadedResources = 0;
         var overwrittenResources = 0;
         var skippedResources = 0;
@@ -68,15 +92,13 @@ internal static class ImportCommand
         var infoFindings = 0;
         var resourcesWithNoFinding = 0;
 
-        foreach (var file in files)
+        foreach (var (file, envelope) in envelopes)
         {
-            var envelope = serializer.DeserializeEnvelopeFromJson(await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false));
-
             foreach (var resource in envelope.Resources)
             {
                 var validation = await engine.ValidateAsync(
                     resource,
-                    relationshipResolver: _ => null, // No relationship resolver in US1; DanglingReferenceRule lands in US3.
+                    relationshipResolver: Resolve,
                     duplicateDetector: _ => false,
                     cancellationToken: cancellationToken).ConfigureAwait(false);
 
