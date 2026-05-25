@@ -1,7 +1,10 @@
 namespace BusTerminal.Api.Domain.Serialization;
 
 // Spec 004 / FR-016. JSON methods land in Phase 2 (T044/T047); YAML methods land
-// in US8 (T141). Interface declares both so the dependency surface is stable.
+// in US8 (T141/T142 — YamlResourceSerializer). Interface declares both so the
+// dependency surface is stable; JsonResourceSerializer continues to throw on the
+// YAML methods (it is not a YAML implementation), while YamlResourceSerializer
+// implements both surfaces.
 public interface IResourceSerializer
 {
     string SerializeToJson(Resource resource);
@@ -12,15 +15,11 @@ public interface IResourceSerializer
 
     ImportExportEnvelope DeserializeEnvelopeFromJson(string json);
 
-    string SerializeToYaml(Resource resource) =>
-        throw new NotSupportedException("YAML serialization lands in US8 (T141). JsonResourceSerializer does not implement YAML.");
+    string SerializeToYaml(Resource resource);
 
-    Resource DeserializeFromYaml(string yaml) =>
-        throw new NotSupportedException("YAML serialization lands in US8 (T141). JsonResourceSerializer does not implement YAML.");
+    Resource DeserializeFromYaml(string yaml);
 
-    string SerializeEnvelopeToYaml(ImportExportEnvelope envelope) =>
-        throw new NotSupportedException("YAML serialization lands in US8 (T141). JsonResourceSerializer does not implement YAML.");
+    string SerializeEnvelopeToYaml(ImportExportEnvelope envelope);
 
-    ImportExportEnvelope DeserializeEnvelopeFromYaml(string yaml) =>
-        throw new NotSupportedException("YAML serialization lands in US8 (T141). JsonResourceSerializer does not implement YAML.");
+    ImportExportEnvelope DeserializeEnvelopeFromYaml(string yaml);
 }

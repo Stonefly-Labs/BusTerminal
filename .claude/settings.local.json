@@ -284,7 +284,10 @@
       "Bash(openssl s_client -connect localhost:10255 -servername localhost)",
       "Bash(openssl s_client -connect localhost:10250 -servername localhost)",
       "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('iac/.checkov.yaml'\\)\\)\")",
-      "Bash(command -v yq)"
+      "Bash(command -v yq)",
+      "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll truncate --endpoint https://localhost:8081 --auth emulator-key)",
+      "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll create-database --endpoint https://localhost:8081 --auth emulator-key)",
+      "Bash(dotnet tools/load-fixtures/bin/Debug/net10.0/busterminal-load-fixtures.dll export --endpoint https://localhost:8081 --auth emulator-key --output /tmp/bt-export.yaml --format yaml)"
     ]
   },
   "enabledMcpjsonServers": [

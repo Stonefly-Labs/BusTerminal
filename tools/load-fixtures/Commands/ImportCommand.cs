@@ -7,22 +7,33 @@ using Microsoft.Extensions.DependencyInjection;
 namespace BusTerminal.Tools.LoadFixtures.Commands;
 
 // T080 — load envelopes into the canonical store. Supports --fixtures-dir (all
-// *.json under the dir, lexicographic order) and --fixtures (single file).
-// Relationships in the envelope are skipped with an Info log until US3 T104
-// extends the store with relationship CRUD.
+// *.json under the dir, lexicographic order), --fixtures (single file), and
+// --input (single envelope, US8 disaster-recovery path).
 //
-// Output line (per spec): "Loaded N resources, M relationships. Findings:
-// E Error, W Warning, I Info (X resources without any finding)."
+// T134 (US6) — patch-style upsert. The fixture set is shipped as multiple
+// envelope files (`01-base.json`, `02-relationships.json`, …) where later files
+// overlay modifications onto records the earlier files created. Default
+// conflict resolution for that flow is `overwrite`.
+//
+// T144 (US8) — explicit conflict resolution. `--conflict-resolution
+// reject|skip|overwrite` governs duplicate-identifier handling per spec
+// Scenario 3. Defaults are mode-aware:
+//   --input <file>       → reject  (disaster-recovery into an empty store)
+//   --fixtures-dir/file  → overwrite  (multi-file patch overlay)
+// The explicit flag always wins. The resolution outcome is recorded in the
+// import report and (for `overwrite`) in the change-event log via the existing
+// Update path's SourceSystem stamp.
+//
+// Output line: "Loaded N resources, M relationships. Findings: E Error,
+// W Warning, I Info (X resources without any finding). Conflicts: O overwritten,
+// S skipped, R rejected."
 // A resource with Warning/Info still loads; only Error rejects (FR-013).
-//
-// T134 (US6) — upsert semantics. When an envelope contains a resource whose
-// {id, resourceType} pair matches an already-persisted record, the import
-// path performs an Update rather than a Create. Patch-style fixture files
-// (e.g., `04-extensions.json`) carry the full resource shape (STJ requires
-// every required field) and rely on this upsert behavior to overlay
-// modifications onto records that earlier files Created.
 internal static class ImportCommand
 {
+    private const string Reject = "reject";
+    private const string Skip = "skip";
+    private const string Overwrite = "overwrite";
+
     public static async Task<int> RunAsync(
         IServiceProvider services,
         CliOptions options,
@@ -35,14 +46,23 @@ internal static class ImportCommand
             return 64;
         }
 
+        var (resolution, resolutionExplicit) = ResolveConflictPolicy(options);
+        if (resolution is null)
+        {
+            Console.Error.WriteLine($"import: --conflict-resolution must be one of '{Reject}', '{Skip}', or '{Overwrite}' (got '{options.ConflictResolution}').");
+            return 64;
+        }
+
         var serializer = services.GetRequiredService<JsonResourceSerializer>();
         var store = services.GetRequiredService<ICanonicalResourceStore>();
         var engine = services.GetRequiredService<ValidationEngine>();
 
         var loadedResources = 0;
-        var updatedResources = 0;
+        var overwrittenResources = 0;
+        var skippedResources = 0;
+        var conflictRejected = 0;
         var loadedRelationships = 0;
-        var rejected = 0;
+        var validationRejected = 0;
         var errorFindings = 0;
         var warningFindings = 0;
         var infoFindings = 0;
@@ -64,7 +84,7 @@ internal static class ImportCommand
 
                 if (validation.HasErrors)
                 {
-                    rejected++;
+                    validationRejected++;
                     foreach (var f in validation.Findings)
                     {
                         Console.Error.WriteLine($"[rejected] {resource.Id} ({resource.ResourceType}) — {f.Severity}: {f.Message}");
@@ -80,10 +100,6 @@ internal static class ImportCommand
                     resourcesWithNoFinding++;
                 }
 
-                // T134 — if the record already exists (earlier fixture in the
-                // load sequence created it), apply this envelope as an Update so
-                // patch-style files like 04-extensions.json overlay modifications
-                // onto the base record.
                 var existing = await store.GetAsync(
                     resource.Id,
                     resource.ResourceType,
@@ -94,35 +110,96 @@ internal static class ImportCommand
                 {
                     await store.CreateAsync(stamped, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
                     loadedResources++;
+                    continue;
                 }
-                else
+
+                switch (resolution)
                 {
-                    var patched = stamped with { ConcurrencyToken = existing.ConcurrencyToken };
-                    await store.UpdateAsync(patched, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
-                    updatedResources++;
+                    case Reject:
+                        conflictRejected++;
+                        Console.Error.WriteLine(
+                            $"[conflict-rejected] {resource.Id} ({resource.ResourceType}) already exists; --conflict-resolution=reject.");
+                        break;
+
+                    case Skip:
+                        skippedResources++;
+                        Console.WriteLine(
+                            $"[conflict-skipped] {resource.Id} ({resource.ResourceType}) already exists; --conflict-resolution=skip.");
+                        break;
+
+                    case Overwrite:
+                        var patched = stamped with { ConcurrencyToken = existing.ConcurrencyToken };
+                        await store.UpdateAsync(patched, ServiceHost.Actor, ServiceHost.SourceSystem, cancellationToken).ConfigureAwait(false);
+                        overwrittenResources++;
+                        break;
                 }
             }
 
             foreach (var relationship in envelope.Relationships)
             {
-                await store.CreateRelationshipAsync(
-                    relationship,
-                    ServiceHost.Actor,
-                    ServiceHost.SourceSystem,
+                var existingRel = await store.GetRelationshipAsync(
+                    relationship.Id,
+                    includeDeleted: true,
                     cancellationToken).ConfigureAwait(false);
-                loadedRelationships++;
+
+                if (existingRel is null)
+                {
+                    await store.CreateRelationshipAsync(
+                        relationship,
+                        ServiceHost.Actor,
+                        ServiceHost.SourceSystem,
+                        cancellationToken).ConfigureAwait(false);
+                    loadedRelationships++;
+                    continue;
+                }
+
+                switch (resolution)
+                {
+                    case Reject:
+                        conflictRejected++;
+                        Console.Error.WriteLine(
+                            $"[conflict-rejected] relationship {relationship.Id} already exists; --conflict-resolution=reject.");
+                        break;
+
+                    case Skip:
+                        skippedResources++;
+                        Console.WriteLine(
+                            $"[conflict-skipped] relationship {relationship.Id} already exists; --conflict-resolution=skip.");
+                        break;
+
+                    case Overwrite:
+                        // Relationships don't currently expose an Update path
+                        // on ICanonicalResourceStore — the existing CRUD only
+                        // covers create + soft-delete-via-IsDeleted. For
+                        // overwrite semantics we record this as a skip with a
+                        // diagnostic so an operator knows to address it
+                        // manually (or extend the store in a follow-up).
+                        skippedResources++;
+                        Console.WriteLine(
+                            $"[conflict-skipped] relationship {relationship.Id} already exists; --conflict-resolution=overwrite (relationships are not yet mutable — kept the existing edge).");
+                        break;
+                }
             }
         }
 
+        var defaultLabel = resolutionExplicit ? "" : " (default for mode)";
         Console.WriteLine(
-            $"Loaded {loadedResources} resources ({updatedResources} updated), {loadedRelationships} relationships. " +
+            $"Loaded {loadedResources} resources, {loadedRelationships} relationships. " +
             $"Findings: {errorFindings} Error, {warningFindings} Warning, {infoFindings} Info " +
-            $"({resourcesWithNoFinding} resources without any finding).");
+            $"({resourcesWithNoFinding} resources without any finding). " +
+            $"Conflict resolution: {resolution}{defaultLabel} → {overwrittenResources} overwritten, " +
+            $"{skippedResources} skipped, {conflictRejected} rejected.");
 
-        if (rejected > 0)
+        if (validationRejected > 0)
         {
-            Console.Error.WriteLine($"Rejected {rejected} resource(s) with Error findings.");
+            Console.Error.WriteLine($"Rejected {validationRejected} resource(s) with Error findings.");
             return 1;
+        }
+
+        if (conflictRejected > 0)
+        {
+            Console.Error.WriteLine($"Rejected {conflictRejected} resource(s) due to identifier conflicts under --conflict-resolution=reject.");
+            return 2;
         }
 
         return 0;
@@ -146,6 +223,29 @@ internal static class ImportCommand
         }
 
         return [];
+    }
+
+    // Returns (policy, explicit). `policy` is null when the flag was provided
+    // with an invalid value.
+    private static (string? Policy, bool Explicit) ResolveConflictPolicy(CliOptions options)
+    {
+        if (string.IsNullOrEmpty(options.ConflictResolution))
+        {
+            // Mode-aware defaults — `--fixtures-dir` / `--fixtures` mode is the
+            // T134 patch-overlay path; `--input` mode is the US8 disaster-recovery
+            // path. Explicit flag always wins for both.
+            var defaultPolicy = options.Input is not null && options.FixturesDir is null && options.FixturesFile is null
+                ? Reject
+                : Overwrite;
+            return (defaultPolicy, Explicit: false);
+        }
+
+        var requested = options.ConflictResolution.ToLowerInvariant();
+        return requested switch
+        {
+            Reject or Skip or Overwrite => (requested, Explicit: true),
+            _ => (null, Explicit: true),
+        };
     }
 
     private static void CountFindings(

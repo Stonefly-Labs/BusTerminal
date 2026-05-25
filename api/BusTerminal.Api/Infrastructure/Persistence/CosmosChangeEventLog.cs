@@ -51,4 +51,23 @@ public sealed class CosmosChangeEventLog : IChangeEventLog
             }
         }
     }
+
+    public async IAsyncEnumerable<ChangeEvent> QueryAllAsync(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        // Cross-partition scan. Used by export — never on the hot path. The
+        // ORDER BY clause runs against Cosmos's composite/range index on
+        // /timestamp and is bounded by document count, not partition count.
+        var definition = new QueryDefinition("SELECT * FROM c ORDER BY c.timestamp ASC");
+
+        using var iterator = _container.GetItemQueryIterator<ChangeEvent>(definition);
+        while (iterator.HasMoreResults)
+        {
+            var page = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var item in page)
+            {
+                yield return item;
+            }
+        }
+    }
 }

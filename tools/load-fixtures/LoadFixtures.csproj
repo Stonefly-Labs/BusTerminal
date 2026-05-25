@@ -18,4 +18,17 @@
     <ProjectReference Include="..\..\api\BusTerminal.Api\BusTerminal.Api.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Microsoft.Azure.Cosmos 3.x still hits a Newtonsoft.Json code path at
+         runtime (legacy LINQ + query-text helpers) even with
+         AzureCosmosDisableNewtonsoftJsonCheck=true suppressing the build
+         warning. The test project picks it up transitively through xunit, so
+         the integration tests succeed; the CLI does not, so it fails on first
+         call with "Could not load file or assembly 'Newtonsoft.Json'." Pin it
+         explicitly here so the CLI's bin output carries the assembly. The
+         canonical model still uses System.Text.Json end-to-end — this is a
+         transitive runtime crutch, not a serializer choice. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
 </Project>

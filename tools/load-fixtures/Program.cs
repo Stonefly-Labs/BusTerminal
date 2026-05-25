@@ -75,8 +75,8 @@ internal static class Program
         "restore" => RestoreCommand.RunAsync(services, options, cancellationToken),
         "changelog" => ChangelogCommand.RunAsync(services, options, cancellationToken),
 
-        // Verbs landing in later user-story phases.
-        "export" => NotImplemented(verb, "T143 (US8)"),
+        // Spec 004 / US8 / T143.
+        "export" => ExportCommand.RunAsync(services, options, cancellationToken),
 
         _ => Unknown(verb),
     };
@@ -123,8 +123,10 @@ internal static class Program
               restore                 Clear IsDeleted on a soft-deleted resource. --resource-id <id>.
               changelog               Print the ordered change-event log for a resource. --resource-id <id>.
 
-            Verbs (deferred to later user stories):
-              export                  US8 / T143.
+            Verbs (Phase 10 — Spec 004 US8):
+              export                  Export the canonical store. --output <path> [--format json|yaml] [--include-deleted] [--include-change-log].
+              import                  Supports --input <file> and --conflict-resolution reject|skip|overwrite (default reject).
+              show                    Supports --format yaml in addition to json.
             """);
     }
 }

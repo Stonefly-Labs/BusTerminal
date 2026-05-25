@@ -70,6 +70,13 @@ public static class CosmosConfigurationExtensions
         services.AddSingleton<IResourceSerializer>(sp => sp.GetRequiredService<JsonResourceSerializer>());
         services.AddSingleton<CosmosStjSerializer>();
 
+        // Spec 004 / FR-016 / T142 — YAML serializer registered as a peer of the
+        // JSON serializer. Resolved by name where it's needed (load-fixtures
+        // export/import/show with --format yaml; the YAML round-trip test
+        // suite). The default IResourceSerializer remains the JSON
+        // implementation — YAML is opt-in.
+        services.AddSingleton<YamlResourceSerializer>();
+
         services.AddSingleton<CosmosClientFactory>();
         services.AddSingleton(sp => sp.GetRequiredService<CosmosClientFactory>().Create());
 

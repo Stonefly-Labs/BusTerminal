@@ -47,4 +47,19 @@ public sealed class JsonResourceSerializer : IResourceSerializer
     public ImportExportEnvelope DeserializeEnvelopeFromJson(string json) =>
         JsonSerializer.Deserialize<ImportExportEnvelope>(json, _options)
         ?? throw new JsonException("Envelope deserialization yielded null.");
+
+    // YAML methods belong to YamlResourceSerializer (T142). Resolving them
+    // through the JSON serializer is a wiring bug — surface it loudly rather
+    // than silently emitting JSON.
+    public string SerializeToYaml(Resource resource) =>
+        throw new NotSupportedException("JsonResourceSerializer does not implement YAML. Resolve YamlResourceSerializer instead (Spec 004 / T142).");
+
+    public Resource DeserializeFromYaml(string yaml) =>
+        throw new NotSupportedException("JsonResourceSerializer does not implement YAML. Resolve YamlResourceSerializer instead (Spec 004 / T142).");
+
+    public string SerializeEnvelopeToYaml(ImportExportEnvelope envelope) =>
+        throw new NotSupportedException("JsonResourceSerializer does not implement YAML. Resolve YamlResourceSerializer instead (Spec 004 / T142).");
+
+    public ImportExportEnvelope DeserializeEnvelopeFromYaml(string yaml) =>
+        throw new NotSupportedException("JsonResourceSerializer does not implement YAML. Resolve YamlResourceSerializer instead (Spec 004 / T142).");
 }

@@ -28,11 +28,14 @@ internal sealed class SerializerFixture : IDisposable
 
         Provider = services.BuildServiceProvider();
         Serializer = Provider.GetRequiredService<JsonResourceSerializer>();
+        YamlSerializer = Provider.GetRequiredService<YamlResourceSerializer>();
     }
 
     public ServiceProvider Provider { get; }
 
     public JsonResourceSerializer Serializer { get; }
+
+    public YamlResourceSerializer YamlSerializer { get; }
 
     public void Dispose() => Provider.Dispose();
 
