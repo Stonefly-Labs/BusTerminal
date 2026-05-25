@@ -54,7 +54,7 @@
 - [ ] T018 Implement `iac/modules/diagnostic-settings/main.tf` rendering exactly one `azurerm_monitor_diagnostic_setting` with `enabled_log { category_group = "allLogs" }` and NO `enabled_metric` block (per Q5c + `research.md` §7)
 - [ ] T019 Implement `iac/modules/diagnostic-settings/outputs.tf` emitting `id`
 - [ ] T020 Implement `iac/modules/diagnostic-settings/versions.tf` pinning `hashicorp/azurerm ~> 4.0`
-- [ ] T021 Document `iac/modules/diagnostic-settings/README.md` with the Q5c rationale comment and a usage example
+- [ ] T021 Document `iac/modules/diagnostic-settings/README.md` with the Q5c rationale comment and a usage example. Add a paragraph confirming FR-047 compliance: the `allLogs` category group on Azure PaaS resource diagnostics does NOT include application payloads — only resource-level operations/audit logs — so no PII leaks via diagnostic-settings by construction. Cite the per-service log-category reference (https://learn.microsoft.com/azure/azure-monitor/essentials/resource-logs-categories) for reviewers.
 
 ### Private-endpoint wrapper module (used by KV, Cosmos, AI Search, SB, ACR)
 
@@ -126,7 +126,7 @@
 - [ ] T059 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.naming` with `environment_name`, `naming_prefix`, `unique_suffix` (consume its outputs in every downstream module call)
 - [ ] T060 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.networking` with the dev CIDRs from `terraform.tfvars` and the seven private DNS zones from `research.md` §11 (`privatelink.vaultcore.azure.net`, `privatelink.documents.azure.com`, `privatelink.search.windows.net`, `privatelink.servicebus.windows.net`, `privatelink.azurecr.io`)
 - [ ] T061 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.ai-search` passing the workload UAMI principal ID + (conditional on `var.private_endpoints_enabled`) the PE subnet and the search private DNS zone ID
-- [ ] T062 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.service-bus` with `sku = var.service_bus_sku` (defaults to Standard in dev, so PE is silently skipped per research §3)
+- [ ] T062 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.service-bus` with `sku = var.service_bus_sku`. The env composition MUST conditionally null the PE inputs based on SKU support: `private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null` and the matching `private_dns_zone_id` likewise. Reason: the `service-bus` module precondition rejects `sku=Standard` + non-null PE inputs (per `contracts/module-contracts.md` §service-bus), so the env composition must do the SKU-aware nulling rather than passing the PE inputs unconditionally. Dev defaults to Standard, so dev gets no SB PE; test/prod templates default to Premium and DO get one.
 - [ ] T063 [US1] Extend `iac/environments/dev/main.tf` to wire the new PE inputs into the existing `module.cosmos_account`, `module.keyvault` calls (warm in dev per Q2c — `private_endpoints_enabled` toggles, public access stays on per `data_services_public_access_enabled`)
 - [ ] T064 [US1] Extend `iac/environments/dev/main.tf` to add an `import {}` block for the existing dev Container Registry adoption if not already imported, and wire its PE input to null in dev (PE deferred to test/prod template per research §2)
 - [ ] T065 [US1] Update `iac/environments/dev/terraform.tfvars` with the new variables' dev values (use the example from `contracts/config-profile-schema.md` §Dev as the reference)
@@ -147,7 +147,7 @@
 ### Workload identity extensions (US2)
 
 - [ ] T069 [US2] Extend `iac/modules/workload-identity/variables.tf` to accept the extended `assigned_azure_rbac` map shape from `contracts/module-contracts.md` §`workload-identity (extended)` (existing module already supports arbitrary map; verify and document)
-- [ ] T070 [US2] Extend `iac/modules/workload-identity/README.md` to enumerate the FR-033 forward-looking role set the dev env composition will pass
+- [ ] T070 [US2] Extend `iac/modules/workload-identity/README.md` to enumerate the FR-033 forward-looking role set AND document the **role-assignment split convention** explicitly: data-service workload roles (`Search Index Data Contributor`, `Azure Service Bus Data Sender`, `Azure Service Bus Data Receiver`) are emitted by the data-service modules themselves (T039, T047). Pass ONLY non-data-service roles (`AcrPull`, `Key Vault Secrets User`, `Monitoring Metrics Publisher`) via this module's `assigned_azure_rbac` map. Listing data-service roles in BOTH places would create duplicate `azurerm_role_assignment` resources and fail apply. Add a warning callout in the README plus a worked example showing the correct split for spec 005's set.
 - [ ] T071 [US2] Extend `iac/environments/dev/main.tf` to pass the FR-033 workload role set into `module.workload_identity`'s `assigned_azure_rbac` input: `acr-pull` (existing), `kv-secrets-user` (existing), `sb-data-sender` (scope: SB namespace), `sb-data-receiver` (scope: SB namespace), `search-index-data-contributor` (scope: AI Search), `monitoring-metrics-publisher` (scope: App Insights resource ID). Note: SB Sender/Receiver + Search Index Data Contributor are emitted by their own modules (T039, T047); this task wires Monitoring Metrics Publisher
 - [ ] T072 [US2] Verify the existing `azurerm_cosmosdb_sql_role_assignment.workload_data_contributor` in `iac/environments/dev/main.tf` remains in place (already-granted per `research.md` §5); no change needed but call out in PR description that adoption is intentional
 - [ ] T073 [US2] Extend `iac/modules/cosmos-canonical-store/outputs.tf` to emit `canonical_database_role_scope` (the exact scope path for `azurerm_cosmosdb_sql_role_assignment` consumers) per `research.md` §15 + `contracts/outputs-contract.md`
@@ -162,9 +162,11 @@
 ### Pipeline RBAC-Admin condition extension (US2 — for the platform-bootstrap stack)
 
 - [ ] T078 [US2] Extend `iac/platform-bootstrap/main.tf` `azurerm_role_assignment.pipeline_role_admin` condition to include the four new role GUIDs from `research.md` §12: `69a216fc-b8fb-44d8-bc22-1f3c2cd27a39` (SB Data Sender), `4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0` (SB Data Receiver), `8ebe5a00-799e-43f5-93ac-243d3dce84a7` (Search Index Data Contributor), `3913510d-42f4-4e42-8a64-420c390055eb` (Monitoring Metrics Publisher). Keep comment header documenting each GUID
-- [ ] T079 [US2] Apply `iac/platform-bootstrap/` (manual operator step — call out in PR description that this must run before the dev env apply that introduces the new role assignments). Confirm the new condition is live with `az role assignment list --assignee <pipeline-mi-principal-id> --include-conditions`
+- [ ] T079 [US2] Apply `iac/platform-bootstrap/` (manual operator step — call out in PR description that this must run before the dev env apply that introduces the new role assignments). Confirm the new condition is live with `az role assignment list --assignee <pipeline-mi-principal-id> --include-conditions`.
 
-**Checkpoint**: User Story 2 fully testable — workload UAMI holds exactly the FR-033 set; backend `dotnet` process authenticates to App Insights via AAD with no fallback to ingestion key; no secret-like values in outputs.
+> ⚠️ **PRE-APPLY GATE** — T079 (and T078 that authors the condition extension) MUST be applied before ANY `tofu apply` against `iac/environments/dev/` that includes a new role assignment from the FR-033 set. If you attempt to dry-run / partial-apply US1's wiring before T078+T079 land, the pipeline-MI will hit `AuthorizationFailed` on the new role-assignment writes. Recommended sequence: complete T078 → apply platform-bootstrap (T079) → continue US1+US2 wiring → run the full dev apply at T127. The MVP validation in T127 depends on T079 having already run.
+
+**Checkpoint**: User Story 2 fully testable — workload UAMI holds exactly the FR-033 set; backend `dotnet` process authenticates to App Insights via AAD with no fallback to ingestion key; no secret-like values in outputs. **Bootstrap RBAC-Admin condition is live and verified** (T079).
 
 ---
 
@@ -244,8 +246,9 @@
 - [ ] T104 [US5] Verify from repo root: `cd iac/environments/test && tofu init -backend=false && tofu validate` exits 0
 - [ ] T105 [US5] Verify from repo root: `cd iac/environments/prod && tofu init -backend=false && tofu validate` exits 0
 - [ ] T106 [US5] Document in `iac/environments/test/README.md` and `iac/environments/prod/README.md` (new files): "Template only — NOT applied by spec 005. See `specs/005-infrastructure-baseline/quickstart.md` §B for the stand-up procedure when an operator is ready."
+- [ ] T134 [US5] Enforce FR-010 in the prod template: ensure the backend Container App's ingress defaults to **internal** (`external_enabled = false`) in `iac/environments/prod/main.tf` (and matching tfvars override in `iac/environments/prod/terraform.tfvars.example`). Add an env-level variable `backend_external_ingress` (bool, default `false` in prod; default `true` in dev/test to preserve current dev behavior) in each env's `variables.tf`, and thread it through the existing `module.container_app` invocation for the backend. Test composition keeps backend external (test mirrors dev's posture for parity-of-debugging) unless an operator overrides via tfvars.
 
-**Checkpoint**: User Story 5 fully testable — both env templates validate; their backend keys are env-scoped; `quickstart.md` §B walkthrough is executable end-to-end.
+**Checkpoint**: User Story 5 fully testable — both env templates validate; their backend keys are env-scoped; prod template defaults backend ingress to internal per FR-010; `quickstart.md` §B walkthrough is executable end-to-end.
 
 ---
 
@@ -303,13 +306,14 @@
 
 - [ ] T125 [P] Run `tofu fmt -recursive iac/` from the repo root; commit any formatting changes
 - [ ] T126 [P] Run `terraform-docs markdown table iac/modules/<each-module>/` and commit the regenerated module READMEs (or wire `terraform-docs` as a CI formatting gate per `plan.md` §Testing)
-- [ ] T127 Verify the `iac/environments/dev/` apply matches `quickstart.md` §A end-to-end: §A.1 login, §A.2 init, §A.3 plan (zero stateful destroys), §A.4 policy gate (all pass), §A.5 apply, §A.6 validate outputs + live dev URL still works + MSAL sign-in still works
+- [ ] T127 Verify the `iac/environments/dev/` apply matches `quickstart.md` §A end-to-end: §A.1 login, §A.2 init, §A.3 plan (zero stateful destroys), §A.4 policy gate (all pass), §A.5 apply, §A.6 validate outputs + live dev URL still works + MSAL sign-in still works. **Capture wall-clock duration** of `tofu apply` and record it in the PR description; the SC-001 budget is 60 minutes for an empty-RG apply (this slice is an incremental retrofit, so the budget here is informational — but the timing data establishes a baseline for SC-001's later validation when a fresh env stands up via the test/prod templates, which is SC-007's 30-minute budget for an incremental env addition).
 - [ ] T128 Confirm Container Apps service-bus FQDN / AI Search endpoint / Cosmos endpoint outputs resolve correctly via `tofu output -json` and match the format documented in `contracts/outputs-contract.md`
 - [ ] T129 Confirm the BT-IAC-003-adjacent invariant from `quickstart.md` §D "Browser telemetry stops appearing" — App Insights `local_authentication_disabled` is `false`; browser SDK ingestion continues to work
 - [ ] T130 Update `speckit-artifacts/tech-stack.md` to reflect any durable new conventions this slice introduces (the `allLogs`-only diagnostic convention, the new policy-gate rule IDs, the new AVM pins) per CLAUDE.md §"When You're Unsure"
 - [ ] T131 [P] Verify the `.terraform.lock.hcl` files in `iac/environments/dev/`, `iac/environments/test/`, `iac/environments/prod/`, `iac/platform-bootstrap/`, and each new module directory are committed per `research.md` §13
 - [ ] T132 Capture and resolve any `checkov` / `tfsec` findings introduced by this slice; either fix the finding or add an explicit skip with justification in the resource code
 - [ ] T133 Run `/speckit-analyze` after `tasks.md` lands to verify cross-artifact consistency (spec ↔ plan ↔ tasks); resolve any CRITICAL/HIGH findings before `/speckit-implement`
+- [ ] T135 Author `specs/005-infrastructure-baseline/production-hardening.md` per FR-046 — an audit-grade reference enumerating every production hardening switch this slice introduces, separated from local/dev conveniences. Required sections: (a) Network posture (data-services public access disabled, PEs live, DNS zones linked); (b) Secrets posture (KV purge protection ON, soft-delete retention 90d, RBAC authorization); (c) State posture (storage account versioning + soft-delete, lifecycle.prevent_destroy on stateful resources); (d) Identity posture (workload UAMI role enumeration per FR-033, deployment-MI per-env federation per FR-032); (e) Observability posture (allLogs forwarded, retention default, AAD ingestion for backend); (f) CI posture (BT-IAC-001 through BT-IAC-007 active, BT-IAC-002 enforced for prod, BT-IAC-007 manual approval gate). For each item, list the controlling tf-var, the prod default, and the override mechanism. Cross-reference `contracts/policy-rules.md` and `quickstart.md` §C.
 
 ---
 
@@ -433,10 +437,12 @@ Then US3 (small), US4 (refactor + new diag), US5 (template copy), US7 (small) ca
 | Phase 4 — US2 (P1) | T069–T079 | 11 |
 | Phase 5 — US3 (P1) | T080–T083 | 4 |
 | Phase 6 — US4 (P2) | T084–T091 | 8 |
-| Phase 7 — US5 (P2) | T092–T106 | 15 |
+| Phase 7 — US5 (P2) | T092–T106 + T134 | 16 |
 | Phase 8 — US6 (P3) | T107–T120 | 14 |
 | Phase 9 — US7 (P3) | T121–T124 | 4 |
-| Phase 10 — Polish | T125–T133 | 9 |
-| **Total** | **T001–T133** | **133** |
+| Phase 10 — Polish | T125–T133 + T135 | 10 |
+| **Total** | **T001–T135** | **135** |
+
+> Note: T134 and T135 were appended out-of-sequence after `/speckit-analyze` flagged coverage gaps for FR-010 (prod backend ingress) and FR-046 (production hardening doc). They're logically grouped with US5 and Polish respectively despite the out-of-order IDs.
 
 Independent test criteria for each user story are written into the goal/test paragraph at the head of each phase. Suggested MVP scope = US1 + US2 + US3 (the three P1 stories) per the Implementation Strategy section above.

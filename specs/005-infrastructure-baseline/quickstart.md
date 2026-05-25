@@ -194,10 +194,21 @@ Steps:
 
 ### "Error: code=AuthorizationFailed" during apply
 
-The pipeline UAMI or your local Entra account is missing a role. Check:
-- For `azurerm_role_assignment` writes: the pipeline UAMI's RBAC-Admin condition allowlist (research §12) — does it include the role GUID you're trying to assign?
-- For `azurerm_key_vault_secret`: KV Secrets Officer scoped to either the env RG (pipeline) or the vault (operators)
-- For data-plane Cosmos writes: Cosmos DB Built-in Data Contributor on the database
+The pipeline UAMI or your local Entra account is missing a role. Quick reference for the most common ones this slice surfaces:
+
+| Failing resource type / action | Missing role on the principal | Where the grant lives |
+|---|---|---|
+| `azurerm_role_assignment` (any) | The RBAC-Admin condition allowlist doesn't include the role GUID | `iac/platform-bootstrap/main.tf` lines 205–217 (extend per research §12) |
+| `azurerm_role_assignment` granting a role NOT in the allowlist | `Owner` (broader than condition-scoped RBAC-Admin) — by design, this is blocked | Not granted in this slice; rework to use a narrower built-in role |
+| `azurerm_key_vault_secret` write | `Key Vault Secrets Officer` scoped to env RG (pipeline) or vault (operators) | Bootstrap stack (pipeline) / `kv_operator_object_ids` (operators) |
+| `azurerm_cosmosdb_sql_role_assignment` | `Cosmos DB Operator` on the Cosmos account (account-level, not data-plane) | Existing dev composition (spec 004) — verify still in place |
+| Data-plane Cosmos read/write (from `az cosmosdb sql` or app runtime) | `Cosmos DB Built-in Data Contributor` on the database | Workload UAMI grant in env composition |
+| `azurerm_private_endpoint` write | `Network Contributor` on the VNet OR per-resource `Microsoft.Network/privateEndpoints/write` | Pipeline-MI subscription-Contributor covers this |
+| `azurerm_search_service` write | `Contributor` at RG | Pipeline-MI subscription-Contributor covers this |
+| `azurerm_servicebus_namespace` write | `Contributor` at RG | Pipeline-MI subscription-Contributor covers this |
+| Plan-time enumeration of an existing resource (data source) | `Reader` at RG | Local operator account usually has this via dev tenant baseline |
+
+**Pre-flight check**: before a fresh apply, run `az role assignment list --assignee <your-object-id> --scope /subscriptions/<sub-id> --include-inherited -o table` and compare against the rows above. OpenTofu surfaces the first failing write at plan time (for data sources) or apply time (for resource writes) — the error message names the resource path and the missing action, which maps back to the rows above.
 
 ### "Error: A resource with the ID ... already exists"
 
