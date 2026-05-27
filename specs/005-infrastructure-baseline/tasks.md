@@ -20,17 +20,17 @@
 
 **Purpose**: Repo-level scaffolding required by every later task.
 
-- [ ] T001 Create directory `iac/modules/naming/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T002 [P] Create directory `iac/modules/networking/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T003 [P] Create directory `iac/modules/ai-search/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T004 [P] Create directory `iac/modules/service-bus/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T005 [P] Create directory `iac/modules/diagnostic-settings/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T006 [P] Create directory `iac/modules/private-endpoint/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
-- [ ] T007 [P] Create directory `iac/policies/` (will hold bash policy-gate scripts in US6)
-- [ ] T008 [P] Create directory `iac/scripts/` (will hold the `apply-env.sh` operator helper in US6)
-- [ ] T009 [P] Create directory `iac/environments/test/` (will hold the test composition template in US5)
-- [ ] T010 [P] Create directory `iac/environments/prod/` (will hold the prod composition template in US5)
-- [ ] T011 Update root `.gitignore` to ignore `**/tfplan`, `**/tfplan.json`, and `iac/environments/*/.terraform/` (verify entries; add if missing)
+- [X] T001 Create directory `iac/modules/naming/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T002 [P] Create directory `iac/modules/networking/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T003 [P] Create directory `iac/modules/ai-search/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T004 [P] Create directory `iac/modules/service-bus/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T005 [P] Create directory `iac/modules/diagnostic-settings/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T006 [P] Create directory `iac/modules/private-endpoint/` with empty `main.tf`, `variables.tf`, `outputs.tf`, `versions.tf`, `README.md`
+- [X] T007 [P] Create directory `iac/policies/` (will hold bash policy-gate scripts in US6)
+- [X] T008 [P] Create directory `iac/scripts/` (will hold the `apply-env.sh` operator helper in US6)
+- [X] T009 [P] Create directory `iac/environments/test/` (will hold the test composition template in US5)
+- [X] T010 [P] Create directory `iac/environments/prod/` (will hold the prod composition template in US5)
+- [X] T011 Update root `.gitignore` to ignore `**/tfplan`, `**/tfplan.json`, and `iac/environments/*/.terraform/` (verify entries; add if missing)
 
 ---
 
@@ -42,32 +42,32 @@
 
 ### Naming module (used by every env composition)
 
-- [ ] T012 Implement `iac/modules/naming/variables.tf` declaring `environment_name`, `naming_prefix`, `unique_suffix` with the regex validations from `contracts/module-contracts.md` §`naming`
-- [ ] T013 Implement `iac/modules/naming/outputs.tf` emitting every derived name from `data-model.md` §1.2 (`resource_group_name`, `log_analytics_workspace_name`, `application_insights_name`, `key_vault_name`, `container_registry_name`, `container_apps_env_name`, `cosmos_account_name`, `ai_search_name`, `service_bus_name`, `vnet_name`, `workload_uami_name`)
-- [ ] T014 Implement `iac/modules/naming/main.tf` with `locals { ... }` computing every name (hyphens stripped for ACR per `data-model.md` §1.2)
-- [ ] T015 Implement `iac/modules/naming/versions.tf` pinning `terraform >= 1.11.0` and no provider requirements (naming is pure HCL)
-- [ ] T016 Document `iac/modules/naming/README.md` with inputs/outputs table and one usage example
+- [X] T012 Implement `iac/modules/naming/variables.tf` declaring `environment_name`, `naming_prefix`, `unique_suffix` with the regex validations from `contracts/module-contracts.md` §`naming`
+- [X] T013 Implement `iac/modules/naming/outputs.tf` emitting every derived name from `data-model.md` §1.2 (`resource_group_name`, `log_analytics_workspace_name`, `application_insights_name`, `key_vault_name`, `container_registry_name`, `container_apps_env_name`, `cosmos_account_name`, `ai_search_name`, `service_bus_name`, `vnet_name`, `workload_uami_name`)
+- [X] T014 Implement `iac/modules/naming/main.tf` with `locals { ... }` computing every name (hyphens stripped for ACR per `data-model.md` §1.2)
+- [X] T015 Implement `iac/modules/naming/versions.tf` pinning `terraform >= 1.11.0` and no provider requirements (naming is pure HCL)
+- [X] T016 Document `iac/modules/naming/README.md` with inputs/outputs table and one usage example
 
 ### Diagnostic-settings module (used by every resource that forwards logs)
 
-- [ ] T017 Implement `iac/modules/diagnostic-settings/variables.tf` declaring `name`, `target_resource_id`, `log_analytics_workspace_id` per `contracts/module-contracts.md` §`diagnostic-settings`
-- [ ] T018 Implement `iac/modules/diagnostic-settings/main.tf` rendering exactly one `azurerm_monitor_diagnostic_setting` with `enabled_log { category_group = "allLogs" }` and NO `enabled_metric` block (per Q5c + `research.md` §7)
-- [ ] T019 Implement `iac/modules/diagnostic-settings/outputs.tf` emitting `id`
-- [ ] T020 Implement `iac/modules/diagnostic-settings/versions.tf` pinning `hashicorp/azurerm ~> 4.0`
-- [ ] T021 Document `iac/modules/diagnostic-settings/README.md` with the Q5c rationale comment and a usage example. Add a paragraph confirming FR-047 compliance: the `allLogs` category group on Azure PaaS resource diagnostics does NOT include application payloads — only resource-level operations/audit logs — so no PII leaks via diagnostic-settings by construction. Cite the per-service log-category reference (https://learn.microsoft.com/azure/azure-monitor/essentials/resource-logs-categories) for reviewers.
+- [X] T017 Implement `iac/modules/diagnostic-settings/variables.tf` declaring `name`, `target_resource_id`, `log_analytics_workspace_id` per `contracts/module-contracts.md` §`diagnostic-settings`
+- [X] T018 Implement `iac/modules/diagnostic-settings/main.tf` rendering exactly one `azurerm_monitor_diagnostic_setting` with `enabled_log { category_group = "allLogs" }` and NO `enabled_metric` block (per Q5c + `research.md` §7)
+- [X] T019 Implement `iac/modules/diagnostic-settings/outputs.tf` emitting `id`
+- [X] T020 Implement `iac/modules/diagnostic-settings/versions.tf` pinning `hashicorp/azurerm ~> 4.0`
+- [X] T021 Document `iac/modules/diagnostic-settings/README.md` with the Q5c rationale comment and a usage example. Add a paragraph confirming FR-047 compliance: the `allLogs` category group on Azure PaaS resource diagnostics does NOT include application payloads — only resource-level operations/audit logs — so no PII leaks via diagnostic-settings by construction. Cite the per-service log-category reference (https://learn.microsoft.com/azure/azure-monitor/essentials/resource-logs-categories) for reviewers.
 
 ### Private-endpoint wrapper module (used by KV, Cosmos, AI Search, SB, ACR)
 
-- [ ] T022 Implement `iac/modules/private-endpoint/variables.tf` declaring `name`, `resource_group_name`, `location`, `subnet_id`, `target_resource_id`, `subresource_name`, `private_dns_zone_id`, `tags` per `contracts/module-contracts.md` §`private-endpoint`
-- [ ] T023 Implement `iac/modules/private-endpoint/main.tf` with `azurerm_private_endpoint.this` + `private_dns_zone_group` block binding the supplied zone
-- [ ] T024 Implement `iac/modules/private-endpoint/outputs.tf` emitting `id`, `private_ip_address` (from `network_interface[0].ip_configuration[0]`), and `fqdn` derived from target name + zone
-- [ ] T025 Implement `iac/modules/private-endpoint/versions.tf` pinning `hashicorp/azurerm ~> 4.0`
-- [ ] T026 Document `iac/modules/private-endpoint/README.md` with the per-service `subresource_name` reference table (`vault`, `Sql`, `searchService`, `namespace`, `registry`, `blob`)
+- [X] T022 Implement `iac/modules/private-endpoint/variables.tf` declaring `name`, `resource_group_name`, `location`, `subnet_id`, `target_resource_id`, `subresource_name`, `private_dns_zone_id`, `tags` per `contracts/module-contracts.md` §`private-endpoint`
+- [X] T023 Implement `iac/modules/private-endpoint/main.tf` with `azurerm_private_endpoint.this` + `private_dns_zone_group` block binding the supplied zone
+- [X] T024 Implement `iac/modules/private-endpoint/outputs.tf` emitting `id`, `private_ip_address` (from `network_interface[0].ip_configuration[0]`), and `fqdn` derived from target name + zone
+- [X] T025 Implement `iac/modules/private-endpoint/versions.tf` pinning `hashicorp/azurerm ~> 4.0`
+- [X] T026 Document `iac/modules/private-endpoint/README.md` with the per-service `subresource_name` reference table (`vault`, `Sql`, `searchService`, `namespace`, `registry`, `blob`)
 
 ### New env-composition variables (used by every later wiring task)
 
-- [ ] T027 Extend `iac/environments/dev/variables.tf` to add the 11 NEW variables from `contracts/config-profile-schema.md` (`network_address_space`, `subnet_integration_cidr`, `subnet_private_endpoints_cidr`, `data_services_public_access_enabled`, `private_endpoints_enabled`, `ai_search_sku`, `service_bus_sku`, `service_bus_capacity`, `key_vault_purge_protection_enabled`, `key_vault_soft_delete_retention_days`, `log_analytics_retention_days`) with the dev defaults specified in the schema and the validation blocks from §1.1
-- [ ] T028 Extend `iac/environments/dev/providers.tf` to add the three new provider requirements (`hashicorp/random ~> 3.6`, `azure/azapi ~> 2.4`, `azure/modtm ~> 0.3`) per `research.md` §13; set `enable_telemetry = false` for modtm
+- [X] T027 Extend `iac/environments/dev/variables.tf` to add the 11 NEW variables from `contracts/config-profile-schema.md` (`network_address_space`, `subnet_integration_cidr`, `subnet_private_endpoints_cidr`, `data_services_public_access_enabled`, `private_endpoints_enabled`, `ai_search_sku`, `service_bus_sku`, `service_bus_capacity`, `key_vault_purge_protection_enabled`, `key_vault_soft_delete_retention_days`, `log_analytics_retention_days`) with the dev defaults specified in the schema and the validation blocks from §1.1
+- [X] T028 Extend `iac/environments/dev/providers.tf` to add the three new provider requirements (`hashicorp/random ~> 3.6`, `azure/azapi ~> 2.4`, `azure/modtm ~> 0.3`) per `research.md` §13; set `enable_telemetry = false` for modtm
 
 **Checkpoint**: Foundation ready — Phase 3+ may now begin.
 

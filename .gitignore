@@ -503,6 +503,10 @@ terraform.rc
 # Allow committed per-environment defaults that only contain non-secret values
 !iac/environments/*/terraform.tfvars
 
+# --- OpenTofu plan artifacts (slice 005) ---
+**/tfplan
+**/tfplan.json
+
 # Checkov download cache + scan artifacts. Created when running with
 # `download-external-modules: true`; contains transitively cloned AVM modules
 # (each with its own .git). Never commit.
