@@ -16,4 +16,15 @@ locals {
     vnet_name                    = "vnet-${var.naming_prefix}"
     workload_uami_name           = "mi-${var.naming_prefix}-workload"
   }
+
+  # Mandatory tag set per data-model.md §1.2. Operator-supplied tags are
+  # merged on top of this set at the env composition layer (the naming module
+  # doesn't accept arbitrary tags — that's a single-responsibility boundary).
+  mandatory_tags = {
+    application = "BusTerminal"
+    environment = var.environment_name
+    managed-by  = "opentofu"
+    cost-center = "platform"
+    owner       = "platform-team"
+  }
 }

@@ -1,3 +1,13 @@
+# tflint-ignore-file: terraform_unused_required_providers
+#
+# Spec 005 Phase 2 (T028) declares three new provider requirements (`random`,
+# `azapi`, `modtm`) ahead of the Phase 3 module wiring (T029–T068) that
+# consumes them. `random` and `azapi` will be unused until Phase 3 lands; the
+# file-level tflint-ignore-file directive above suppresses the
+# terraform_unused_required_providers warning for the whole file. This
+# directive MUST be removed when Phase 3 wiring lands so future legitimately-
+# unused provider declarations are still caught.
+
 terraform {
   required_version = ">= 1.11.0"
 

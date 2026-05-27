@@ -52,3 +52,8 @@ output "workload_uami_name" {
   description = "Workload user-assigned managed identity name (mi-<naming_prefix>-workload)."
   value       = local.names.workload_uami_name
 }
+
+output "mandatory_tags" {
+  description = "Mandatory tag set per data-model.md §1.2 (application/environment/managed-by/cost-center/owner). Env compositions merge operator-supplied tags on top of this set."
+  value       = local.mandatory_tags
+}
