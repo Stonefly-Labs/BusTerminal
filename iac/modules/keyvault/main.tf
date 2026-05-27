@@ -43,3 +43,34 @@ module "keyvault" {
 
   tags = var.tags
 }
+
+# Spec 005 — conditional private endpoint via the project's PE wrapper (T055).
+# Subresource `vault` per the Azure private-endpoint DNS reference (research §11).
+resource "terraform_data" "pe_validation" {
+  input = {
+    private_endpoint_subnet_id = var.private_endpoint_subnet_id
+    private_dns_zone_id        = var.private_dns_zone_id
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.private_endpoint_subnet_id == null || var.private_dns_zone_id != null
+      error_message = "keyvault: private_dns_zone_id is required when private_endpoint_subnet_id is set."
+    }
+  }
+}
+
+module "private_endpoint" {
+  count = var.private_endpoint_subnet_id != null ? 1 : 0
+
+  source = "../private-endpoint"
+
+  name                = "pe-${var.name}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  subnet_id           = var.private_endpoint_subnet_id
+  target_resource_id  = module.keyvault.resource_id
+  subresource_name    = "vault"
+  private_dns_zone_id = var.private_dns_zone_id
+  tags                = var.tags
+}

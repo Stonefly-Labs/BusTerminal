@@ -1,0 +1,103 @@
+# BusTerminal — dev environment tfvars template (spec 005)
+#
+# Copy to `terraform.tfvars` and replace placeholders before running
+# `tofu apply`. Sensitive or per-tenant values (subscription_id, entra_*
+# IDs, images, unique_suffix, github_org_repo) are supplied by the CD
+# pipeline via `-var` flags or environment variables and are NOT committed
+# to the live terraform.tfvars in the repo.
+#
+# This template is committed as a reference. Source of truth for the schema:
+# specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+
+# -----------------------------------------------------------------------------
+# Identity & subscription
+# -----------------------------------------------------------------------------
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+environment_name = "dev"
+location         = "eastus2"
+naming_prefix    = "bt-dev"
+unique_suffix    = "chdev01"
+
+github_org_repo = "<org>/BusTerminal"
+
+# -----------------------------------------------------------------------------
+# Workload identity & Entra
+# -----------------------------------------------------------------------------
+entra_tenant_id     = "00000000-0000-0000-0000-000000000000"
+entra_api_client_id = "00000000-0000-0000-0000-000000000000"
+entra_web_client_id = "00000000-0000-0000-0000-000000000000"
+
+platform_role_ids = {
+  admin     = "00000000-0000-0000-0000-000000000001"
+  operator  = "00000000-0000-0000-0000-000000000002"
+  reader    = "00000000-0000-0000-0000-000000000003"
+  developer = "00000000-0000-0000-0000-000000000004"
+}
+
+# -----------------------------------------------------------------------------
+# Container images — supplied by the CD pipeline; placeholders here.
+# -----------------------------------------------------------------------------
+frontend_image = "acr<unique-suffix>.azurecr.io/busterminal/web:placeholder"
+backend_image  = "acr<unique-suffix>.azurecr.io/busterminal/api:placeholder"
+
+frontend_min_replicas = 0
+frontend_max_replicas = 3
+backend_min_replicas  = 0
+backend_max_replicas  = 3
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+tags = {
+  slice = "002-solution-foundation"
+}
+
+# -----------------------------------------------------------------------------
+# Optional standing access (operators with Key Vault Secrets Officer)
+# -----------------------------------------------------------------------------
+# kv_operator_object_ids = []
+
+# Spec 003 — internal-caller probe job (off by default)
+probe_job_enabled = false
+
+# Spec 004 — canonical Cosmos SQL database name
+canonical_db_name = "busterminal-canonical"
+
+# -----------------------------------------------------------------------------
+# Spec 005 — Infrastructure Baseline
+# Per specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+# -----------------------------------------------------------------------------
+
+# VNet + subnet CIDRs per research §10. The 10.50.x.x range was picked to avoid
+# colliding with common on-prem default ranges (10.0.*, 10.1.*) if BusTerminal
+# is later peered with corporate networks. Test uses 10.51.0.0/16; prod uses
+# 10.52.0.0/16.
+network_address_space         = ["10.50.0.0/16"]
+subnet_integration_cidr       = "10.50.0.0/23"
+subnet_private_endpoints_cidr = "10.50.2.0/24"
+
+# Q2c trade-off: dev opts into public access on data services AND provisions
+# warm PEs. Public-access ON means the existing local-dev path (developer
+# az-login + RBAC against the public endpoint) continues to work; warm PEs
+# mean the future destructive-retrofit slice is a single attribute flip
+# rather than a network-wiring change. Test/prod templates default both off
+# (private-by-default).
+data_services_public_access_enabled = true
+private_endpoints_enabled           = true
+
+# Spec 005 SKU defaults — dev is cost-optimized; test/prod templates default
+# to production-grade SKUs (standard for Search, Premium for Service Bus).
+ai_search_sku       = "basic"
+service_bus_sku     = "Standard"
+# service_bus_capacity is null (required only when sku=Premium)
+
+# Spec 005 KV hardening — dev defaults to low retention + no purge protection
+# so iterative dev recreates are fast. Test/prod default 90-day retention +
+# purge protection on per FR-019.
+key_vault_purge_protection_enabled   = false
+key_vault_soft_delete_retention_days = 7
+
+# Q5c — LA retention as tf-var, default 30. All envs default 30; operators
+# override per env if compliance requires longer (max 730 interactive).
+log_analytics_retention_days = 30

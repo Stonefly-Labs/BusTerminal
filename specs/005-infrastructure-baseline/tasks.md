@@ -81,58 +81,58 @@
 
 ### Networking module (US1 — builds the VNet/subnets/DNS zones every PE consumes)
 
-- [ ] T029 [US1] Implement `iac/modules/networking/variables.tf` per `contracts/module-contracts.md` §`networking` (`vnet_name`, `resource_group_name`, `location`, `address_space`, `subnet_integration_cidr`, `subnet_private_endpoints_cidr`, `private_dns_zones`, `tags`) with the three preconditions from the contract
-- [ ] T030 [US1] Implement `iac/modules/networking/main.tf` calling `Azure/avm-res-network-virtualnetwork/azurerm v0.16.0` for the VNet + two subnets (CAE integration delegated to `Microsoft.App/environments`; PE subnet)
-- [ ] T031 [US1] Extend `iac/modules/networking/main.tf` to instantiate `Azure/avm-res-network-privatednszone/azurerm v0.4.2` once per zone in `var.private_dns_zones` via `for_each`, each linked to the new VNet
-- [ ] T032 [US1] Implement `iac/modules/networking/outputs.tf` emitting `vnet_id`, `subnet_integration_id`, `subnet_private_endpoints_id`, `private_dns_zone_ids` (map keyed by zone name)
-- [ ] T033 [US1] Implement `iac/modules/networking/versions.tf` pinning the two AVMs + `hashicorp/azurerm ~> 4.0` + the new provider trio (T028)
-- [ ] T034 [US1] Document `iac/modules/networking/README.md` with the dev/test/prod CIDR table from `research.md` §10
+- [X] T029 [US1] Implement `iac/modules/networking/variables.tf` per `contracts/module-contracts.md` §`networking` (`vnet_name`, `resource_group_name`, `location`, `address_space`, `subnet_integration_cidr`, `subnet_private_endpoints_cidr`, `private_dns_zones`, `tags`) with the three preconditions from the contract
+- [X] T030 [US1] Implement `iac/modules/networking/main.tf` calling `Azure/avm-res-network-virtualnetwork/azurerm v0.16.0` for the VNet + two subnets (CAE integration delegated to `Microsoft.App/environments`; PE subnet)
+- [X] T031 [US1] Extend `iac/modules/networking/main.tf` to instantiate `Azure/avm-res-network-privatednszone/azurerm v0.4.2` once per zone in `var.private_dns_zones` via `for_each`, each linked to the new VNet
+- [X] T032 [US1] Implement `iac/modules/networking/outputs.tf` emitting `vnet_id`, `subnet_integration_id`, `subnet_private_endpoints_id`, `private_dns_zone_ids` (map keyed by zone name)
+- [X] T033 [US1] Implement `iac/modules/networking/versions.tf` pinning the two AVMs + `hashicorp/azurerm ~> 4.0` + the new provider trio (T028)
+- [X] T034 [US1] Document `iac/modules/networking/README.md` with the dev/test/prod CIDR table from `research.md` §10
 
 ### AI Search module (US1)
 
-- [ ] T035 [US1] Implement `iac/modules/ai-search/variables.tf` per `contracts/module-contracts.md` §`ai-search` including the SKU validation rejecting `free` when public access disabled or PE set
-- [ ] T036 [US1] Implement `iac/modules/ai-search/main.tf` calling `Azure/avm-res-search-searchservice/azurerm v0.2.0` with system-assigned identity disabled (workload UAMI handles access via RBAC, not identity-on-search)
-- [ ] T037 [US1] Extend `iac/modules/ai-search/main.tf` to instantiate `module.diagnostic-settings` (T018) targeting the new search service
-- [ ] T038 [US1] Extend `iac/modules/ai-search/main.tf` to conditionally instantiate `module.private-endpoint` (T023) when `var.private_endpoint_subnet_id != null`, with `subresource_name = "searchService"`
-- [ ] T039 [US1] Extend `iac/modules/ai-search/main.tf` to emit `azurerm_role_assignment` granting `Search Index Data Contributor` (role definition GUID `8ebe5a00-799e-43f5-93ac-243d3dce84a7`) to `var.workload_principal_id` scoped to the search service
-- [ ] T040 [US1] Implement `iac/modules/ai-search/outputs.tf` emitting `id`, `endpoint` (`https://<name>.search.windows.net`), `private_endpoint_id`
-- [ ] T041 [US1] Implement `iac/modules/ai-search/versions.tf` pinning the AVM + `hashicorp/azurerm ~> 4.0`
-- [ ] T042 [US1] Document `iac/modules/ai-search/README.md` with the SKU table from `research.md` §4
+- [X] T035 [US1] Implement `iac/modules/ai-search/variables.tf` per `contracts/module-contracts.md` §`ai-search` including the SKU validation rejecting `free` when public access disabled or PE set
+- [X] T036 [US1] Implement `iac/modules/ai-search/main.tf` calling `Azure/avm-res-search-searchservice/azurerm v0.2.0` with system-assigned identity disabled (workload UAMI handles access via RBAC, not identity-on-search)
+- [X] T037 [US1] Extend `iac/modules/ai-search/main.tf` to instantiate `module.diagnostic-settings` (T018) targeting the new search service
+- [X] T038 [US1] Extend `iac/modules/ai-search/main.tf` to conditionally instantiate `module.private-endpoint` (T023) when `var.private_endpoint_subnet_id != null`, with `subresource_name = "searchService"`
+- [X] T039 [US1] Extend `iac/modules/ai-search/main.tf` to emit `azurerm_role_assignment` granting `Search Index Data Contributor` (role definition GUID `8ebe5a00-799e-43f5-93ac-243d3dce84a7`) to `var.workload_principal_id` scoped to the search service
+- [X] T040 [US1] Implement `iac/modules/ai-search/outputs.tf` emitting `id`, `endpoint` (`https://<name>.search.windows.net`), `private_endpoint_id`
+- [X] T041 [US1] Implement `iac/modules/ai-search/versions.tf` pinning the AVM + `hashicorp/azurerm ~> 4.0`
+- [X] T042 [US1] Document `iac/modules/ai-search/README.md` with the SKU table from `research.md` §4
 
 ### Service Bus module (US1)
 
-- [ ] T043 [US1] Implement `iac/modules/service-bus/variables.tf` per `contracts/module-contracts.md` §`service-bus` including the four preconditions (Basic rejected; Standard+PE→ERROR; Premium-without-capacity→ERROR)
-- [ ] T044 [US1] Implement `iac/modules/service-bus/main.tf` calling `Azure/avm-res-servicebus-namespace/azurerm` (pin to latest 0.x at task time and record in `iac/modules/service-bus/versions.tf`) — namespace only, NO topics/queues per FR-022
-- [ ] T045 [US1] Extend `iac/modules/service-bus/main.tf` to instantiate `module.diagnostic-settings` targeting the new namespace
-- [ ] T046 [US1] Extend `iac/modules/service-bus/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` AND `var.sku == "Premium"`, with `subresource_name = "namespace"`
-- [ ] T047 [US1] Extend `iac/modules/service-bus/main.tf` to emit two `azurerm_role_assignment` blocks granting `Azure Service Bus Data Sender` (GUID `69a216fc-b8fb-44d8-bc22-1f3c2cd27a39`) and `Azure Service Bus Data Receiver` (GUID `4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0`) to `var.workload_principal_id` scoped to the namespace
-- [ ] T048 [US1] Implement `iac/modules/service-bus/outputs.tf` emitting `id`, `name`, `fqdn` (`<name>.servicebus.windows.net`), `private_endpoint_id`
-- [ ] T049 [US1] Implement `iac/modules/service-bus/versions.tf` pinning the resolved AVM version + `hashicorp/azurerm ~> 4.0`
-- [ ] T050 [US1] Document `iac/modules/service-bus/README.md` with the dev=Standard / test+prod=Premium SKU rationale from `research.md` §3
+- [X] T043 [US1] Implement `iac/modules/service-bus/variables.tf` per `contracts/module-contracts.md` §`service-bus` including the four preconditions (Basic rejected; Standard+PE→ERROR; Premium-without-capacity→ERROR)
+- [X] T044 [US1] Implement `iac/modules/service-bus/main.tf` calling `Azure/avm-res-servicebus-namespace/azurerm` (pin to latest 0.x at task time and record in `iac/modules/service-bus/versions.tf`) — namespace only, NO topics/queues per FR-022
+- [X] T045 [US1] Extend `iac/modules/service-bus/main.tf` to instantiate `module.diagnostic-settings` targeting the new namespace
+- [X] T046 [US1] Extend `iac/modules/service-bus/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` AND `var.sku == "Premium"`, with `subresource_name = "namespace"`
+- [X] T047 [US1] Extend `iac/modules/service-bus/main.tf` to emit two `azurerm_role_assignment` blocks granting `Azure Service Bus Data Sender` (GUID `69a216fc-b8fb-44d8-bc22-1f3c2cd27a39`) and `Azure Service Bus Data Receiver` (GUID `4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0`) to `var.workload_principal_id` scoped to the namespace
+- [X] T048 [US1] Implement `iac/modules/service-bus/outputs.tf` emitting `id`, `name`, `fqdn` (`<name>.servicebus.windows.net`), `private_endpoint_id`
+- [X] T049 [US1] Implement `iac/modules/service-bus/versions.tf` pinning the resolved AVM version + `hashicorp/azurerm ~> 4.0`
+- [X] T050 [US1] Document `iac/modules/service-bus/README.md` with the dev=Standard / test+prod=Premium SKU rationale from `research.md` §3
 
 ### Extend existing modules to accept PE inputs (US1)
 
-- [ ] T051 [P] [US1] Extend `iac/modules/cosmos-account/variables.tf` adding `private_endpoint_subnet_id` (string, default null), `private_dns_zone_id` (string, default null), `public_network_access_enabled` (bool, default true) per `contracts/module-contracts.md` §`cosmos-account (extended)`
-- [ ] T052 [US1] Extend `iac/modules/cosmos-account/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "Sql"`, and propagate `public_network_access_enabled` to the existing `azurerm_cosmosdb_account` resource
-- [ ] T053 [US1] Extend `iac/modules/cosmos-account/outputs.tf` adding `private_endpoint_id` (null when PE disabled)
-- [ ] T054 [P] [US1] Extend `iac/modules/keyvault/variables.tf` adding `private_endpoint_subnet_id`, `private_dns_zone_id`, `public_network_access_enabled` per `contracts/module-contracts.md` §`keyvault (extended)`
-- [ ] T055 [US1] Extend `iac/modules/keyvault/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "vault"`, and propagate `public_network_access_enabled`
-- [ ] T056 [US1] Extend `iac/modules/keyvault/outputs.tf` adding `private_endpoint_id`
-- [ ] T057 [P] [US1] Extend `iac/modules/container-registry/variables.tf` adding `private_endpoint_subnet_id`, `private_dns_zone_id` per `contracts/module-contracts.md` §`container-registry (extended)`
-- [ ] T058 [US1] Extend `iac/modules/container-registry/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "registry"`
+- [X] T051 [P] [US1] Extend `iac/modules/cosmos-account/variables.tf` adding `private_endpoint_subnet_id` (string, default null), `private_dns_zone_id` (string, default null), `public_network_access_enabled` (bool, default true) per `contracts/module-contracts.md` §`cosmos-account (extended)`
+- [X] T052 [US1] Extend `iac/modules/cosmos-account/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "Sql"`, and propagate `public_network_access_enabled` to the existing `azurerm_cosmosdb_account` resource
+- [X] T053 [US1] Extend `iac/modules/cosmos-account/outputs.tf` adding `private_endpoint_id` (null when PE disabled)
+- [X] T054 [P] [US1] Extend `iac/modules/keyvault/variables.tf` adding `private_endpoint_subnet_id`, `private_dns_zone_id`, `public_network_access_enabled` per `contracts/module-contracts.md` §`keyvault (extended)`
+- [X] T055 [US1] Extend `iac/modules/keyvault/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "vault"`, and propagate `public_network_access_enabled`
+- [X] T056 [US1] Extend `iac/modules/keyvault/outputs.tf` adding `private_endpoint_id`
+- [X] T057 [P] [US1] Extend `iac/modules/container-registry/variables.tf` adding `private_endpoint_subnet_id`, `private_dns_zone_id` per `contracts/module-contracts.md` §`container-registry (extended)`
+- [X] T058 [US1] Extend `iac/modules/container-registry/main.tf` to conditionally instantiate `module.private-endpoint` when `var.private_endpoint_subnet_id != null` with `subresource_name = "registry"`
 
 ### Dev env composition wiring (US1)
 
-- [ ] T059 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.naming` with `environment_name`, `naming_prefix`, `unique_suffix` (consume its outputs in every downstream module call)
-- [ ] T060 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.networking` with the dev CIDRs from `terraform.tfvars` and the seven private DNS zones from `research.md` §11 (`privatelink.vaultcore.azure.net`, `privatelink.documents.azure.com`, `privatelink.search.windows.net`, `privatelink.servicebus.windows.net`, `privatelink.azurecr.io`)
-- [ ] T061 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.ai-search` passing the workload UAMI principal ID + (conditional on `var.private_endpoints_enabled`) the PE subnet and the search private DNS zone ID
-- [ ] T062 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.service-bus` with `sku = var.service_bus_sku`. The env composition MUST conditionally null the PE inputs based on SKU support: `private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null` and the matching `private_dns_zone_id` likewise. Reason: the `service-bus` module precondition rejects `sku=Standard` + non-null PE inputs (per `contracts/module-contracts.md` §service-bus), so the env composition must do the SKU-aware nulling rather than passing the PE inputs unconditionally. Dev defaults to Standard, so dev gets no SB PE; test/prod templates default to Premium and DO get one.
-- [ ] T063 [US1] Extend `iac/environments/dev/main.tf` to wire the new PE inputs into the existing `module.cosmos_account`, `module.keyvault` calls (warm in dev per Q2c — `private_endpoints_enabled` toggles, public access stays on per `data_services_public_access_enabled`)
-- [ ] T064 [US1] Extend `iac/environments/dev/main.tf` to add an `import {}` block for the existing dev Container Registry adoption if not already imported, and wire its PE input to null in dev (PE deferred to test/prod template per research §2)
-- [ ] T065 [US1] Update `iac/environments/dev/terraform.tfvars` with the new variables' dev values (use the example from `contracts/config-profile-schema.md` §Dev as the reference)
-- [ ] T066 [US1] Extend `iac/environments/dev/outputs.tf` to declare every output in `contracts/outputs-contract.md` — Resource identifiers, Networking, Compute, Data services, Secrets, Container Registry, Observability, Identity sections
-- [ ] T067 [US1] Mark `application_insights_connection_string` output as `sensitive = true` and source it from the App Insights resource (consumed only by the KV secret materialization — see US4)
-- [ ] T068 [US1] Create `iac/environments/dev/terraform.tfvars.example` as a redacted copy of `terraform.tfvars` (no real subscription IDs, no real client IDs — use the template from `contracts/config-profile-schema.md` §Dev with placeholders)
+- [X] T059 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.naming` with `environment_name`, `naming_prefix`, `unique_suffix` (consume its outputs in every downstream module call)
+- [X] T060 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.networking` with the dev CIDRs from `terraform.tfvars` and the seven private DNS zones from `research.md` §11 (`privatelink.vaultcore.azure.net`, `privatelink.documents.azure.com`, `privatelink.search.windows.net`, `privatelink.servicebus.windows.net`, `privatelink.azurecr.io`)
+- [X] T061 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.ai-search` passing the workload UAMI principal ID + (conditional on `var.private_endpoints_enabled`) the PE subnet and the search private DNS zone ID
+- [X] T062 [US1] Extend `iac/environments/dev/main.tf` to instantiate `module.service-bus` with `sku = var.service_bus_sku`. The env composition MUST conditionally null the PE inputs based on SKU support: `private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null` and the matching `private_dns_zone_id` likewise. Reason: the `service-bus` module precondition rejects `sku=Standard` + non-null PE inputs (per `contracts/module-contracts.md` §service-bus), so the env composition must do the SKU-aware nulling rather than passing the PE inputs unconditionally. Dev defaults to Standard, so dev gets no SB PE; test/prod templates default to Premium and DO get one.
+- [X] T063 [US1] Extend `iac/environments/dev/main.tf` to wire the new PE inputs into the existing `module.cosmos_account`, `module.keyvault` calls (warm in dev per Q2c — `private_endpoints_enabled` toggles, public access stays on per `data_services_public_access_enabled`)
+- [X] T064 [US1] Extend `iac/environments/dev/main.tf` to add an `import {}` block for the existing dev Container Registry adoption if not already imported, and wire its PE input to null in dev (PE deferred to test/prod template per research §2)
+- [X] T065 [US1] Update `iac/environments/dev/terraform.tfvars` with the new variables' dev values (use the example from `contracts/config-profile-schema.md` §Dev as the reference)
+- [X] T066 [US1] Extend `iac/environments/dev/outputs.tf` to declare every output in `contracts/outputs-contract.md` — Resource identifiers, Networking, Compute, Data services, Secrets, Container Registry, Observability, Identity sections
+- [X] T067 [US1] Mark `application_insights_connection_string` output as `sensitive = true` and source it from the App Insights resource (consumed only by the KV secret materialization — see US4)
+- [X] T068 [US1] Create `iac/environments/dev/terraform.tfvars.example` as a redacted copy of `terraform.tfvars` (no real subscription IDs, no real client IDs — use the template from `contracts/config-profile-schema.md` §Dev with placeholders)
 
 **Checkpoint**: User Story 1 fully testable — `tofu plan` against dev produces the expected adds + zero stateful destroys; `tofu apply` brings the full topology up; every documented output is emitted.
 

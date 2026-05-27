@@ -35,3 +35,19 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# Spec 005 — private-endpoint extension (T057–T058). Defaults preserve existing
+# (pre-spec-005) behavior: no PE provisioned. PE requires Premium SKU
+# (var.sku defaults to Premium so no SKU validation needed here).
+
+variable "private_endpoint_subnet_id" {
+  description = "Subnet ID for the container-registry private endpoint. When set, provisions a PE bound to the `registry` subresource. Requires Premium SKU (default)."
+  type        = string
+  default     = null
+}
+
+variable "private_dns_zone_id" {
+  description = "Private DNS zone ID for `privatelink.azurecr.io`. Required when private_endpoint_subnet_id is set."
+  type        = string
+  default     = null
+}

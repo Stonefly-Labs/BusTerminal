@@ -3,9 +3,24 @@ output "log_analytics_workspace_id" {
   value       = module.log_analytics.resource_id
 }
 
+output "log_analytics_workspace_customer_id" {
+  description = "LAW customer (workspace) GUID — needed by some agents that authenticate against the workspace by GUID."
+  value       = module.log_analytics.resource.workspace_id
+}
+
 output "application_insights_id" {
   description = "Resource ID of the Application Insights component."
   value       = module.application_insights.resource_id
+}
+
+output "application_insights_app_id" {
+  description = "Application Insights `app_id` — a stable GUID identifying the AI component in the REST query API."
+  value       = module.application_insights.resource.app_id
+}
+
+output "application_insights_name" {
+  description = "Application Insights resource name (echo of var.application_insights_name)."
+  value       = var.application_insights_name
 }
 
 output "application_insights_connection_string" {

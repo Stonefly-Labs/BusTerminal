@@ -35,3 +35,25 @@ platform_role_ids = {
 # not a secret). Defaults match the cosmos-canonical-store module defaults; the
 # explicit value here documents intent and gives the env a single edit point.
 canonical_db_name = "busterminal-canonical"
+
+# Spec 005 — Infrastructure Baseline (T065)
+# Per `specs/005-infrastructure-baseline/contracts/config-profile-schema.md` and
+# the Q2c networking clarification. Dev opts into public access on data
+# services AND provisions warm PEs — the destructive flip (public access off
+# on data services) is a future spec, not this slice. See spec.md §Clarifications
+# for the Q2c trade-off rationale.
+network_address_space         = ["10.50.0.0/16"]
+subnet_integration_cidr       = "10.50.0.0/23"
+subnet_private_endpoints_cidr = "10.50.2.0/24"
+
+data_services_public_access_enabled = true
+private_endpoints_enabled           = true
+
+ai_search_sku   = "basic"
+service_bus_sku = "Standard"
+# service_bus_capacity is intentionally omitted — required only when sku=Premium.
+
+key_vault_purge_protection_enabled   = false
+key_vault_soft_delete_retention_days = 7
+
+log_analytics_retention_days = 30

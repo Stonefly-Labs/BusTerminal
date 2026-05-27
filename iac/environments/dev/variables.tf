@@ -159,17 +159,8 @@ variable "kv_operator_object_ids" {
 # and the Q2c networking clarification (dev opts into public access until the
 # destructive retrofit follow-up). Defaults below are dev-specific; test/prod
 # templates override via their own variables.tf.
-#
-# tflint NOTE: Each variable below carries a `# tflint-ignore:
-# terraform_unused_declarations` directive because Phase 2 (T027) declares the
-# variables and Phase 3 (T059–T068) wires them into module calls. The
-# directives MUST be removed when Phase 3 wiring lands — at that point the
-# variables become genuinely used and tflint will pass without them. Leaving
-# the directives in place after Phase 3 would mask real "declared but never
-# used" bugs introduced by future specs.
 # -----------------------------------------------------------------------------
 
-# tflint-ignore: terraform_unused_declarations
 variable "network_address_space" {
   description = "VNet address space for the env. Dev default is 10.50.0.0/16 (test=10.51.0.0/16, prod=10.52.0.0/16) per research §10."
   type        = list(string)
@@ -181,7 +172,6 @@ variable "network_address_space" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "subnet_integration_cidr" {
   description = "CIDR for the Container Apps Environment integration subnet. /23 minimum (Azure Container Apps requirement). Must be inside network_address_space."
   type        = string
@@ -193,7 +183,6 @@ variable "subnet_integration_cidr" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "subnet_private_endpoints_cidr" {
   description = "CIDR for the private-endpoints subnet. /24 recommended. Must be inside network_address_space and non-overlapping with subnet_integration_cidr."
   type        = string
@@ -205,21 +194,18 @@ variable "subnet_private_endpoints_cidr" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "data_services_public_access_enabled" {
   description = "Per-env toggle for public-network access on data services (KV, Cosmos, AI Search, Service Bus). Dev defaults to true per Q2c selective retrofit; test/prod default false."
   type        = bool
   default     = true
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "private_endpoints_enabled" {
   description = "When true, the env provisions private endpoints for data services. Dev defaults true (warm PEs per Q2c) so the future retrofit is a public-access flip only."
   type        = bool
   default     = true
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "ai_search_sku" {
   description = "Azure AI Search SKU. Dev defaults to basic; test/prod default standard (S1). Per research §4."
   type        = string
@@ -231,7 +217,6 @@ variable "ai_search_sku" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "service_bus_sku" {
   description = "Service Bus namespace SKU. Dev defaults Standard; test/prod default Premium (required for private endpoints). Basic is rejected at module level."
   type        = string
@@ -243,7 +228,6 @@ variable "service_bus_sku" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "service_bus_capacity" {
   description = "Service Bus Premium messaging units. Required (and only used) when service_bus_sku = Premium. One of 1, 2, 4, 8, 16."
   type        = number
@@ -255,14 +239,12 @@ variable "service_bus_capacity" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "key_vault_purge_protection_enabled" {
   description = "Enable Key Vault purge protection. Dev defaults false (allows quick recreate); test/prod default true per FR-019."
   type        = bool
   default     = false
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "key_vault_soft_delete_retention_days" {
   description = "Key Vault soft-delete retention window in days. Dev defaults 7; test/prod default 90. Azure range: 7-90."
   type        = number
@@ -274,7 +256,6 @@ variable "key_vault_soft_delete_retention_days" {
   }
 }
 
-# tflint-ignore: terraform_unused_declarations
 variable "log_analytics_retention_days" {
   description = "Log Analytics Workspace retention in days. All envs default to 30 per Q5c. Azure range: 30-730 (interactive)."
   type        = number

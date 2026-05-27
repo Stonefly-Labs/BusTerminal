@@ -1,13 +1,29 @@
-locals {
-  resource_group_name = "rg-${var.naming_prefix}"
+# Spec 005 — central naming convention (T059). The naming module computes the
+# same names the inline locals below produced for spec 002 resources, plus the
+# new spec 005 names (ai_search_name, service_bus_name, vnet_name,
+# workload_uami_name). Names match the previous spec-002 computation exactly,
+# so introducing the module is a non-destructive refactor — zero state churn.
+module "naming" {
+  source = "../../modules/naming"
 
-  log_analytics_workspace_name = "log-${var.naming_prefix}"
-  application_insights_name    = "appi-${var.naming_prefix}"
-  key_vault_name               = "kv-${var.naming_prefix}-${var.unique_suffix}"
-  container_registry_name      = replace("acr${var.naming_prefix}${var.unique_suffix}", "-", "")
-  container_apps_env_name      = "cae-${var.naming_prefix}"
-  workload_identity_name       = "mi-${var.naming_prefix}-workload"
-  cosmos_account_name          = "cosmos-${var.naming_prefix}-${var.unique_suffix}"
+  environment_name = var.environment_name
+  naming_prefix    = var.naming_prefix
+  unique_suffix    = var.unique_suffix
+}
+
+locals {
+  # Existing spec-002 names retained as locals so the existing module-call
+  # graph below doesn't churn. Each value is identical to the corresponding
+  # `module.naming.*` output by construction.
+  resource_group_name = module.naming.resource_group_name
+
+  log_analytics_workspace_name = module.naming.log_analytics_workspace_name
+  application_insights_name    = module.naming.application_insights_name
+  key_vault_name               = module.naming.key_vault_name
+  container_registry_name      = module.naming.container_registry_name
+  container_apps_env_name      = module.naming.container_apps_env_name
+  workload_identity_name       = module.naming.workload_uami_name
+  cosmos_account_name          = module.naming.cosmos_account_name
 
   frontend_app_name = "ca-${var.naming_prefix}-web"
   backend_app_name  = "ca-${var.naming_prefix}-api"
@@ -15,13 +31,21 @@ locals {
   frontend_target_port = 3000
   backend_target_port  = 8080
 
+  # Spec 005 — private DNS zones provisioned in dev. SB zone is included even
+  # though the dev SB SKU is Standard (no PE) so the Premium upgrade is a
+  # single attribute flip. ACR zone is included for the same reason (PE
+  # deferred per research §2 but the zone is warm). Storage + Azure Monitor
+  # zones are deferred to the test/prod template (research §14).
+  private_dns_zone_names = [
+    "privatelink.vaultcore.azure.net",
+    "privatelink.documents.azure.com",
+    "privatelink.search.windows.net",
+    "privatelink.servicebus.windows.net",
+    "privatelink.azurecr.io",
+  ]
+
   shared_tags = merge(
-    {
-      application = "BusTerminal"
-      environment = var.environment_name
-      managed-by  = "opentofu"
-      cost-center = "platform"
-    },
+    module.naming.mandatory_tags,
     var.tags,
   )
 }
@@ -30,6 +54,27 @@ resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.location
   tags     = local.shared_tags
+}
+
+# Spec 005 — VNet + subnets + private DNS zones (T060). Provisioned WARM in
+# dev per Q2c: PE subnet exists, zones exist, links exist — public access on
+# the data services stays on via `data_services_public_access_enabled = true`
+# until a future destructive-retrofit slice flips it. Allocating the CAE
+# integration subnet now means the Container Apps Environment VNet-integration
+# retrofit is a single attribute flip later (no destructive subnet replacement).
+module "networking" {
+  source = "../../modules/networking"
+
+  vnet_name           = module.naming.vnet_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  address_space                 = var.network_address_space
+  subnet_integration_cidr       = var.subnet_integration_cidr
+  subnet_private_endpoints_cidr = var.subnet_private_endpoints_cidr
+  private_dns_zones             = local.private_dns_zone_names
+
+  tags = local.shared_tags
 }
 
 # Monitoring is split from the Key Vault secret creation so the dependency
@@ -45,7 +90,7 @@ module "monitoring" {
   location                     = azurerm_resource_group.this.location
 
   key_vault_id      = null
-  retention_in_days = 30
+  retention_in_days = var.log_analytics_retention_days
 
   tags = local.shared_tags
 }
@@ -57,6 +102,14 @@ module "keyvault" {
   resource_group_name        = azurerm_resource_group.this.name
   location                   = azurerm_resource_group.this.location
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+
+  # Spec 005 (T063) — KV public access tied to per-env toggle; PE inputs
+  # warm-on-by-default in dev per Q2c (both flags default true in dev tfvars
+  # so both wires are active simultaneously — public access stays on AND a PE
+  # exists, until a future destructive-retrofit slice flips public access off).
+  public_network_access_enabled = var.data_services_public_access_enabled
+  private_endpoint_subnet_id    = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
+  private_dns_zone_id           = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.vaultcore.azure.net"] : null
 
   tags = local.shared_tags
 }
@@ -391,10 +444,10 @@ module "graph_permissions" {
 
 # Spec 004 — Cosmos DB account hosting the canonical metadata store.
 #
-# Public-endpoint, AAD-only data plane (no account keys) per plan.md §Constraints
-# and §Complexity Tracking (private networking is an explicit deferral). The
-# canonical store's database + containers are provisioned by the
-# cosmos-canonical-store module against this account.
+# Spec 005 (T063) extends this call with a per-env public-access toggle and a
+# warm private endpoint. Dev defaults to BOTH public-access ON AND a PE
+# attached (Q2c) — the destructive retrofit (flipping public access off)
+# is a future spec.
 module "cosmos_account" {
   source = "../../modules/cosmos-account"
 
@@ -402,6 +455,10 @@ module "cosmos_account" {
   resource_group_name        = azurerm_resource_group.this.name
   location                   = azurerm_resource_group.this.location
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+
+  public_network_access_enabled = var.data_services_public_access_enabled
+  private_endpoint_subnet_id    = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
+  private_dns_zone_id           = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.documents.azure.com"] : null
 
   tags = local.shared_tags
 }
@@ -448,6 +505,57 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   scope               = local.cosmos_canonical_database_role_scope
   principal_id        = data.azurerm_client_config.current.object_id
+}
+
+# Spec 005 — Azure AI Search service (T061). Warm PE in dev per Q2c.
+# Workload UAMI is granted `Search Index Data Contributor` inside the module
+# (per the FR-033 forward-looking workload RBAC enumeration).
+module "ai_search" {
+  source = "../../modules/ai-search"
+
+  name                = module.naming.ai_search_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  sku                           = var.ai_search_sku
+  public_network_access_enabled = var.data_services_public_access_enabled
+
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+  workload_principal_id      = module.workload_identity.principal_id
+
+  private_endpoint_subnet_id = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
+  private_dns_zone_id        = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.search.windows.net"] : null
+
+  tags = local.shared_tags
+}
+
+# Spec 005 — Service Bus namespace (T062). Dev defaults to Standard SKU — no
+# PE on Standard (per research §3 + service-bus module precondition). The PE
+# inputs are SKU-conditionally nulled here so the same composition file works
+# unchanged when an operator overrides `service_bus_sku = "Premium"` via
+# tfvars. Workload UAMI is granted both `Azure Service Bus Data Sender` AND
+# `Azure Service Bus Data Receiver` inside the module (FR-033).
+module "service_bus" {
+  source = "../../modules/service-bus"
+
+  name                = module.naming.service_bus_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  sku                           = var.service_bus_sku
+  capacity                      = var.service_bus_capacity
+  public_network_access_enabled = var.data_services_public_access_enabled
+
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+  workload_principal_id      = module.workload_identity.principal_id
+
+  # SKU-conditional PE wiring: only attach a PE when SKU=Premium AND PEs
+  # are enabled. The service-bus module's precondition fires if Standard SKU
+  # receives non-null PE inputs.
+  private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null
+  private_dns_zone_id        = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.private_dns_zone_ids["privatelink.servicebus.windows.net"] : null
+
+  tags = local.shared_tags
 }
 
 module "app_registration_roles" {

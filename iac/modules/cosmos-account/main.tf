@@ -34,6 +34,9 @@ resource "azurerm_cosmosdb_account" "this" {
   # with DefaultAzureCredential. No account keys.").
   local_authentication_disabled = true
 
+  # Spec 005 FR-031 — per-env public-network-access toggle (Q2c).
+  public_network_access_enabled = var.public_network_access_enabled
+
   # Automatic-failover off for dev — single-region serverless. AVM rejects multi-region
   # with EnableServerless anyway.
   automatic_failover_enabled = false
@@ -78,4 +81,37 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
   enabled_metric {
     category = "AllMetrics"
   }
+}
+
+# Spec 005 — conditional private endpoint via the project's PE wrapper
+# (T052). Subresource `Sql` per the Azure private-endpoint DNS reference
+# (research §11). Cross-variable precondition: private_dns_zone_id is
+# required when private_endpoint_subnet_id is set.
+resource "terraform_data" "pe_validation" {
+  input = {
+    private_endpoint_subnet_id = var.private_endpoint_subnet_id
+    private_dns_zone_id        = var.private_dns_zone_id
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.private_endpoint_subnet_id == null || var.private_dns_zone_id != null
+      error_message = "cosmos-account: private_dns_zone_id is required when private_endpoint_subnet_id is set."
+    }
+  }
+}
+
+module "private_endpoint" {
+  count = var.private_endpoint_subnet_id != null ? 1 : 0
+
+  source = "../private-endpoint"
+
+  name                = "pe-${var.name}"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  subnet_id           = var.private_endpoint_subnet_id
+  target_resource_id  = azurerm_cosmosdb_account.this.id
+  subresource_name    = "Sql"
+  private_dns_zone_id = var.private_dns_zone_id
+  tags                = var.tags
 }

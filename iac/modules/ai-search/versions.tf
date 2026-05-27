@@ -1,7 +1,23 @@
-# Placeholder versions.tf — Phase 1 scaffolding (T003). Phase 3 (T041) will
-# replace this with the AVM + azurerm provider requirements. The minimal
-# `required_version` block below satisfies tflint's terraform_required_version
-# rule until then.
 terraform {
   required_version = ">= 1.11.0"
+
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+    # Required by the avm-res-search-searchservice AVM per research §13.
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+    azapi = {
+      source  = "azure/azapi"
+      version = "~> 2.4"
+    }
+    modtm = {
+      source  = "azure/modtm"
+      version = "~> 0.3"
+    }
+  }
 }
