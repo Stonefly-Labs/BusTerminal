@@ -35,3 +35,20 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "local_authentication_disabled" {
+  description = <<-EOT
+    Forwarded to `azurerm_application_insights.local_authentication_disabled`
+    (via the AVM `local_authentication_disabled` input). Spec 005 / Q1c /
+    research §6: MUST remain `false`. The Application Insights JavaScript SDK
+    does NOT support Microsoft Entra ingestion authentication
+    (https://learn.microsoft.com/azure/azure-monitor/app/azure-ad-authentication#unsupported-scenarios),
+    so disabling local auth would break all browser telemetry. The backend
+    .NET OpenTelemetry exporter authenticates via AAD using
+    `APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=..."`,
+    which works ALONGSIDE local auth — not as a replacement for it. See
+    README.md § Local authentication.
+  EOT
+  type        = bool
+  default     = false
+}

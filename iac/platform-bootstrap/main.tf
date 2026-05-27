@@ -202,6 +202,26 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
   #     → granted to the pipeline managed identity itself by the env
   #       composition so `tofu apply` can manage `azurerm_key_vault_secret`
   #       resources via AAD (no shared keys on KV).
+  #
+  # Spec 005 / FR-033 / research §12 — forward-looking workload role set:
+  #   69a216fc-b8fb-44d8-bc22-1f3c2cd27a39  Azure Service Bus Data Sender
+  #     → granted to the workload identity so backend services can publish
+  #       to Service Bus topics/queues using DefaultAzureCredential.
+  #   4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0  Azure Service Bus Data Receiver
+  #     → granted to the workload identity so backend services can consume
+  #       from Service Bus subscriptions using DefaultAzureCredential.
+  #   8ebe5a00-799e-43f5-93ac-243d3dce84a7  Search Index Data Contributor
+  #     → granted to the workload identity so backend services can read /
+  #       write the AI Search index data plane.
+  #   3913510d-42f4-4e42-8a64-420c390055eb  Monitoring Metrics Publisher
+  #     → granted to the workload identity so the backend .NET OpenTelemetry
+  #       exporter can authenticate to Application Insights ingestion via
+  #       AAD (Q1c / research §6).
+  #
+  # NOT in this list: Cosmos DB Built-in Data Contributor — Cosmos uses its
+  # OWN native RBAC surface (`azurerm_cosmosdb_sql_role_assignment`), not
+  # Azure RBAC (`azurerm_role_assignment`), so this condition does not govern
+  # those grants. The pipeline's subscription-Contributor permits them.
   condition = <<-CONDITION
     (
       !(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})
@@ -211,7 +231,11 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
       @Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {
         7f951dda-4ed3-4680-a7ca-43fe172d538d,
         4633458b-17de-408a-b874-0445c86b69e6,
-        b86a8fe4-44ce-4948-aee5-eccb2c155cd7
+        b86a8fe4-44ce-4948-aee5-eccb2c155cd7,
+        69a216fc-b8fb-44d8-bc22-1f3c2cd27a39,
+        4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0,
+        8ebe5a00-799e-43f5-93ac-243d3dce84a7,
+        3913510d-42f4-4e42-8a64-420c390055eb
       }
     )
   CONDITION

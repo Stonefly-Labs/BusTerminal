@@ -30,7 +30,10 @@ module "application_insights" {
   location            = var.location
   workspace_id        = module.log_analytics.resource_id
   application_type    = "web"
-  tags                = var.tags
+  # Spec 005 / Q1c / research §6 — MUST stay `false`. See variables.tf and
+  # README.md § Local authentication for the full rationale.
+  local_authentication_disabled = var.local_authentication_disabled
+  tags                          = var.tags
 }
 
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {

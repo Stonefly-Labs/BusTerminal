@@ -232,6 +232,11 @@ module "workload_identity" {
   environment         = var.environment_name
   workload            = "workload"
 
+  # Spec 005 / FR-033 — non-data-service roles only. Data-service roles
+  # (Search Index Data Contributor, SB Data Sender/Receiver, Cosmos Data
+  # Contributor) are emitted by their owning modules / by the Cosmos SQL
+  # role assignment below. See iac/modules/workload-identity/README.md
+  # § Role-assignment split convention.
   assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
@@ -240,6 +245,10 @@ module "workload_identity" {
     kv-secrets-user = {
       role_definition_name = "Key Vault Secrets User"
       scope                = module.keyvault.id
+    }
+    monitoring-metrics-publisher = {
+      role_definition_name = "Monitoring Metrics Publisher"
+      scope                = module.monitoring.application_insights_id
     }
   }
 
@@ -292,6 +301,16 @@ module "backend_app" {
     AzureAd__Audience      = "api://${var.entra_api_client_id}"
     AZURE_KEY_VAULT_URI    = module.keyvault.uri
     AZURE_CLIENT_ID        = module.workload_identity.client_id
+
+    # Spec 005 / Q1c (research §6) — backend .NET OpenTelemetry exporter
+    # authenticates to App Insights ingestion via AAD using the workload
+    # UAMI. The ClientId discriminates between MIs when multiple are
+    # attached. `APPLICATIONINSIGHTS_CONNECTION_STRING` still flows from
+    # KV below (the exporter needs both: connection string to identify
+    # the target component, auth string to authenticate to it). The
+    # `Monitoring Metrics Publisher` role is granted on the App Insights
+    # resource via `module.workload_identity.assigned_azure_rbac`.
+    APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=${module.workload_identity.client_id}"
   }
 
   secret_env_vars = {
@@ -467,6 +486,7 @@ module "cosmos_canonical_store" {
   source = "../../modules/cosmos-canonical-store"
 
   cosmos_account_name = module.cosmos_account.account_name
+  cosmos_account_id   = module.cosmos_account.account_id
   resource_group_name = azurerm_resource_group.this.name
   database_name       = var.canonical_db_name
 }
@@ -476,21 +496,15 @@ module "cosmos_canonical_store" {
 # 00000000-0000-0000-0000-000000000002. `azurerm_cosmosdb_sql_role_assignment`
 # expects the FULL resource id of the role definition, not the bare GUID.
 #
-# Spec 004 / T156 — the `scope` argument MUST use the Cosmos data-plane path
-# form (`.../databaseAccounts/<acct>/dbs/<db>`), NOT the ARM resource id form
-# (`.../sqlDatabases/<db>`) that the SQL-database resource exposes via `.id`.
-# Submitting the ARM form returns HTTP 400 "Expected path segment [dbs] at
-# position [0] but found [sqlDatabases]" from the Cosmos provider. Build the
-# correct shape from the account id + database name at the call site.
-locals {
-  cosmos_canonical_database_role_scope = "${module.cosmos_account.account_id}/dbs/${module.cosmos_canonical_store.database_name}"
-}
-
+# Spec 005 / T073 — the data-plane scope path is computed inside the
+# `cosmos-canonical-store` module and surfaced as
+# `canonical_database_role_scope` so this composition (and any future spec)
+# can't re-rediscover the ARM-vs-data-plane-path trap (research §15).
 resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = local.cosmos_canonical_database_role_scope
+  scope               = module.cosmos_canonical_store.canonical_database_role_scope
   principal_id        = module.workload_identity.principal_id
 }
 
@@ -503,7 +517,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = local.cosmos_canonical_database_role_scope
+  scope               = module.cosmos_canonical_store.canonical_database_role_scope
   principal_id        = data.azurerm_client_config.current.object_id
 }
 

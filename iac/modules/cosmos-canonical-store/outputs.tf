@@ -17,3 +17,17 @@ output "change_events_container_name" {
   description = "Append-only change-event log container. Bound to CosmosOptions.Containers.ChangeEvents."
   value       = azurerm_cosmosdb_sql_container.change_events.name
 }
+
+output "canonical_database_role_scope" {
+  description = <<-EOT
+    The exact scope path for `azurerm_cosmosdb_sql_role_assignment` consumers
+    granting access to the canonical database. Uses the Cosmos data-plane
+    path form (`<account-id>/dbs/<db-name>`), NOT the ARM form
+    (`<account-id>/sqlDatabases/<db-name>`) — submitting the ARM form returns
+    HTTP 400 "Expected path segment [dbs] at position [0] but found
+    [sqlDatabases]" from the Cosmos provider. Surfacing the correct shape
+    here prevents future specs from re-discovering this trap. See
+    research.md §15.
+  EOT
+  value       = "${var.cosmos_account_id}/dbs/${azurerm_cosmosdb_sql_database.canonical.name}"
+}

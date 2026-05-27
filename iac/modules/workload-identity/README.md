@@ -40,6 +40,32 @@ So callers migrating from `../identity/` only need to:
 No `moved` blocks are required for the existing UAMI / RBAC state — only the
 new `azuread_app_role_assignment.api_roles["*"]` resources are added.
 
+## Role-assignment split convention (spec 005 / FR-033)
+
+The full FR-033 forward-looking role set for the BusTerminal workload UAMI:
+
+| Nickname                          | Built-in role                     | Scope                          | Where it is emitted                                  |
+|-----------------------------------|-----------------------------------|--------------------------------|------------------------------------------------------|
+| `acr-pull`                        | `AcrPull`                         | ACR resource                   | **This module**, via `assigned_azure_rbac`           |
+| `kv-secrets-user`                 | `Key Vault Secrets User`          | Key Vault resource             | **This module**, via `assigned_azure_rbac`           |
+| `monitoring-metrics-publisher`    | `Monitoring Metrics Publisher`    | App Insights resource          | **This module**, via `assigned_azure_rbac`           |
+| `search-index-data-contributor`   | `Search Index Data Contributor`   | AI Search service              | `iac/modules/ai-search/` (module owns the grant)     |
+| `sb-data-sender`                  | `Azure Service Bus Data Sender`   | Service Bus namespace          | `iac/modules/service-bus/` (module owns the grant)   |
+| `sb-data-receiver`                | `Azure Service Bus Data Receiver` | Service Bus namespace          | `iac/modules/service-bus/` (module owns the grant)   |
+| `cosmos-data-contributor`         | `Cosmos DB Built-in Data Contributor` (Cosmos-native, NOT Azure RBAC) | Per-database data-plane scope | `azurerm_cosmosdb_sql_role_assignment` at env composition |
+
+> ⚠️ **WARNING — DO NOT DOUBLE-GRANT.** Each data-service role in the lower
+> rows above is emitted by its owning module (or, for Cosmos, by the env
+> composition). Adding the same role via `assigned_azure_rbac` here would
+> produce a **second** `azurerm_role_assignment` resource targeting the same
+> `(principal, role_definition, scope)` tuple, and `tofu apply` would fail
+> with `RoleAssignmentExists`. Pass ONLY the upper-block (non-data-service)
+> nicknames here.
+
+The split exists because data-service modules are self-contained: their
+own readers, writers, and reviewers should be able to audit "who has what
+on this resource" without traversing back to the env composition.
+
 ## Usage
 
 ```hcl
@@ -56,6 +82,7 @@ module "workload_identity" {
   environment         = "dev"
   workload            = "workload"
 
+  # Non-data-service roles only. See § Role-assignment split convention.
   assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
@@ -64,6 +91,10 @@ module "workload_identity" {
     kv-secrets-user = {
       role_definition_name = "Key Vault Secrets User"
       scope                = module.keyvault.id
+    }
+    monitoring-metrics-publisher = {
+      role_definition_name = "Monitoring Metrics Publisher"
+      scope                = module.monitoring.application_insights_id
     }
   }
 
@@ -74,6 +105,17 @@ module "workload_identity" {
   }
 
   tags = local.shared_tags
+}
+
+# Data-service roles are emitted by the data-service modules — NOT here.
+module "ai_search" {
+  # ... workload_principal_id = module.workload_identity.principal_id
+  # The ai-search module emits the Search Index Data Contributor assignment.
+}
+
+module "service_bus" {
+  # ... workload_principal_id = module.workload_identity.principal_id
+  # The service-bus module emits both SB Sender + Receiver assignments.
 }
 ```
 

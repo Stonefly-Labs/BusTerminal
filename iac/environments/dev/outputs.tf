@@ -131,7 +131,7 @@ output "cosmos_canonical_database_name" {
 
 output "cosmos_canonical_database_role_scope" {
   description = "Cosmos data-plane scope path for new `azurerm_cosmosdb_sql_role_assignment` resources targeting the canonical database. Pre-built to avoid the ARM-vs-data-plane-path trap (research §15)."
-  value       = local.cosmos_canonical_database_role_scope
+  value       = module.cosmos_canonical_store.canonical_database_role_scope
 }
 
 output "cosmos_canonical_resources_container_name" {
