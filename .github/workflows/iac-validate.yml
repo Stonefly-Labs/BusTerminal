@@ -152,7 +152,12 @@ jobs:
           tofu plan -no-color -lock-timeout=300s -out=tfplan > plan.out 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           # Cap comment size at ~60KB to stay under the GitHub comment limit.
+          # `head -c` can truncate mid-line; without a trailing newline, the
+          # subsequent `echo 'PLAN_EOF'` would append to the unterminated last
+          # line — producing a heredoc with no line that is exactly "PLAN_EOF"
+          # and breaking GITHUB_OUTPUT parsing. Force a trailing newline.
           head -c 60000 plan.out > plan.trimmed
+          printf '\n' >> plan.trimmed
           {
             echo 'plan<<PLAN_EOF'
             cat plan.trimmed
