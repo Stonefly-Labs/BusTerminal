@@ -38,8 +38,12 @@ module "search" {
   public_network_access_enabled = var.public_network_access_enabled
 
   # AAD-only data plane per FR-016. Browser/admin keys disabled.
+  # `authentication_failure_mode` is INVALID when local auth is disabled —
+  # Azure rejects the resource with "'authentication_failure_mode' cannot
+  # be defined if 'local_authentication_enabled' has been set to 'false'".
+  # The setting only controls the failure response shape for key-based
+  # auth; AAD-only callers always get a 401 with a bearer challenge.
   local_authentication_enabled = false
-  authentication_failure_mode  = "http401WithBearerChallenge"
 
   # System-assigned identity intentionally disabled — the search service does not
   # need to authenticate to other services in this slice. Workload access flows
@@ -70,8 +74,27 @@ resource "azurerm_role_assignment" "workload_search_index_data_contributor" {
 }
 
 # Conditional private endpoint via the project's PE wrapper (research §11).
+# `count` keyed off the plan-time-known bool `private_endpoint_enabled` —
+# see variables.tf for why we can't key off `subnet_id != null` (subnet_id
+# is known-after-apply from the networking module's output).
+resource "terraform_data" "pe_inputs_validation" {
+  count = var.private_endpoint_enabled ? 1 : 0
+
+  input = {
+    subnet_id   = var.private_endpoint_subnet_id
+    dns_zone_id = var.private_dns_zone_id
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.private_endpoint_subnet_id != null && var.private_dns_zone_id != null
+      error_message = "ai-search: private_endpoint_subnet_id and private_dns_zone_id are required when private_endpoint_enabled = true."
+    }
+  }
+}
+
 module "private_endpoint" {
-  count = var.private_endpoint_subnet_id != null ? 1 : 0
+  count = var.private_endpoint_enabled ? 1 : 0
 
   source = "../private-endpoint"
 

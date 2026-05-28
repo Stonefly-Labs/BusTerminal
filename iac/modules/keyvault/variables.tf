@@ -28,14 +28,29 @@ variable "public_network_access_enabled" {
 # (pre-spec-005) behavior: no PE provisioned. Env composition opts in via Q2c
 # per-env toggles.
 
+variable "private_endpoint_enabled" {
+  description = <<-EOT
+    Plan-time bool toggling the conditional private-endpoint child module.
+    Required as a separate variable from `private_endpoint_subnet_id`
+    because the subnet ID is sourced from the networking module's output,
+    which is "known after apply" — using a nullable string in the `count`
+    expression breaks plan with "Invalid count argument: count value
+    depends on resource attributes that cannot be determined until apply".
+    The env composition passes a literal bool here (`var.private_endpoints_enabled`)
+    so plan can statically resolve the count.
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "private_endpoint_subnet_id" {
-  description = "Subnet ID for the Key Vault private endpoint. When set, provisions a PE bound to the `vault` subresource via the project's private-endpoint module."
+  description = "Subnet ID for the Key Vault private endpoint. Required when private_endpoint_enabled = true. Bound to the `vault` subresource via the project's private-endpoint module."
   type        = string
   default     = null
 }
 
 variable "private_dns_zone_id" {
-  description = "Private DNS zone ID for `privatelink.vaultcore.azure.net`. Required when private_endpoint_subnet_id is set."
+  description = "Private DNS zone ID for `privatelink.vaultcore.azure.net`. Required when private_endpoint_enabled = true."
   type        = string
   default     = null
 }

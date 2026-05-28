@@ -107,9 +107,15 @@ module "keyvault" {
   # warm-on-by-default in dev per Q2c (both flags default true in dev tfvars
   # so both wires are active simultaneously — public access stays on AND a PE
   # exists, until a future destructive-retrofit slice flips public access off).
+  #
+  # `private_endpoint_enabled` is the plan-time bool that drives the
+  # conditional PE child module; subnet_id + dns_zone_id are passed
+  # unconditionally (known-after-apply outputs) and the module's precondition
+  # validates them when enabled.
   public_network_access_enabled = var.data_services_public_access_enabled
-  private_endpoint_subnet_id    = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
-  private_dns_zone_id           = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.vaultcore.azure.net"] : null
+  private_endpoint_enabled      = var.private_endpoints_enabled
+  private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.vaultcore.azure.net"]
 
   tags = local.shared_tags
 }
@@ -476,8 +482,9 @@ module "cosmos_account" {
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 
   public_network_access_enabled = var.data_services_public_access_enabled
-  private_endpoint_subnet_id    = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
-  private_dns_zone_id           = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.documents.azure.com"] : null
+  private_endpoint_enabled      = var.private_endpoints_enabled
+  private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.documents.azure.com"]
 
   tags = local.shared_tags
 }
@@ -537,8 +544,9 @@ module "ai_search" {
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
   workload_principal_id      = module.workload_identity.principal_id
 
-  private_endpoint_subnet_id = var.private_endpoints_enabled ? module.networking.subnet_private_endpoints_id : null
-  private_dns_zone_id        = var.private_endpoints_enabled ? module.networking.private_dns_zone_ids["privatelink.search.windows.net"] : null
+  private_endpoint_enabled   = var.private_endpoints_enabled
+  private_endpoint_subnet_id = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id        = module.networking.private_dns_zone_ids["privatelink.search.windows.net"]
 
   tags = local.shared_tags
 }

@@ -233,8 +233,9 @@ output "log_analytics_workspace_id" {
 }
 
 output "log_analytics_workspace_customer_id" {
-  description = "LAW customer (workspace) GUID — needed by some agents that authenticate against the workspace by GUID."
+  description = "LAW customer (workspace) GUID — needed by some agents that authenticate against the workspace by GUID. Sensitive because the upstream AVM marks `workspace_id` as sensitive (LAW workspace GUID can be paired with a primary shared key to ingest telemetry); we re-emit the sensitive flag so OpenTofu surfaces the constraint at plan time."
   value       = module.monitoring.log_analytics_workspace_customer_id
+  sensitive   = true
 }
 
 output "application_insights_id" {

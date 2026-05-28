@@ -85,9 +85,13 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 
 # Spec 005 — conditional private endpoint via the project's PE wrapper
 # (T052). Subresource `Sql` per the Azure private-endpoint DNS reference
-# (research §11). Cross-variable precondition: private_dns_zone_id is
-# required when private_endpoint_subnet_id is set.
+# (research §11). `count` keyed off the plan-time-known
+# `private_endpoint_enabled` bool — see variables.tf for why we can't key
+# off `subnet_id != null` (subnet_id is known-after-apply from the
+# networking module's output).
 resource "terraform_data" "pe_validation" {
+  count = var.private_endpoint_enabled ? 1 : 0
+
   input = {
     private_endpoint_subnet_id = var.private_endpoint_subnet_id
     private_dns_zone_id        = var.private_dns_zone_id
@@ -95,14 +99,14 @@ resource "terraform_data" "pe_validation" {
 
   lifecycle {
     precondition {
-      condition     = var.private_endpoint_subnet_id == null || var.private_dns_zone_id != null
-      error_message = "cosmos-account: private_dns_zone_id is required when private_endpoint_subnet_id is set."
+      condition     = var.private_endpoint_subnet_id != null && var.private_dns_zone_id != null
+      error_message = "cosmos-account: private_endpoint_subnet_id and private_dns_zone_id are required when private_endpoint_enabled = true."
     }
   }
 }
 
 module "private_endpoint" {
-  count = var.private_endpoint_subnet_id != null ? 1 : 0
+  count = var.private_endpoint_enabled ? 1 : 0
 
   source = "../private-endpoint"
 
