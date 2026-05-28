@@ -1,3 +1,16 @@
+# tflint-ignore-file: terraform_unused_required_providers
+#
+# Spec 005 — `random`, `azapi`, `modtm` are declared at the env root because
+# the AVM modules consumed by `module.networking`, `module.ai_search`, and
+# `module.service_bus` require them transitively (research §13). The env root
+# does not directly reference any `random_*` / `azapi_*` / `modtm_*` resources
+# (`modtm` does carry a `provider "modtm" {}` config block below — that's a
+# provider configuration, not a resource reference, and is not what tflint's
+# `terraform_unused_required_providers` rule counts as "used"). This is the
+# correct way to satisfy the AVMs' provider requirements while keeping the
+# env root resource-free; the file-level ignore above prevents tflint from
+# flagging the intentional pattern.
+
 terraform {
   required_version = ">= 1.11.0"
 
