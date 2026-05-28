@@ -124,6 +124,49 @@ skip-check:
   # in CI covers the same supply-chain hygiene goal (see ci.yml).
   - CKV_AZURE_166
 
+  # CKV_AZURE_163 — "Enable vulnerability scanning for container images".
+  # Image vulnerability scanning is the Microsoft Defender for Containers
+  # Premium add-on, billed per-image. Out of scope for the foundation;
+  # Trivy in CI (ci.yml) provides equivalent pre-push vulnerability
+  # scanning at no extra cost. Re-evaluate when Defender for Cloud is
+  # adopted org-wide.
+  - CKV_AZURE_163
+
+  # CKV_AZURE_165 — "Ensure geo-replicated container registries to match
+  # multi-region container deployments". BusTerminal dev is intentionally
+  # single-region (eastus2). Multi-region replication is a prod-tier
+  # decision tied to the future test/prod env standup — re-evaluate when
+  # prod is provisioned. Same reasoning as CKV_AZURE_233 (zone redundancy).
+  - CKV_AZURE_165
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Azure AI Search (spec 005) — intentional design
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_207 — "Ensure Azure Cognitive Search service uses managed
+  # identities to access Azure resources". The rule checks for a system-
+  # assigned identity ON the search service. Spec 005 / T036 intentionally
+  # disables it: the WORKLOAD UAMI calls the search data plane via RBAC
+  # (Search Index Data Contributor, granted by T039). The search service
+  # itself does not need to authenticate outward to anything else in this
+  # baseline (no skillsets, no indexers reaching customer storage), so
+  # adding an identity-on-search would just be unused privilege.
+  # Re-evaluate when AI Search starts pulling from external data sources.
+  - CKV_AZURE_207
+
+  # CKV_AZURE_208 — "Ensure that Azure Cognitive Search maintains SLA for
+  # index updates". The basic / free SKU does not carry an SLA. Dev runs
+  # on basic per research §4 (NFR-003 cost awareness). Test/prod templates
+  # (T094 / T100) default to standard, which DOES carry the SLA — this rule
+  # only fires on dev. Operators standing up prod will not hit this skip
+  # because standard SKU satisfies the check.
+  - CKV_AZURE_208
+
+  # CKV_AZURE_209 — "Ensure that Azure Cognitive Search maintains SLA for
+  # search index queries". Same rationale as CKV_AZURE_208 — basic SKU in
+  # dev does not carry an SLA; test/prod use standard.
+  - CKV_AZURE_209
+
   # CKV_AZURE_237 — "Ensure dedicated data endpoints are enabled."
   # Premium SKU optional feature; AVM does not expose the input.
   # Re-evaluate when private endpoints are introduced.
