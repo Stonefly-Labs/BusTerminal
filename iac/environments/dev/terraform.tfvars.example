@@ -92,9 +92,12 @@ ai_search_sku       = "basic"
 service_bus_sku     = "Standard"
 # service_bus_capacity is null (required only when sku=Premium)
 
-# Spec 005 KV hardening — dev defaults to low retention + no purge protection
-# so iterative dev recreates are fast. Test/prod default 90-day retention +
-# purge protection on per FR-019.
+# Spec 005 KV hardening — a fresh dev env may keep low retention + no purge
+# protection so iterative dev recreates are fast. Test/prod default 90-day
+# retention + purge protection on per FR-019. NOTE: Azure does not allow
+# disabling purge protection once enabled; the live dev KV was provisioned
+# with purge protection ON pre-spec-005 and its terraform.tfvars overrides
+# this example to `true` / `90` to match deployed reality.
 key_vault_purge_protection_enabled   = false
 key_vault_soft_delete_retention_days = 7
 

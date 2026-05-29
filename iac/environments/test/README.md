@@ -22,8 +22,8 @@ The variable defaults in `variables.tf` are tuned for a test environment:
 | Private endpoints | on | `private_endpoints_enabled` |
 | AI Search SKU | `standard` (S1) | `ai_search_sku` |
 | Service Bus SKU | `Premium`, 1 MU | `service_bus_sku`, `service_bus_capacity` |
-| KV purge protection | on | `key_vault_purge_protection_enabled` (US7 wires) |
-| KV soft-delete | 90 days | `key_vault_soft_delete_retention_days` (US7 wires) |
+| KV purge protection | on | `key_vault_purge_protection_enabled` |
+| KV soft-delete | 90 days | `key_vault_soft_delete_retention_days` |
 | LAW retention | 30 days | `log_analytics_retention_days` |
 | Backend ingress | external (`true`) | `backend_external_ingress` (T134) |
 
@@ -33,7 +33,7 @@ Test mirrors dev's posture for the backend ingress (`backend_external_ingress = 
 
 - `data_services_public_access_enabled = false` by default (dev opts in per Q2c).
 - `ai_search_sku = "standard"`, `service_bus_sku = "Premium"` (dev defaults to cost-optimized basic / Standard).
-- `key_vault_purge_protection_enabled = true`, `key_vault_soft_delete_retention_days = 90` (FR-019 hardening; US7 / T122 wires these into the keyvault module).
+- `key_vault_purge_protection_enabled = true`, `key_vault_soft_delete_retention_days = 90` (FR-019 hardening; wired into the keyvault module by US7 / T122).
 - VNet is `10.51.0.0/16` (dev is `10.50.0.0/16`).
 - Backend state lives at `envs/test/terraform.tfstate` (dev is `envs/dev/terraform.tfstate`).
 - No `import {}` adoptions or `moved {}` blocks — the test composition has no pre-existing state.

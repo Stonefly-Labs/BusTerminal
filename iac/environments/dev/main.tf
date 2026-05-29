@@ -54,6 +54,15 @@ resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.location
   tags     = local.shared_tags
+
+  # Spec 005 / US7 / T121 — every env-scoped resource lives in this RG.
+  # Destroying it would cascade-delete every stateful child (Cosmos, KV,
+  # ACR, LAW, App Insights, ACE, workload UAMI). BT-IAC-007 is primary;
+  # this is the secondary block. To intentionally tear down the env,
+  # remove this block in a dedicated PR (and expect manual approval).
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Spec 005 — VNet + subnets + private DNS zones (T060). Provisioned WARM in
@@ -116,6 +125,12 @@ module "keyvault" {
   private_endpoint_enabled      = var.private_endpoints_enabled
   private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
   private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.vaultcore.azure.net"]
+
+  # Spec 005 / US7 / T122 — per-env purge-protection + soft-delete tuning
+  # per FR-019. Dev's deployed KV has purge protection ON (Azure forbids
+  # disabling once set); tfvars sets the var to true so plan is a no-op.
+  purge_protection_enabled   = var.key_vault_purge_protection_enabled
+  soft_delete_retention_days = var.key_vault_soft_delete_retention_days
 
   tags = local.shared_tags
 }

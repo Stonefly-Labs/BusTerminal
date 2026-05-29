@@ -53,8 +53,13 @@ ai_search_sku   = "basic"
 service_bus_sku = "Standard"
 # service_bus_capacity is intentionally omitted — required only when sku=Premium.
 
-key_vault_purge_protection_enabled   = false
-key_vault_soft_delete_retention_days = 7
+# Dev's KV was provisioned with purge protection ENABLED (the module hardcoded
+# `true` pre-spec-005). Azure does not permit disabling purge protection once
+# enabled, so dev's tfvars stays `true` to match the deployed reality. The
+# variable default in variables.tf remains `false` per the spec's per-env
+# table — a NEW dev environment that's never opted in could keep that default.
+key_vault_purge_protection_enabled   = true
+key_vault_soft_delete_retention_days = 90
 
 log_analytics_retention_days = 30
 

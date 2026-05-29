@@ -65,6 +65,15 @@ resource "azurerm_cosmosdb_account" "this" {
   }
 
   tags = var.tags
+
+  # Spec 005 / US7 / T121 — belt-and-suspenders against accidental destroy.
+  # Cosmos holds the canonical store; replacing the account replaces all data
+  # and breaks every downstream consumer's connection string. The BT-IAC-007
+  # policy gate is the primary defense; this is the secondary block. To
+  # intentionally replace, remove this block in a dedicated PR.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Spec 005 / T085 — diagnostic setting routed through the central

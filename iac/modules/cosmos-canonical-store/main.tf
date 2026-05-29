@@ -27,6 +27,14 @@ resource "azurerm_cosmosdb_sql_database" "canonical" {
   account_name        = var.cosmos_account_name
   # Throughput intentionally null — the account is serverless. Setting a
   # throughput on a serverless account is rejected by the service.
+
+  # Spec 005 / US7 / T121 — replacing the canonical database destroys every
+  # container under it (resources, change-events) and breaks the change-event
+  # history that downstream consumers depend on. BT-IAC-007 is primary; this
+  # is the secondary block.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "azurerm_cosmosdb_sql_container" "resources" {

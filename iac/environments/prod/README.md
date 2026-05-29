@@ -22,8 +22,8 @@ The variable defaults in `variables.tf` are tuned for a production environment:
 | Private endpoints | on | `private_endpoints_enabled` |
 | AI Search SKU | `standard` (S1) | `ai_search_sku` |
 | Service Bus SKU | `Premium`, 1 MU | `service_bus_sku`, `service_bus_capacity` |
-| KV purge protection | **on** (FR-019) | `key_vault_purge_protection_enabled` (US7 wires) |
-| KV soft-delete | **90 days** (FR-019) | `key_vault_soft_delete_retention_days` (US7 wires) |
+| KV purge protection | **on** (FR-019) | `key_vault_purge_protection_enabled` |
+| KV soft-delete | **90 days** (FR-019) | `key_vault_soft_delete_retention_days` |
 | LAW retention | 30 days (raise per compliance) | `log_analytics_retention_days` |
 | **Backend ingress** | **internal (`false`)** (FR-010) | `backend_external_ingress` (T134) |
 

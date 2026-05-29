@@ -20,8 +20,8 @@ module "keyvault" {
   location                      = var.location
   tenant_id                     = data.azurerm_client_config.current.tenant_id
   sku_name                      = "standard"
-  purge_protection_enabled      = true
-  soft_delete_retention_days    = 90
+  purge_protection_enabled      = var.purge_protection_enabled
+  soft_delete_retention_days    = var.soft_delete_retention_days
   public_network_access_enabled = var.public_network_access_enabled
 
   network_acls = {

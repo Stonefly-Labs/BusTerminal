@@ -237,20 +237,12 @@ variable "service_bus_capacity" {
   }
 }
 
-# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Test
-# defaults to true (FR-019 hardening); the keyvault module will read it once
-# T122 threads the value through `module.keyvault`.
-# tflint-ignore: terraform_unused_declarations
 variable "key_vault_purge_protection_enabled" {
-  description = "Enable Key Vault purge protection. Test/prod default true per FR-019."
+  description = "Enable Key Vault purge protection. Test/prod default true per FR-019. Threaded into module.keyvault by US7 / T122."
   type        = bool
   default     = true
 }
 
-# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Test
-# defaults to 90 (FR-019 hardening); the keyvault module will read it once
-# T122 threads the value through `module.keyvault`.
-# tflint-ignore: terraform_unused_declarations
 variable "key_vault_soft_delete_retention_days" {
   description = "Key Vault soft-delete retention window in days. Test/prod default 90. Azure range: 7-90."
   type        = number
