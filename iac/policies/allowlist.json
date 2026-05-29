@@ -1,0 +1,23 @@
+{
+  "_comment": "Per-rule allowlist for the BusTerminal IaC policy gate. Edits require justification and reviewer sign-off (see iac/policies/README.md). Adding an entry suppresses a specific gate failure; the run-policies orchestrator records consumed entries in its JSON report so reviewers can see what was bypassed.",
+  "BT-IAC-001": [],
+  "BT-IAC-002": [],
+  "BT-IAC-003": [],
+  "BT-IAC-004": [
+    {
+      "principal_match": ".*pipeline.*",
+      "role": "Contributor",
+      "scope": "*",
+      "justification": "Documented Complexity Tracking exception in specs/005-infrastructure-baseline/plan.md — pipeline managed identity holds subscription-wide Contributor so the bootstrap stack does not need a 'bootstrap-before-bootstrap' RG-scoped grant for every new env. Privilege surface is bounded by the condition-scoped RBAC-Admin grant below."
+    },
+    {
+      "principal_match": ".*pipeline.*",
+      "role": "Role Based Access Control Administrator",
+      "scope": "*",
+      "justification": "Documented Complexity Tracking exception in specs/005-infrastructure-baseline/plan.md — condition-scoped to a fixed role GUID allowlist in iac/platform-bootstrap/main.tf so the pipeline MI cannot assign Owner or any non-allowlisted role to itself or any other principal."
+    }
+  ],
+  "BT-IAC-005": [],
+  "BT-IAC-006": [],
+  "BT-IAC-007": []
+}

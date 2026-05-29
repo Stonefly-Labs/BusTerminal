@@ -260,26 +260,26 @@
 
 ### Policy gate scripts (US6 — bash + jq per research §16)
 
-- [ ] T107 [P] [US6] Implement `iac/policies/check-tags.sh` per `contracts/policy-rules.md` §`BT-IAC-001` — parses tfplan JSON (passed via `--plan`); asserts every taggable resource has the 5 mandatory tags; skips the documented untaggable types
-- [ ] T108 [P] [US6] Implement `iac/policies/check-public-access.sh` per `contracts/policy-rules.md` §`BT-IAC-002` — env-conditional (only fires when `--env` starts with `prod`); checks the documented resource types' `public_network_access_enabled` properties
-- [ ] T109 [P] [US6] Implement `iac/policies/check-diagnostics.sh` per `contracts/policy-rules.md` §`BT-IAC-003` — for each supported resource type, asserts a corresponding `azurerm_monitor_diagnostic_setting` exists with `category_group = "allLogs"` and NO `enabled_metric` block
-- [ ] T110 [P] [US6] Implement `iac/policies/check-rbac-scope.sh` per `contracts/policy-rules.md` §`BT-IAC-004` — asserts no `azurerm_role_assignment` or `azurerm_cosmosdb_sql_role_assignment` with workload-UAMI principal has subscription-level or management-plane scope; honors the pipeline-MI allowlist entries
-- [ ] T111 [P] [US6] Implement `iac/policies/check-outputs-no-secrets.sh` per `contracts/policy-rules.md` §`BT-IAC-005` — for each output, asserts (when not `sensitive`) the value doesn't match the documented secret patterns; asserts `application_insights_connection_string` IS marked sensitive
-- [ ] T112 [P] [US6] Implement `iac/policies/check-stateful-destroys.sh` per `contracts/policy-rules.md` §`BT-IAC-007` — operates on tfplan JSON only; asserts NO `delete` or `destroy-replace` action targets the documented stateful resource types; emits "REQUIRES MANUAL APPROVAL" banner when triggered
-- [ ] T113 [US6] Implement `iac/policies/run-policies.sh` orchestrator — accepts `--plan`, `--state`, `--env`, `--allowlist` (default `iac/policies/allowlist.json`), runs all checks in order, accumulates failures, exits 0/1/2 per `contracts/policy-rules.md` §`Rule execution`; emits Markdown summary to stdout + JSON detail to a file
-- [ ] T114 [US6] Implement `iac/policies/check-lockfile.sh` per `contracts/policy-rules.md` §`BT-IAC-006` — asserts `.terraform.lock.hcl` is committed and matches what `tofu init -upgrade=false` resolves (no drift)
-- [ ] T115 [US6] Create `iac/policies/allowlist.json` per the template at `contracts/policy-rules.md` §`Allowlist file format` — includes the pipeline-MI BT-IAC-004 exceptions documented in `plan.md` §`Complexity Tracking`
-- [ ] T116 [P] [US6] Document `iac/policies/README.md` describing each rule's purpose, exit codes, the allowlist format, and the "edits require justification + reviewer sign-off" convention
+- [X] T107 [P] [US6] Implement `iac/policies/check-tags.sh` per `contracts/policy-rules.md` §`BT-IAC-001` — parses tfplan JSON (passed via `--plan`); asserts every taggable resource has the 5 mandatory tags; skips the documented untaggable types
+- [X] T108 [P] [US6] Implement `iac/policies/check-public-access.sh` per `contracts/policy-rules.md` §`BT-IAC-002` — env-conditional (only fires when `--env` starts with `prod`); checks the documented resource types' `public_network_access_enabled` properties
+- [X] T109 [P] [US6] Implement `iac/policies/check-diagnostics.sh` per `contracts/policy-rules.md` §`BT-IAC-003` — for each supported resource type, asserts a corresponding `azurerm_monitor_diagnostic_setting` exists with `category_group = "allLogs"` and NO `enabled_metric` block
+- [X] T110 [P] [US6] Implement `iac/policies/check-rbac-scope.sh` per `contracts/policy-rules.md` §`BT-IAC-004` — asserts no `azurerm_role_assignment` or `azurerm_cosmosdb_sql_role_assignment` with workload-UAMI principal has subscription-level or management-plane scope; honors the pipeline-MI allowlist entries
+- [X] T111 [P] [US6] Implement `iac/policies/check-outputs-no-secrets.sh` per `contracts/policy-rules.md` §`BT-IAC-005` — for each output, asserts (when not `sensitive`) the value doesn't match the documented secret patterns; asserts `application_insights_connection_string` IS marked sensitive
+- [X] T112 [P] [US6] Implement `iac/policies/check-stateful-destroys.sh` per `contracts/policy-rules.md` §`BT-IAC-007` — operates on tfplan JSON only; asserts NO `delete` or `destroy-replace` action targets the documented stateful resource types; emits "REQUIRES MANUAL APPROVAL" banner when triggered
+- [X] T113 [US6] Implement `iac/policies/run-policies.sh` orchestrator — accepts `--plan`, `--state`, `--env`, `--allowlist` (default `iac/policies/allowlist.json`), runs all checks in order, accumulates failures, exits 0/1/2 per `contracts/policy-rules.md` §`Rule execution`; emits Markdown summary to stdout + JSON detail to a file
+- [X] T114 [US6] Implement `iac/policies/check-lockfile.sh` per `contracts/policy-rules.md` §`BT-IAC-006` — asserts `.terraform.lock.hcl` is committed and matches what `tofu init -upgrade=false` resolves (no drift)
+- [X] T115 [US6] Create `iac/policies/allowlist.json` per the template at `contracts/policy-rules.md` §`Allowlist file format` — includes the pipeline-MI BT-IAC-004 exceptions documented in `plan.md` §`Complexity Tracking`
+- [X] T116 [P] [US6] Document `iac/policies/README.md` describing each rule's purpose, exit codes, the allowlist format, and the "edits require justification + reviewer sign-off" convention
 
 ### Operator helper (US6)
 
-- [ ] T117 [US6] Implement `iac/scripts/apply-env.sh` wrapper per `plan.md` §Project Structure: runs fmt → validate → plan → policies → apply against a supplied env composition with the right backend key
+- [X] T117 [US6] Implement `iac/scripts/apply-env.sh` wrapper per `plan.md` §Project Structure: runs fmt → validate → plan → policies → apply against a supplied env composition with the right backend key
 
 ### CI workflow integration (US6)
 
-- [ ] T118 [US6] Extend (do NOT recreate) `.github/workflows/iac-validate.yml` per `quickstart.md` §C — for each env composition (`dev`, `test`, `prod`): `tofu init -backend=false && tofu validate`; for dev only: pipeline-UAMI login → `tofu init` (with backend) → `tofu plan` → `tofu show -json tfplan > tfplan.json` → `bash iac/policies/run-policies.sh --plan tfplan.json --env dev` → `checkov` → `tfsec` → post plan summary to PR via `gh pr comment`
-- [ ] T119 [US6] Add a "REQUIRES MANUAL APPROVAL" check job in `iac-validate.yml` that fails the run when `BT-IAC-007` returns a destructive change (per `contracts/policy-rules.md` §`BT-IAC-007` + `quickstart.md` §C)
-- [ ] T120 [US6] Create `.github/workflows/iac-apply-dev.yml` per `quickstart.md` §C — triggers on push to `main` touching `iac/environments/dev/**` / `iac/modules/**` / `iac/platform-bootstrap/**`; re-runs validate's plan; on approval, `tofu apply tfplan`; posts apply summary
+- [X] T118 [US6] Extend (do NOT recreate) `.github/workflows/iac-validate.yml` per `quickstart.md` §C — for each env composition (`dev`, `test`, `prod`): `tofu init -backend=false && tofu validate`; for dev only: pipeline-UAMI login → `tofu init` (with backend) → `tofu plan` → `tofu show -json tfplan > tfplan.json` → `bash iac/policies/run-policies.sh --plan tfplan.json --env dev` → `checkov` → `tfsec` → post plan summary to PR via `gh pr comment`
+- [X] T119 [US6] Add a "REQUIRES MANUAL APPROVAL" check job in `iac-validate.yml` that fails the run when `BT-IAC-007` returns a destructive change (per `contracts/policy-rules.md` §`BT-IAC-007` + `quickstart.md` §C)
+- [X] T120 [US6] Create `.github/workflows/iac-apply-dev.yml` per `quickstart.md` §C — triggers on push to `main` touching `iac/environments/dev/**` / `iac/modules/**` / `iac/platform-bootstrap/**`; re-runs validate's plan; on approval, `tofu apply tfplan`; posts apply summary
 
 **Checkpoint**: User Story 6 fully testable — local script invocation passes/fails as expected per rule; CI on a synthetic PR with deliberate violations posts the BT-IAC-NNN failure summary and blocks the merge.
 
