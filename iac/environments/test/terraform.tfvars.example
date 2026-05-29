@@ -1,12 +1,11 @@
-# BusTerminal — dev environment tfvars template (spec 005)
+# BusTerminal — test environment tfvars template (spec 005)
 #
 # Copy to `terraform.tfvars` and replace placeholders before running
-# `tofu apply`. Sensitive or per-tenant values (subscription_id, entra_*
-# IDs, images, unique_suffix, github_org_repo) are supplied by the CD
-# pipeline via `-var` flags or environment variables and are NOT committed
-# to the live terraform.tfvars in the repo.
+# `tofu apply`. Sensitive or per-tenant values are supplied by the CD pipeline
+# via `-var` flags or environment variables and are NOT committed to a live
+# tfvars in the repo.
 #
-# This template is committed as a reference. Source of truth for the schema:
+# Source of truth for the schema:
 # specs/005-infrastructure-baseline/contracts/config-profile-schema.md
 
 # -----------------------------------------------------------------------------
@@ -14,10 +13,10 @@
 # -----------------------------------------------------------------------------
 subscription_id = "00000000-0000-0000-0000-000000000000"
 
-environment_name = "dev"
+environment_name = "test"
 location         = "eastus2"
-naming_prefix    = "bt-dev"
-unique_suffix    = "chdev01"
+naming_prefix    = "bt-test"
+unique_suffix    = "chtest01"
 
 github_org_repo = "<org>/BusTerminal"
 
@@ -50,7 +49,7 @@ backend_max_replicas  = 3
 # Tags
 # -----------------------------------------------------------------------------
 tags = {
-  slice = "002-solution-foundation"
+  slice = "005-infrastructure-baseline"
 }
 
 # -----------------------------------------------------------------------------
@@ -67,42 +66,38 @@ canonical_db_name = "busterminal-canonical"
 # -----------------------------------------------------------------------------
 # Spec 005 — Infrastructure Baseline
 # Per specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+# Test ships private-by-default: public access OFF on data services, PEs ON,
+# Premium SB SKU, Standard Search SKU, KV purge protection ON, 90-day KV
+# soft-delete retention.
 # -----------------------------------------------------------------------------
 
-# VNet + subnet CIDRs per research §10. The 10.50.x.x range was picked to avoid
-# colliding with common on-prem default ranges (10.0.*, 10.1.*) if BusTerminal
-# is later peered with corporate networks. Test uses 10.51.0.0/16; prod uses
-# 10.52.0.0/16.
-network_address_space         = ["10.50.0.0/16"]
-subnet_integration_cidr       = "10.50.0.0/23"
-subnet_private_endpoints_cidr = "10.50.2.0/24"
+# VNet + subnet CIDRs per research §10. Test uses 10.51.0.0/16 to avoid
+# colliding with dev (10.50.x.x) or prod (10.52.x.x) if envs are ever peered.
+network_address_space         = ["10.51.0.0/16"]
+subnet_integration_cidr       = "10.51.0.0/23"
+subnet_private_endpoints_cidr = "10.51.2.0/24"
 
-# Q2c trade-off: dev opts into public access on data services AND provisions
-# warm PEs. Public-access ON means the existing local-dev path (developer
-# az-login + RBAC against the public endpoint) continues to work; warm PEs
-# mean the future destructive-retrofit slice is a single attribute flip
-# rather than a network-wiring change. Test/prod templates default both off
-# (private-by-default).
-data_services_public_access_enabled = true
+# Test private-by-default posture (FR-031). PEs are warm and public access
+# is off. Workloads MUST be on the VNet (or routed via a private path) to
+# reach data services.
+data_services_public_access_enabled = false
 private_endpoints_enabled           = true
 
-# Spec 005 SKU defaults — dev is cost-optimized; test/prod templates default
-# to production-grade SKUs (standard for Search, Premium for Service Bus).
-ai_search_sku       = "basic"
-service_bus_sku     = "Standard"
-# service_bus_capacity is null (required only when sku=Premium)
+# Test/prod SKU defaults — production-grade SKUs for parity with prod.
+ai_search_sku        = "standard"
+service_bus_sku      = "Premium"
+service_bus_capacity = 1
 
-# Spec 005 KV hardening — dev defaults to low retention + no purge protection
-# so iterative dev recreates are fast. Test/prod default 90-day retention +
-# purge protection on per FR-019.
-key_vault_purge_protection_enabled   = false
-key_vault_soft_delete_retention_days = 7
+# Test KV hardening per FR-019.
+key_vault_purge_protection_enabled   = true
+key_vault_soft_delete_retention_days = 90
 
-# Q5c — LA retention as tf-var, default 30. All envs default 30; operators
-# override per env if compliance requires longer (max 730 interactive).
+# Q5c — LA retention as tf-var, default 30. Operators override if compliance
+# requires longer (max 730 interactive).
 log_analytics_retention_days = 30
 
-# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev
-# defaults true (external ingress) so developer + smoke-test workflows can
-# reach the backend over the public internet. Prod template defaults false.
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Test
+# defaults `true` (mirrors dev for parity-of-debugging during stand-up);
+# flip to `false` via this tfvars once workloads are stable and external
+# ingress is no longer needed. Prod template defaults `false`.
 backend_external_ingress = true

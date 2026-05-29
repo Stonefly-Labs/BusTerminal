@@ -1,24 +1,24 @@
 variable "subscription_id" {
-  description = "Azure subscription ID for the dev environment."
+  description = "Azure subscription ID for the prod environment."
   type        = string
 }
 
 variable "environment_name" {
   description = "Logical environment name. Drives tagging, the App Insights `environment` claim echoed by the backend, and the `ASPNETCORE_ENVIRONMENT` value on the backend container."
   type        = string
-  default     = "dev"
+  default     = "prod"
 }
 
 variable "location" {
-  description = "Azure region hosting the environment's resources."
+  description = "Azure region hosting the environment's resources. Prod defaults to `centralus` for regional diversity from dev/test (`eastus2`) per research §17."
   type        = string
-  default     = "eastus2"
+  default     = "centralus"
 }
 
 variable "naming_prefix" {
-  description = "Short prefix applied to every resource name (e.g., `bt-dev` produces `rg-bt-dev`, `kv-bt-dev-...`)."
+  description = "Short prefix applied to every resource name (e.g., `bt-prod` produces `rg-bt-prod`, `kv-bt-prod-...`)."
   type        = string
-  default     = "bt-dev"
+  default     = "bt-prod"
 }
 
 variable "unique_suffix" {
@@ -143,9 +143,7 @@ variable "kv_operator_object_ids" {
 
     Each ID listed here gets a separate role assignment scoped to the env KV
     so on-call operators can set any future workload secrets via
-    `az keyvault secret set` without an out-of-band manual grant. (Spec 003
-    removed the original NextAuth/web-client secrets; this access is now
-    reserved for future workload secrets only.)
+    `az keyvault secret set` without an out-of-band manual grant.
 
     Wire from CI via `TF_VAR_kv_operator_object_ids` (JSON-encoded list).
   EOT
@@ -155,16 +153,16 @@ variable "kv_operator_object_ids" {
 
 # -----------------------------------------------------------------------------
 # Spec 005 — Infrastructure Baseline
-# Per `specs/005-infrastructure-baseline/contracts/config-profile-schema.md`
-# and the Q2c networking clarification (dev opts into public access until the
-# destructive retrofit follow-up). Defaults below are dev-specific; test/prod
-# templates override via their own variables.tf.
+# Per `specs/005-infrastructure-baseline/contracts/config-profile-schema.md`.
+# Prod defaults: private-by-default data services, Premium SB, Standard Search,
+# 90-day KV soft-delete + purge protection ON, prod region `centralus`
+# (research §17). FR-010: backend ingress defaults to internal.
 # -----------------------------------------------------------------------------
 
 variable "network_address_space" {
-  description = "VNet address space for the env. Dev default is 10.50.0.0/16 (test=10.51.0.0/16, prod=10.52.0.0/16) per research §10."
+  description = "VNet address space for the env. Prod default is 10.52.0.0/16 (dev=10.50.0.0/16, test=10.51.0.0/16) per research §10."
   type        = list(string)
-  default     = ["10.50.0.0/16"]
+  default     = ["10.52.0.0/16"]
 
   validation {
     condition     = length(var.network_address_space) > 0 && alltrue([for c in var.network_address_space : can(cidrnetmask(c))])
@@ -175,7 +173,7 @@ variable "network_address_space" {
 variable "subnet_integration_cidr" {
   description = "CIDR for the Container Apps Environment integration subnet. /23 minimum (Azure Container Apps requirement). Must be inside network_address_space."
   type        = string
-  default     = "10.50.0.0/23"
+  default     = "10.52.0.0/23"
 
   validation {
     condition     = can(cidrnetmask(var.subnet_integration_cidr)) && tonumber(split("/", var.subnet_integration_cidr)[1]) <= 23
@@ -186,7 +184,7 @@ variable "subnet_integration_cidr" {
 variable "subnet_private_endpoints_cidr" {
   description = "CIDR for the private-endpoints subnet. /24 recommended. Must be inside network_address_space and non-overlapping with subnet_integration_cidr."
   type        = string
-  default     = "10.50.2.0/24"
+  default     = "10.52.2.0/24"
 
   validation {
     condition     = can(cidrnetmask(var.subnet_private_endpoints_cidr))
@@ -195,21 +193,21 @@ variable "subnet_private_endpoints_cidr" {
 }
 
 variable "data_services_public_access_enabled" {
-  description = "Per-env toggle for public-network access on data services (KV, Cosmos, AI Search, Service Bus). Dev defaults to true per Q2c selective retrofit; test/prod default false."
+  description = "Per-env toggle for public-network access on data services (KV, Cosmos, AI Search, Service Bus). Prod defaults to false (private-by-default) per spec 005 §FR-031."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "private_endpoints_enabled" {
-  description = "When true, the env provisions private endpoints for data services. Dev defaults true (warm PEs per Q2c) so the future retrofit is a public-access flip only."
+  description = "When true, the env provisions private endpoints for data services. Prod defaults true so workloads continue to reach data services after public access is disabled."
   type        = bool
   default     = true
 }
 
 variable "ai_search_sku" {
-  description = "Azure AI Search SKU. Dev defaults to basic; test/prod default standard (S1). Per research §4."
+  description = "Azure AI Search SKU. Test/prod default to standard (S1). Per research §4."
   type        = string
-  default     = "basic"
+  default     = "standard"
 
   validation {
     condition     = contains(["free", "basic", "standard", "standard2", "standard3"], var.ai_search_sku)
@@ -218,9 +216,9 @@ variable "ai_search_sku" {
 }
 
 variable "service_bus_sku" {
-  description = "Service Bus namespace SKU. Dev defaults Standard; test/prod default Premium (required for private endpoints). Basic is rejected at module level."
+  description = "Service Bus namespace SKU. Test/prod default Premium (required for private endpoints). Basic is rejected at module level."
   type        = string
-  default     = "Standard"
+  default     = "Premium"
 
   validation {
     condition     = contains(["Standard", "Premium"], var.service_bus_sku)
@@ -231,7 +229,7 @@ variable "service_bus_sku" {
 variable "service_bus_capacity" {
   description = "Service Bus Premium messaging units. Required (and only used) when service_bus_sku = Premium. One of 1, 2, 4, 8, 16."
   type        = number
-  default     = null
+  default     = 1
 
   validation {
     condition     = var.service_bus_capacity == null || contains([1, 2, 4, 8, 16], var.service_bus_capacity)
@@ -239,26 +237,24 @@ variable "service_bus_capacity" {
   }
 }
 
-# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Until
-# that task lands, the variable is declared (for forward compatibility with
-# the test/prod composition templates that DO consume it via T100) but not
-# yet threaded into the dev `module.keyvault` invocation.
+# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Prod
+# defaults to true (FR-019 hardening); the keyvault module will read it once
+# T122 threads the value through `module.keyvault`.
 # tflint-ignore: terraform_unused_declarations
 variable "key_vault_purge_protection_enabled" {
-  description = "Enable Key Vault purge protection. Dev defaults false (allows quick recreate); test/prod default true per FR-019."
+  description = "Enable Key Vault purge protection. Test/prod default true per FR-019."
   type        = bool
-  default     = false
+  default     = true
 }
 
-# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Until
-# that task lands, the variable is declared (for forward compatibility with
-# the test/prod composition templates that DO consume it via T100) but not
-# yet threaded into the dev `module.keyvault` invocation.
+# Wired by US7 / T122 — see specs/005-infrastructure-baseline/tasks.md. Prod
+# defaults to 90 (FR-019 hardening); the keyvault module will read it once
+# T122 threads the value through `module.keyvault`.
 # tflint-ignore: terraform_unused_declarations
 variable "key_vault_soft_delete_retention_days" {
-  description = "Key Vault soft-delete retention window in days. Dev defaults 7; test/prod default 90. Azure range: 7-90."
+  description = "Key Vault soft-delete retention window in days. Test/prod default 90. Azure range: 7-90."
   type        = number
-  default     = 7
+  default     = 90
 
   validation {
     condition     = var.key_vault_soft_delete_retention_days >= 7 && var.key_vault_soft_delete_retention_days <= 90
@@ -267,7 +263,7 @@ variable "key_vault_soft_delete_retention_days" {
 }
 
 variable "log_analytics_retention_days" {
-  description = "Log Analytics Workspace retention in days. All envs default to 30 per Q5c. Azure range: 30-730 (interactive)."
+  description = "Log Analytics Workspace retention in days. All envs default to 30 per Q5c. Azure range: 30-730 (interactive). Operators MAY raise per compliance requirements."
   type        = number
   default     = 30
 
@@ -277,12 +273,12 @@ variable "log_analytics_retention_days" {
   }
 }
 
-# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev
-# defaults `true` (external ingress) so the backend remains reachable from
-# outside the CAE for local developer + smoke-test workflows. Prod template
-# defaults `false`; test mirrors dev.
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Prod
+# defaults `false` (internal-only ingress) so the backend is not exposed to the
+# public internet. Operators MAY override via tfvars if external ingress is
+# required for a specific use case, but the default is internal.
 variable "backend_external_ingress" {
-  description = "Controls the backend Container App's ingress.external_enabled. Dev defaults true (developer + smoke-test workflows reach the backend over the public internet). Prod template defaults false (FR-010: internal-only ingress)."
+  description = "Controls the backend Container App's ingress.external_enabled. Prod default is `false` (FR-010: internal-only ingress). Dev/test templates default true (parity-of-debugging during stand-up)."
   type        = bool
-  default     = true
+  default     = false
 }

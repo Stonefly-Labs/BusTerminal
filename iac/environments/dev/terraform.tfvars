@@ -57,3 +57,9 @@ key_vault_purge_protection_enabled   = false
 key_vault_soft_delete_retention_days = 7
 
 log_analytics_retention_days = 30
+
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev keeps
+# external ingress on so the existing developer + smoke-test workflows (hitting
+# the backend over the public internet via the FQDN output) continue to work.
+# Prod template defaults to false.
+backend_external_ingress = true

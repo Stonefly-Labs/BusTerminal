@@ -225,28 +225,28 @@
 
 ### Test environment composition template (US5)
 
-- [ ] T092 [US5] Create `iac/environments/test/providers.tf` matching the dev composition's provider block, with `subscription_id` parameterized (no hardcoded value)
-- [ ] T093 [P] [US5] Create `iac/environments/test/backend.tf` with `azurerm` backend pointing to `btstatech0001` / `tfstate` container / `key = "envs/test/terraform.tfstate"` per `data-model.md` §4
-- [ ] T094 [P] [US5] Create `iac/environments/test/variables.tf` as a copy of the dev `variables.tf` with test-tier defaults from `contracts/config-profile-schema.md` §Test: `network_address_space = ["10.51.0.0/16"]`, `data_services_public_access_enabled = false`, `ai_search_sku = "standard"`, `service_bus_sku = "Premium"`, `service_bus_capacity = 1`, `key_vault_purge_protection_enabled = true`, `key_vault_soft_delete_retention_days = 90`
-- [ ] T095 [US5] Create `iac/environments/test/main.tf` as a copy of the dev composition (post-US1–US4) with the same module call graph; ensure no hardcoded dev-only values bled through
-- [ ] T096 [US5] Create `iac/environments/test/outputs.tf` mirroring the dev outputs file (same key set per `contracts/outputs-contract.md`)
-- [ ] T097 [US5] Create `iac/environments/test/terraform.tfvars.example` per `contracts/config-profile-schema.md` §Test (no real secrets; placeholders for subscription_id, entra IDs, etc.)
+- [X] T092 [US5] Create `iac/environments/test/providers.tf` matching the dev composition's provider block, with `subscription_id` parameterized (no hardcoded value)
+- [X] T093 [P] [US5] Create `iac/environments/test/backend.tf` with `azurerm` backend pointing to `btstatech0001` / `tfstate` container / `key = "envs/test/terraform.tfstate"` per `data-model.md` §4
+- [X] T094 [P] [US5] Create `iac/environments/test/variables.tf` as a copy of the dev `variables.tf` with test-tier defaults from `contracts/config-profile-schema.md` §Test: `network_address_space = ["10.51.0.0/16"]`, `data_services_public_access_enabled = false`, `ai_search_sku = "standard"`, `service_bus_sku = "Premium"`, `service_bus_capacity = 1`, `key_vault_purge_protection_enabled = true`, `key_vault_soft_delete_retention_days = 90`
+- [X] T095 [US5] Create `iac/environments/test/main.tf` as a copy of the dev composition (post-US1–US4) with the same module call graph; ensure no hardcoded dev-only values bled through. **Dev-only `import {}` and `moved {}` blocks intentionally omitted** — test has no pre-existing state to adopt or refactor.
+- [X] T096 [US5] Create `iac/environments/test/outputs.tf` mirroring the dev outputs file (same key set per `contracts/outputs-contract.md`)
+- [X] T097 [US5] Create `iac/environments/test/terraform.tfvars.example` per `contracts/config-profile-schema.md` §Test (no real secrets; placeholders for subscription_id, entra IDs, etc.)
 
 ### Prod environment composition template (US5)
 
-- [ ] T098 [P] [US5] Create `iac/environments/prod/providers.tf` matching the test providers.tf, with `subscription_id` parameterized
-- [ ] T099 [P] [US5] Create `iac/environments/prod/backend.tf` with `key = "envs/prod/terraform.tfstate"`
-- [ ] T100 [P] [US5] Create `iac/environments/prod/variables.tf` with prod-tier defaults from `contracts/config-profile-schema.md` §Prod: `location = "centralus"` (per `research.md` §17), `network_address_space = ["10.52.0.0/16"]`, all the prod-hardening defaults
-- [ ] T101 [US5] Create `iac/environments/prod/main.tf` as a copy of the test composition (which itself derives from dev); validate no test-only assumptions bled through
-- [ ] T102 [US5] Create `iac/environments/prod/outputs.tf` mirroring the test outputs file
-- [ ] T103 [US5] Create `iac/environments/prod/terraform.tfvars.example` per `contracts/config-profile-schema.md` §Prod
+- [X] T098 [P] [US5] Create `iac/environments/prod/providers.tf` matching the test providers.tf, with `subscription_id` parameterized
+- [X] T099 [P] [US5] Create `iac/environments/prod/backend.tf` with `key = "envs/prod/terraform.tfstate"`
+- [X] T100 [P] [US5] Create `iac/environments/prod/variables.tf` with prod-tier defaults from `contracts/config-profile-schema.md` §Prod: `location = "centralus"` (per `research.md` §17), `network_address_space = ["10.52.0.0/16"]`, all the prod-hardening defaults
+- [X] T101 [US5] Create `iac/environments/prod/main.tf` as a copy of the test composition (which itself derives from dev); validate no test-only assumptions bled through
+- [X] T102 [US5] Create `iac/environments/prod/outputs.tf` mirroring the test outputs file
+- [X] T103 [US5] Create `iac/environments/prod/terraform.tfvars.example` per `contracts/config-profile-schema.md` §Prod
 
 ### Cross-env validation (US5)
 
-- [ ] T104 [US5] Verify from repo root: `cd iac/environments/test && tofu init -backend=false && tofu validate` exits 0
-- [ ] T105 [US5] Verify from repo root: `cd iac/environments/prod && tofu init -backend=false && tofu validate` exits 0
-- [ ] T106 [US5] Document in `iac/environments/test/README.md` and `iac/environments/prod/README.md` (new files): "Template only — NOT applied by spec 005. See `specs/005-infrastructure-baseline/quickstart.md` §B for the stand-up procedure when an operator is ready."
-- [ ] T134 [US5] Enforce FR-010 in the prod template: ensure the backend Container App's ingress defaults to **internal** (`external_enabled = false`) in `iac/environments/prod/main.tf` (and matching tfvars override in `iac/environments/prod/terraform.tfvars.example`). Add an env-level variable `backend_external_ingress` (bool, default `false` in prod; default `true` in dev/test to preserve current dev behavior) in each env's `variables.tf`, and thread it through the existing `module.container_app` invocation for the backend. Test composition keeps backend external (test mirrors dev's posture for parity-of-debugging) unless an operator overrides via tfvars.
+- [X] T104 [US5] Verify from repo root: `cd iac/environments/test && tofu init -backend=false && tofu validate` exits 0. **Validated 2026-05-28**: `Success! The configuration is valid` (one upstream-AVM `local_authentication_disabled` deprecation warning — identical to dev, not actionable here).
+- [X] T105 [US5] Verify from repo root: `cd iac/environments/prod && tofu init -backend=false && tofu validate` exits 0. **Validated 2026-05-28**: `Success! The configuration is valid` (same upstream-AVM deprecation warning as test/dev).
+- [X] T106 [US5] Document in `iac/environments/test/README.md` and `iac/environments/prod/README.md` (new files): "Template only — NOT applied by spec 005. See `specs/005-infrastructure-baseline/quickstart.md` §B for the stand-up procedure when an operator is ready."
+- [X] T134 [US5] Enforce FR-010 in the prod template: ensure the backend Container App's ingress defaults to **internal** (`external_enabled = false`) in `iac/environments/prod/main.tf` (and matching tfvars override in `iac/environments/prod/terraform.tfvars.example`). Add an env-level variable `backend_external_ingress` (bool, default `false` in prod; default `true` in dev/test to preserve current dev behavior) in each env's `variables.tf`, and thread it through the existing `module.container_app` invocation for the backend. Test composition keeps backend external (test mirrors dev's posture for parity-of-debugging) unless an operator overrides via tfvars.
 
 **Checkpoint**: User Story 5 fully testable — both env templates validate; their backend keys are env-scoped; prod template defaults backend ingress to internal per FR-010; `quickstart.md` §B walkthrough is executable end-to-end.
 

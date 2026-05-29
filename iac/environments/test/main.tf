@@ -1,8 +1,16 @@
-# Spec 005 — central naming convention (T059). The naming module computes the
-# same names the inline locals below produced for spec 002 resources, plus the
-# new spec 005 names (ai_search_name, service_bus_name, vnet_name,
-# workload_uami_name). Names match the previous spec-002 computation exactly,
-# so introducing the module is a non-destructive refactor — zero state churn.
+# Spec 005 — `test` environment composition template.
+#
+# Template only — NOT applied by spec 005 (Q1c env scope = dev only).
+# When operators stand this env up, follow `specs/005-infrastructure-baseline/quickstart.md` §B.
+# The module call graph mirrors `iac/environments/dev/main.tf`; per-env
+# behavior is driven entirely by the variable defaults in `variables.tf` and
+# the operator-supplied `terraform.tfvars`. No dev-specific `import {}`
+# adoptions or `moved {}` refactors are carried over because test has no
+# pre-existing state to adopt.
+
+# Spec 005 — central naming convention. The naming module computes the names
+# the modules below consume. Output names match those of `iac/environments/dev/`
+# by construction.
 module "naming" {
   source = "../../modules/naming"
 
@@ -12,9 +20,6 @@ module "naming" {
 }
 
 locals {
-  # Existing spec-002 names retained as locals so the existing module-call
-  # graph below doesn't churn. Each value is identical to the corresponding
-  # `module.naming.*` output by construction.
   resource_group_name = module.naming.resource_group_name
 
   log_analytics_workspace_name = module.naming.log_analytics_workspace_name
@@ -31,11 +36,8 @@ locals {
   frontend_target_port = 3000
   backend_target_port  = 8080
 
-  # Spec 005 — private DNS zones provisioned in dev. SB zone is included even
-  # though the dev SB SKU is Standard (no PE) so the Premium upgrade is a
-  # single attribute flip. ACR zone is included for the same reason (PE
-  # deferred per research §2 but the zone is warm). Storage + Azure Monitor
-  # zones are deferred to the test/prod template (research §14).
+  # Spec 005 — private DNS zones provisioned in test. Storage + Azure Monitor
+  # zones are deferred per research §14.
   private_dns_zone_names = [
     "privatelink.vaultcore.azure.net",
     "privatelink.documents.azure.com",
@@ -56,12 +58,9 @@ resource "azurerm_resource_group" "this" {
   tags     = local.shared_tags
 }
 
-# Spec 005 — VNet + subnets + private DNS zones (T060). Provisioned WARM in
-# dev per Q2c: PE subnet exists, zones exist, links exist — public access on
-# the data services stays on via `data_services_public_access_enabled = true`
-# until a future destructive-retrofit slice flips it. Allocating the CAE
-# integration subnet now means the Container Apps Environment VNet-integration
-# retrofit is a single attribute flip later (no destructive subnet replacement).
+# Spec 005 — VNet + subnets + private DNS zones. Test ships with
+# data_services_public_access_enabled = false AND private_endpoints_enabled = true
+# (private-by-default per spec 005 / FR-031).
 module "networking" {
   source = "../../modules/networking"
 
@@ -103,15 +102,6 @@ module "keyvault" {
   location                   = azurerm_resource_group.this.location
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 
-  # Spec 005 (T063) — KV public access tied to per-env toggle; PE inputs
-  # warm-on-by-default in dev per Q2c (both flags default true in dev tfvars
-  # so both wires are active simultaneously — public access stays on AND a PE
-  # exists, until a future destructive-retrofit slice flips public access off).
-  #
-  # `private_endpoint_enabled` is the plan-time bool that drives the
-  # conditional PE child module; subnet_id + dns_zone_id are passed
-  # unconditionally (known-after-apply outputs) and the module's precondition
-  # validates them when enabled.
   public_network_access_enabled = var.data_services_public_access_enabled
   private_endpoint_enabled      = var.private_endpoints_enabled
   private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
@@ -125,12 +115,6 @@ module "keyvault" {
 # The composition's principal in CI IS the pipeline managed identity (federated
 # from GitHub OIDC, see iac/platform-bootstrap). `azurerm_key_vault_secret`
 # resources require Key Vault data-plane RBAC; this self-grant supplies it.
-# The bootstrap RBAC-Admin condition explicitly allows assigning this role
-# (b86a8fe4-...) so this `azurerm_role_assignment` write succeeds with the
-# pipeline's existing permissions.
-#
-# Scope is the RG (not the KV) so any future env-scoped KV in this RG inherits
-# the grant — operationally simpler than per-KV assignments.
 data "azurerm_client_config" "current" {}
 
 resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
@@ -143,8 +127,7 @@ resource "azurerm_role_assignment" "pipeline_kv_secrets_officer" {
 # Operator standing access — populated via `kv_operator_object_ids`. Each
 # entry gets `Key Vault Secrets Officer` scoped to the env KV so on-call
 # humans can set any future bootstrap secrets via `az keyvault secret set`
-# without an out-of-band grant. (Spec 003 removed the NextAuth/web-client
-# secrets; this access is now reserved for future workload secrets only.)
+# without an out-of-band grant.
 resource "azurerm_role_assignment" "operator_kv_secrets_officer" {
   for_each             = toset(var.kv_operator_object_ids)
   scope                = module.keyvault.id
@@ -164,25 +147,8 @@ resource "time_sleep" "wait_for_kv_rbac_propagation" {
   create_duration = "60s"
 }
 
-# One-time imports for role assignments that were created manually via `az`
-# during the initial dev bootstrap (2026-05-19). Tofu adopts them into state
-# instead of failing on "resource already exists". Import blocks are
-# idempotent — they're a no-op once the resource is in state — and can stay
-# in tree until the team forgets why they exist (or be removed in a later
-# cleanup commit).
-import {
-  to = azurerm_role_assignment.pipeline_kv_secrets_officer
-  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.Authorization/roleAssignments/d78aec1f-2553-464e-9be2-bd382da9818c"
-}
-
-import {
-  to = azurerm_role_assignment.operator_kv_secrets_officer["62936c0c-a840-43e8-a24e-22304b7d7c89"]
-  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.KeyVault/vaults/kv-bt-dev-chdev01/providers/Microsoft.Authorization/roleAssignments/12d618e9-a9ca-4e42-82a7-dc077b5c5a78"
-}
-
 # App Insights connection-string secret in Key Vault, exposed to workloads as a
-# Container Apps secret backed by this Key Vault URI. Placed here (not in the
-# monitoring module) to avoid the KV ↔ monitoring cycle.
+# Container Apps secret backed by this Key Vault URI.
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   name         = "ApplicationInsightsConnectionString"
   value        = module.monitoring.application_insights_connection_string
@@ -190,16 +156,12 @@ resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   content_type = "text/plain"
 
   # The App Insights connection string is a static identifier that does not
-  # rotate. A far-future expiration date satisfies CKV_AZURE_41 (which
-  # requires every secret have an expiration) without imposing operational
-  # rotation overhead that would not actually rotate anything.
+  # rotate. A far-future expiration date satisfies CKV_AZURE_41 without
+  # imposing operational rotation overhead.
   expiration_date = "2099-12-31T23:59:59Z"
 
   tags = local.shared_tags
 
-  # Wait for the KV data-plane RBAC to propagate before tofu attempts the
-  # data-plane secret write. Only matters on first-apply against a fresh
-  # state (subsequent applies already have the role).
   depends_on = [time_sleep.wait_for_kv_rbac_propagation]
 }
 
@@ -216,11 +178,6 @@ module "container_registry" {
   tags = local.shared_tags
 }
 
-# Spec 003 — workload MI promoted to the generalized `workload-identity` module
-# so it can carry API app-role assignments (FR-022) alongside its existing
-# Azure RBAC. Internal addresses are preserved against the old `identity`
-# module — no `moved` blocks needed for the UAMI / RBAC state.
-#
 # The `BusTerminal.Reader` app-role assignment grants the workload MI standing
 # read access to the API: this is what an internal Container Apps Job /
 # Functions caller exercises via `DefaultAzureCredential` → `az get-access-token`
@@ -241,8 +198,7 @@ module "workload_identity" {
   # Spec 005 / FR-033 — non-data-service roles only. Data-service roles
   # (Search Index Data Contributor, SB Data Sender/Receiver, Cosmos Data
   # Contributor) are emitted by their owning modules / by the Cosmos SQL
-  # role assignment below. See iac/modules/workload-identity/README.md
-  # § Role-assignment split convention.
+  # role assignment below.
   assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
@@ -293,8 +249,7 @@ module "backend_app" {
   registry_login_server         = module.container_registry.login_server
   target_port                   = local.backend_target_port
   # Spec 005 / T134 / FR-010 — backend ingress externality is per-env;
-  # dev default is `true` (preserves the existing developer + smoke-test
-  # workflow that hits the backend over the public internet).
+  # test default is `true` (mirrors dev posture for parity-of-debugging).
   ingress_external = var.backend_external_ingress
   min_replicas     = var.backend_min_replicas
   max_replicas     = var.backend_max_replicas
@@ -312,13 +267,7 @@ module "backend_app" {
     AZURE_CLIENT_ID        = module.workload_identity.client_id
 
     # Spec 005 / Q1c (research §6) — backend .NET OpenTelemetry exporter
-    # authenticates to App Insights ingestion via AAD using the workload
-    # UAMI. The ClientId discriminates between MIs when multiple are
-    # attached. `APPLICATIONINSIGHTS_CONNECTION_STRING` still flows from
-    # KV below (the exporter needs both: connection string to identify
-    # the target component, auth string to authenticate to it). The
-    # `Monitoring Metrics Publisher` role is granted on the App Insights
-    # resource via `module.workload_identity.assigned_azure_rbac`.
+    # authenticates to App Insights ingestion via AAD using the workload UAMI.
     APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=${module.workload_identity.client_id}"
   }
 
@@ -372,18 +321,7 @@ module "frontend_app" {
 }
 
 # Spec 005 / T084 — Container App diagnostic settings routed through the
-# central `diagnostic-settings` wrapper. The wrapper enforces the Q5c convention
-# by construction: exactly one `enabled_log { category_group = "allLogs" }` and
-# NO `enabled_metric` block. AVM modules already wire diagnostic settings on
-# Key Vault, ACR, and the Container Apps Environment; Container App resources
-# themselves do not have a `diagnostic_settings` parameter on the AVM today so
-# we wire the dedicated wrapper here.
-#
-# The pre-spec-005 inline settings (`enabled_metric { category = "AllMetrics" }`
-# only, no `enabled_log`) are removed per Q5c. The `moved` blocks below carry
-# the prior state addresses into the new module path so Tofu treats the change
-# as an in-place attribute update on the existing Azure resource (same name,
-# same target) instead of a destroy/create cycle.
+# central `diagnostic-settings` wrapper (Q5c: `allLogs` only, no metrics).
 module "backend_app_diagnostics" {
   source = "../../modules/diagnostic-settings"
 
@@ -400,23 +338,9 @@ module "frontend_app_diagnostics" {
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 }
 
-moved {
-  from = azurerm_monitor_diagnostic_setting.backend_app
-  to   = module.backend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
-}
-
-moved {
-  from = azurerm_monitor_diagnostic_setting.frontend_app
-  to   = module.frontend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
-}
-
 # Spec 005 / T086 — Application Insights diagnostic setting forwarding `allLogs`
 # to the env LAW. AI Search and Service Bus diagnostics are emitted inside their
-# own modules (T037, T045). Key Vault, ACR, Container Apps Environment, and
-# Cosmos diagnostics are emitted inside those modules. This call handles
-# App Insights, which has no module wrapper of its own — the AVM `insights-component`
-# module does not expose a `diagnostic_settings` input, so we wire the wrapper
-# at the composition level.
+# own modules.
 module "application_insights_diagnostics" {
   source = "../../modules/diagnostic-settings"
 
@@ -425,15 +349,8 @@ module "application_insights_diagnostics" {
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 }
 
-# Workload-identity federated credentials so the running workloads can obtain
-# Entra-issued tokens via the workload's user-assigned MI when needed by future
-# slices (e.g., post-deploy smoke test using the pipeline identity to call the
-# deployed `/whoami`). Subject scopes the credential to this environment.
-#
-# Spec 003 / US5 / FR-029 — composed via the generalized
-# `federated-credential` module. Issuer + audience use the module's GitHub
-# Actions / Entra-workload-identity defaults. The `moved` block keeps Tofu
-# state intact across the refactor.
+# Workload-identity federated credential. Subject scopes the credential to
+# this environment.
 module "workload_federation_environment" {
   source = "../../modules/federated-credential"
 
@@ -443,29 +360,12 @@ module "workload_federation_environment" {
   subject             = "repo:${var.github_org_repo}:environment:${var.environment_name}"
 }
 
-moved {
-  from = azurerm_federated_identity_credential.workload_environment
-  to   = module.workload_federation_environment.azurerm_federated_identity_credential.this
-}
-
 # Spec 003 — platform app roles on the API app registration.
-#
-# The `bt-dev-api` app registration was created out-of-band in 002 and is not
-# a tofu-managed `azuread_application` resource. Reference it via a data source
-# and pass its id into the new `app-registration-roles` module. Because the
-# parent app is not a managed resource, the module's "ignore_changes = [app_role]"
-# lifecycle requirement (which applies when the parent IS managed) does not
-# apply here. See iac/modules/app-registration-roles/README.md.
 data "azuread_application" "api" {
   client_id = var.entra_api_client_id
 }
 
-# Spec 003 / US3 / SC-003 — opt-in internal-caller probe job. Disabled by
-# default; flip `probe_job_enabled` to true (via `-var` or tfvars) to
-# provision the smoke. The job exits 0 on `GET /probe/read` returning 200
-# using a token acquired by the workload MI. See
-# `iac/modules/probe-job-internal-caller/README.md` and
-# `docs/internal-workload-callers.md` § Worked example.
+# Spec 003 / US3 / SC-003 — opt-in internal-caller probe job.
 module "probe_job_internal_caller" {
   count  = var.probe_job_enabled ? 1 : 0
   source = "../../modules/probe-job-internal-caller"
@@ -483,12 +383,7 @@ module "probe_job_internal_caller" {
 }
 
 # Spec 003 / US6 / FR-024 — Microsoft Graph application-permission grant on
-# the API app registration. Declares `User.Read.All` (the sole permission this
-# slice grants — `contracts/graph-permissions-inventory.md` is the binding
-# inventory). Admin consent is NOT performed by Tofu (FR-024 + research § 9):
-# after `tofu apply`, a tenant admin must grant consent in the Entra portal
-# (or `az ad app permission admin-consent --id <bt-dev-api-app-id>`) before
-# any `IGraphClient` call succeeds. See quickstart.md § A.2.3.
+# the API app registration.
 module "graph_permissions" {
   source = "../../modules/graph-permissions"
 
@@ -500,11 +395,6 @@ module "graph_permissions" {
 }
 
 # Spec 004 — Cosmos DB account hosting the canonical metadata store.
-#
-# Spec 005 (T063) extends this call with a per-env public-access toggle and a
-# warm private endpoint. Dev defaults to BOTH public-access ON AND a PE
-# attached (Q2c) — the destructive retrofit (flipping public access off)
-# is a future spec.
 module "cosmos_account" {
   source = "../../modules/cosmos-account"
 
@@ -530,15 +420,6 @@ module "cosmos_canonical_store" {
   database_name       = var.canonical_db_name
 }
 
-# Workload UAMI gets data-contributor on the canonical database scope. The
-# built-in "Cosmos DB Built-in Data Contributor" role GUID is well-known:
-# 00000000-0000-0000-0000-000000000002. `azurerm_cosmosdb_sql_role_assignment`
-# expects the FULL resource id of the role definition, not the bare GUID.
-#
-# Spec 005 / T073 — the data-plane scope path is computed inside the
-# `cosmos-canonical-store` module and surfaced as
-# `canonical_database_role_scope` so this composition (and any future spec)
-# can't re-rediscover the ARM-vs-data-plane-path trap (research §15).
 resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
@@ -547,11 +428,6 @@ resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
   principal_id        = module.workload_identity.principal_id
 }
 
-# Developer (and pipeline) standing data-contributor on the canonical database so
-# `dotnet run --project tools/load-fixtures --auth aad` works from developer
-# machines per quickstart.md Path B. Uses the same caller identity that already
-# manages KV secrets (the pipeline MI in CI, the developer's az-login principal
-# locally).
 resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
@@ -560,9 +436,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   principal_id        = data.azurerm_client_config.current.object_id
 }
 
-# Spec 005 — Azure AI Search service (T061). Warm PE in dev per Q2c.
-# Workload UAMI is granted `Search Index Data Contributor` inside the module
-# (per the FR-033 forward-looking workload RBAC enumeration).
+# Spec 005 — Azure AI Search service.
 module "ai_search" {
   source = "../../modules/ai-search"
 
@@ -583,12 +457,8 @@ module "ai_search" {
   tags = local.shared_tags
 }
 
-# Spec 005 — Service Bus namespace (T062). Dev defaults to Standard SKU — no
-# PE on Standard (per research §3 + service-bus module precondition). The PE
-# inputs are SKU-conditionally nulled here so the same composition file works
-# unchanged when an operator overrides `service_bus_sku = "Premium"` via
-# tfvars. Workload UAMI is granted both `Azure Service Bus Data Sender` AND
-# `Azure Service Bus Data Receiver` inside the module (FR-033).
+# Spec 005 — Service Bus namespace. Test default is Premium SKU — PE is
+# attached when private_endpoints_enabled = true.
 module "service_bus" {
   source = "../../modules/service-bus"
 
