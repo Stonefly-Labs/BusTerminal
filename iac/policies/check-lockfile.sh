@@ -56,20 +56,35 @@ EXPECTED_SHA=$(shasum -a 256 "$LOCKFILE" | awk '{print $1}')
 # Re-resolve providers without upgrading. tofu init writes to the lockfile
 # in place when providers need pinning — we run in a temp copy to avoid
 # mutating the working tree.
+#
+# Compositions reference shared modules via `source = "../../modules/<name>"`,
+# so a flat copy of the composition dir alone leaves those sources dangling
+# (`Unable to evaluate directory symlink: lstat ../../modules`). Mirror the
+# repo-relative parent layout: the composition lives at
+# `iac/environments/<env>/` so we recreate `$WORK_DIR/environments/<env>/`
+# alongside `$WORK_DIR/modules/` (symlinked back to the real tree — read-only
+# access by `tofu init` is sufficient).
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-cp -R "$COMPOSITION_DIR"/. "$WORK_DIR"/
+COMPOSITION_NAME=$(basename "$COMPOSITION_DIR")
+COMPOSITION_PARENT=$(cd "$COMPOSITION_DIR/../.." && pwd)
+COMPOSITION_WORK="$WORK_DIR/environments/$COMPOSITION_NAME"
+
+mkdir -p "$COMPOSITION_WORK"
+cp -R "$COMPOSITION_DIR"/. "$COMPOSITION_WORK"/
 # Strip any pre-existing .terraform directory so we get a clean resolution.
-rm -rf "$WORK_DIR/.terraform"
+rm -rf "$COMPOSITION_WORK/.terraform"
+
+ln -s "$COMPOSITION_PARENT/modules" "$WORK_DIR/modules"
 
 (
-  cd "$WORK_DIR"
+  cd "$COMPOSITION_WORK"
   # -backend=false keeps the check fast and avoids requiring backend creds.
   tofu init -backend=false -upgrade=false -input=false >/dev/null
 )
 
-RESOLVED_SHA=$(shasum -a 256 "$WORK_DIR/.terraform.lock.hcl" | awk '{print $1}')
+RESOLVED_SHA=$(shasum -a 256 "$COMPOSITION_WORK/.terraform.lock.hcl" | awk '{print $1}')
 
 if [[ "$EXPECTED_SHA" != "$RESOLVED_SHA" ]]; then
   echo "$RULE_ID FAIL: provider lockfile drift detected — expected $EXPECTED_SHA, got $RESOLVED_SHA" >&2

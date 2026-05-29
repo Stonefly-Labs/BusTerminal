@@ -7,8 +7,20 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
     category_group = "allLogs"
   }
 
-  # Intentionally no `enabled_metric` block — per Q5c (spec 005 clarification),
-  # metrics stay in Azure Monitor's native metric store and are NOT forwarded
-  # to Log Analytics. Adding `enabled_metric` here would violate the convention
-  # and trigger the BT-IAC-003 policy gate.
+  # Spec 005 / Q5c — metrics stay in Azure Monitor's native metric store and
+  # are NOT forwarded to Log Analytics. The empty dynamic block explicitly
+  # emits zero `enabled_metric` blocks; omitting the block entirely is NOT
+  # sufficient because `enabled_metric` is Optional+Computed in the azurerm
+  # v4 provider, so the provider preserves whatever the existing state had
+  # (including the historical `metric { category = "AllMetrics" }` blocks
+  # that azurerm v4 migrates into `enabled_metric` on read). The empty
+  # for_each is the canonical way to tell the provider "I want zero of
+  # these blocks", which makes the BT-IAC-003 policy gate green at plan
+  # time for `moved` resources that carried metric blocks in prior state.
+  dynamic "enabled_metric" {
+    for_each = []
+    content {
+      category = enabled_metric.value
+    }
+  }
 }

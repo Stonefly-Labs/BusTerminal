@@ -196,12 +196,19 @@ output "key_vault_uri" {
 output "app_insights_connection_string_secret_uri" {
   description = "Versionless Key Vault secret URI exposing the Application Insights connection string for workload consumption (Container Apps secret reference target)."
   value       = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
+  # Spec 005 / Q1c — App Insights connection-string-adjacent outputs MUST
+  # carry sensitive=true per BT-IAC-005. The URI is technically a reference
+  # (not the secret itself), but the policy gate enforces sensitive on the
+  # whole `app(_)?insights_connection_string*` family to keep the rule
+  # simple and auditable.
+  sensitive = true
 }
 
 # Spec-002-era alias retained for callers reading the older name.
 output "application_insights_connection_string_secret_uri" {
   description = "Alias for app_insights_connection_string_secret_uri (kept for spec-002 caller compatibility)."
   value       = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
+  sensitive   = true
 }
 
 # -----------------------------------------------------------------------------

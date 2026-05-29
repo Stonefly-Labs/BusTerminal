@@ -70,6 +70,15 @@ SKIP_TF_TYPES_JSON='[
   "azuread_directory_role_assignment"
 ]'
 
+# azapi_resource is a generic wrapper that can target any Azure ARM resource
+# type. Some of those Azure types don't accept tags (notably subnets, which
+# are children of virtual networks and inherit their parent's tag context).
+# This list matches against the azapi resource's `type` attribute by PREFIX —
+# the trailing `@<api-version>` is ignored so AVM bumps don't break the skip.
+SKIP_AZAPI_TYPE_PREFIXES_JSON='[
+  "Microsoft.Network/virtualNetworks/subnets"
+]'
+
 ALLOWED_JSON='[]'
 if [[ -n "$ALLOWLIST" && -f "$ALLOWLIST" ]]; then
   ALLOWED_JSON=$(jq -c '."'"$RULE_ID"'" // [] | map(.resource_address // empty)' "$ALLOWLIST")
@@ -101,13 +110,27 @@ while IFS= read -r line; do
     FAILURES+=("$RULE_ID FAIL: $ADDR is missing tag(s): $MISSING")
   fi
 done < <(
-  jq -r --argjson skip "$SKIP_TF_TYPES_JSON" --argjson allowed "$ALLOWED_JSON" '
+  jq -r \
+    --argjson skip "$SKIP_TF_TYPES_JSON" \
+    --argjson skipAzapi "$SKIP_AZAPI_TYPE_PREFIXES_JSON" \
+    --argjson allowed "$ALLOWED_JSON" '
     .resource_changes // []
     | map(select(
         (.change.actions // [])
           | (contains(["create"]) or contains(["update"]) or contains(["create","delete"]) or contains(["delete","create"]))
       ))
     | map(select((.type | IN($skip[])) | not))
+    # azapi_resource skip: if .type == "azapi_resource" AND .change.after.type
+    # (the Azure ARM resource type, e.g.
+    # "Microsoft.Network/virtualNetworks/subnets@2024-07-01") begins with any
+    # of the documented untaggable prefixes, drop it.
+    | map(select(
+        .type != "azapi_resource"
+        or (
+          (.change.after // {}).type as $azt
+          | $skipAzapi | map(. as $p | $azt | startswith($p)) | any | not
+        )
+      ))
     | map(select((.address | IN($allowed[])) | not))
     | map(select(.change.after != null and (.change.after | type) == "object"))
     | map(select(.change.after | has("tags")))
