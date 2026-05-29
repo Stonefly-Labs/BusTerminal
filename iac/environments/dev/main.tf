@@ -368,29 +368,58 @@ module "frontend_app" {
   tags = local.shared_tags
 }
 
-# FR-072 — every Azure resource routes diagnostic logs + AllMetrics to the LAW.
-# AVM modules already wire diagnostic settings on Key Vault, ACR, and the
-# Container Apps Environment. Container App resources themselves do not have a
-# `diagnostic_settings` parameter on the AVM module today, so we wire AllMetrics
-# explicitly here (logs flow through the Environment binding to the LAW).
-resource "azurerm_monitor_diagnostic_setting" "backend_app" {
+# Spec 005 / T084 — Container App diagnostic settings routed through the
+# central `diagnostic-settings` wrapper. The wrapper enforces the Q5c convention
+# by construction: exactly one `enabled_log { category_group = "allLogs" }` and
+# NO `enabled_metric` block. AVM modules already wire diagnostic settings on
+# Key Vault, ACR, and the Container Apps Environment; Container App resources
+# themselves do not have a `diagnostic_settings` parameter on the AVM today so
+# we wire the dedicated wrapper here.
+#
+# The pre-spec-005 inline settings (`enabled_metric { category = "AllMetrics" }`
+# only, no `enabled_log`) are removed per Q5c. The `moved` blocks below carry
+# the prior state addresses into the new module path so Tofu treats the change
+# as an in-place attribute update on the existing Azure resource (same name,
+# same target) instead of a destroy/create cycle.
+module "backend_app_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
   name                       = "ca-backend-diagnostics"
   target_resource_id         = module.backend_app.id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-
-  enabled_metric {
-    category = "AllMetrics"
-  }
 }
 
-resource "azurerm_monitor_diagnostic_setting" "frontend_app" {
+module "frontend_app_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
   name                       = "ca-frontend-diagnostics"
   target_resource_id         = module.frontend_app.id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+}
 
-  enabled_metric {
-    category = "AllMetrics"
-  }
+moved {
+  from = azurerm_monitor_diagnostic_setting.backend_app
+  to   = module.backend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
+}
+
+moved {
+  from = azurerm_monitor_diagnostic_setting.frontend_app
+  to   = module.frontend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
+}
+
+# Spec 005 / T086 — Application Insights diagnostic setting forwarding `allLogs`
+# to the env LAW. AI Search and Service Bus diagnostics are emitted inside their
+# own modules (T037, T045). Key Vault, ACR, Container Apps Environment, and
+# Cosmos diagnostics are emitted inside those modules. This call handles
+# App Insights, which has no module wrapper of its own — the AVM `insights-component`
+# module does not expose a `diagnostic_settings` input, so we wire the wrapper
+# at the composition level.
+module "application_insights_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
+  name                       = "appi-diagnostics"
+  target_resource_id         = module.monitoring.application_insights_id
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 }
 
 # Workload-identity federated credentials so the running workloads can obtain

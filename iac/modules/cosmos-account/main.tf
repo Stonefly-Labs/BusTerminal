@@ -67,20 +67,26 @@ resource "azurerm_cosmosdb_account" "this" {
   tags = var.tags
 }
 
-resource "azurerm_monitor_diagnostic_setting" "this" {
+# Spec 005 / T085 — diagnostic setting routed through the central
+# `diagnostic-settings` wrapper (enforces `allLogs`-only per Q5c by construction
+# — the wrapper does NOT emit an `enabled_metric` block). The prior inline
+# resource included `enabled_metric { category = "AllMetrics" }`, which is
+# removed here per Q5c. The `moved` block migrates existing state addresses
+# into the module path so Tofu treats the change as an attribute update on the
+# same Azure resource rather than a destroy/create cycle.
+module "diagnostics" {
   count = var.log_analytics_workspace_id == null ? 0 : 1
+
+  source = "../diagnostic-settings"
 
   name                       = "${var.name}-diagnostics"
   target_resource_id         = azurerm_cosmosdb_account.this.id
   log_analytics_workspace_id = var.log_analytics_workspace_id
+}
 
-  enabled_log {
-    category_group = "allLogs"
-  }
-
-  enabled_metric {
-    category = "AllMetrics"
-  }
+moved {
+  from = azurerm_monitor_diagnostic_setting.this[0]
+  to   = module.diagnostics[0].azurerm_monitor_diagnostic_setting.this
 }
 
 # Spec 005 — conditional private endpoint via the project's PE wrapper

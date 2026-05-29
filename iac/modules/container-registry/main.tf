@@ -16,12 +16,16 @@ module "registry" {
   # Static key (`audit`) so `for_each` inside the AVM diagnostic-setting
   # resource can enumerate at plan time even when `workspace_resource_id`
   # is only known after apply (first plan against empty state).
+  #
+  # Spec 005 / T085 / Q5c — `metric_categories = []` drops the AVM's default
+  # `["AllMetrics"]` so the emitted diagnostic setting contains zero metric
+  # blocks. The `allLogs` log group still flows. Satisfies BT-IAC-003.
   diagnostic_settings = {
     audit = {
       name                  = "acr-diagnostics"
       workspace_resource_id = var.log_analytics_workspace_id
       log_groups            = ["allLogs"]
-      metric_categories     = ["AllMetrics"]
+      metric_categories     = []
     }
   }
 

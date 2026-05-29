@@ -195,23 +195,23 @@
 
 ### Refactor existing inline diagnostic settings to use the new module (US4)
 
-- [ ] T084 [US4] Refactor the existing `azurerm_monitor_diagnostic_setting` blocks at `iac/environments/dev/main.tf` (the Container App API + Web diagnostic settings currently containing `enabled_metric { category = "AllMetrics" }` blocks per `data-model.md` §2.2) to use `module.diagnostic-settings` (T017) — this REMOVES the `enabled_metric` blocks per Q5c
-- [ ] T085 [US4] Refactor any inline `azurerm_monitor_diagnostic_setting` in `iac/modules/cosmos-account/main.tf`, `iac/modules/keyvault/main.tf`, `iac/modules/container-apps-env/main.tf`, `iac/modules/container-registry/main.tf`, `iac/modules/monitoring/main.tf` to delegate to the `diagnostic-settings` module (one module call per resource per `contracts/policy-rules.md` §`BT-IAC-003`)
-- [ ] T086 [US4] Add `module.diagnostic-settings` calls in dev composition for every NEW resource introduced by US1: AI Search service (handled inside `module.ai-search` per T037), Service Bus namespace (handled inside `module.service-bus` per T045), and App Insights itself (target `azurerm_application_insights.this`)
+- [X] T084 [US4] Refactor the existing `azurerm_monitor_diagnostic_setting` blocks at `iac/environments/dev/main.tf` (the Container App API + Web diagnostic settings currently containing `enabled_metric { category = "AllMetrics" }` blocks per `data-model.md` §2.2) to use `module.diagnostic-settings` (T017) — this REMOVES the `enabled_metric` blocks per Q5c
+- [X] T085 [US4] Refactor any inline `azurerm_monitor_diagnostic_setting` in `iac/modules/cosmos-account/main.tf`, `iac/modules/keyvault/main.tf`, `iac/modules/container-apps-env/main.tf`, `iac/modules/container-registry/main.tf`, `iac/modules/monitoring/main.tf` to delegate to the `diagnostic-settings` module (one module call per resource per `contracts/policy-rules.md` §`BT-IAC-003`). **Implemented as**: cosmos-account had a true inline `azurerm_monitor_diagnostic_setting` → replaced with `module.diagnostics` + `moved` block. keyvault / container-apps-env / container-registry / monitoring use the AVM `diagnostic_settings` input (not inline); switched `metric_categories = []` to drop the AVM-generated metric block while keeping the AVM-emitted setting at its existing state address (zero state churn). Both shapes are BT-IAC-003 compliant.
+- [X] T086 [US4] Add `module.diagnostic-settings` calls in dev composition for every NEW resource introduced by US1: AI Search service (handled inside `module.ai-search` per T037), Service Bus namespace (handled inside `module.service-bus` per T045), and App Insights itself (target `azurerm_application_insights.this`)
 
 ### LAW retention as tf-var (US4)
 
-- [ ] T087 [US4] Confirm `iac/modules/monitoring/variables.tf` has `retention_in_days` variable (per `research.md` §8 it already does); ensure the default is `30`
-- [ ] T088 [US4] Extend `iac/environments/dev/main.tf` `module.monitoring` invocation to pass `retention_in_days = var.log_analytics_retention_days` (T027 added the env-level var)
+- [X] T087 [US4] Confirm `iac/modules/monitoring/variables.tf` has `retention_in_days` variable (per `research.md` §8 it already does); ensure the default is `30`
+- [X] T088 [US4] Extend `iac/environments/dev/main.tf` `module.monitoring` invocation to pass `retention_in_days = var.log_analytics_retention_days` (T027 added the env-level var)
 
 ### Output wiring (US4)
 
-- [ ] T089 [US4] Extend `iac/environments/dev/outputs.tf` (US1's T066) to include `log_analytics_workspace_id`, `log_analytics_workspace_customer_id`, `application_insights_id`, `application_insights_app_id`, `application_insights_name`, `app_insights_connection_string_secret_uri` per `contracts/outputs-contract.md` §Observability + §Secrets
+- [X] T089 [US4] Extend `iac/environments/dev/outputs.tf` (US1's T066) to include `log_analytics_workspace_id`, `log_analytics_workspace_customer_id`, `application_insights_id`, `application_insights_app_id`, `application_insights_name`, `app_insights_connection_string_secret_uri` per `contracts/outputs-contract.md` §Observability + §Secrets
 
 ### KV secret materialization for App Insights connection string (US4 — implements Q1c)
 
-- [ ] T090 [US4] Verify `iac/environments/dev/main.tf` already provisions `azurerm_key_vault_secret.app_insights_connection_string` referencing `azurerm_application_insights.this.connection_string` (existing per spec 002 lines 127–145 per `research.md` §6). If absent, add it with `content_type = "application/x-azure-monitor-connection-string"` and a far-future `expiration_date` matching the existing CKV_AZURE_41 convention
-- [ ] T091 [US4] Verify the existing Container Apps `secret` blocks reference the KV secret URI and the workload UAMI holds `Key Vault Secrets User` on the vault (existing per spec 002); document in PR description that no change is needed if already in place
+- [X] T090 [US4] Verify `iac/environments/dev/main.tf` already provisions `azurerm_key_vault_secret.app_insights_connection_string` referencing `azurerm_application_insights.this.connection_string` (existing per spec 002 lines 127–145 per `research.md` §6). If absent, add it with `content_type = "application/x-azure-monitor-connection-string"` and a far-future `expiration_date` matching the existing CKV_AZURE_41 convention
+- [X] T091 [US4] Verify the existing Container Apps `secret` blocks reference the KV secret URI and the workload UAMI holds `Key Vault Secrets User` on the vault (existing per spec 002); document in PR description that no change is needed if already in place
 
 **Checkpoint**: User Story 4 fully testable — every supported resource shows up in the LAW; queries against `AzureDiagnostics` return rows for all expected resources; `AzureMetrics` table is empty for the resources affected by T084 (per Q5c); App Insights data is queryable end-to-end via both AAD (backend) and ingestion-key (browser) paths.
 
