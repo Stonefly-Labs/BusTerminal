@@ -67,8 +67,13 @@ EXPECTED_SHA=$(shasum -a 256 "$LOCKFILE" | awk '{print $1}')
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-COMPOSITION_NAME=$(basename "$COMPOSITION_DIR")
-COMPOSITION_PARENT=$(cd "$COMPOSITION_DIR/../.." && pwd)
+# Normalize to an absolute path before computing basename / parent so the
+# `--composition-dir .` form (CI passes this with CWD == the env dir)
+# resolves the same way as the absolute form. Otherwise basename "." is "."
+# and `cd ./../..` walks up from CWD, breaking the parent-layout mirror.
+COMPOSITION_DIR_ABS=$(cd "$COMPOSITION_DIR" && pwd)
+COMPOSITION_NAME=$(basename "$COMPOSITION_DIR_ABS")
+COMPOSITION_PARENT=$(dirname "$(dirname "$COMPOSITION_DIR_ABS")")
 COMPOSITION_WORK="$WORK_DIR/environments/$COMPOSITION_NAME"
 
 mkdir -p "$COMPOSITION_WORK"

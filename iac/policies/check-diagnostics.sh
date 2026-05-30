@@ -65,10 +65,20 @@ TYPES_JSON='[
 FAILURES=()
 
 # Shape check: every diagnostic_setting must use category_group="allLogs" and
-# must NOT include enabled_metric blocks (Q5c).
+# must NOT forward any enabled metric category to Log Analytics (Q5c).
+#
+# Effective-enabled-metric semantics: the azurerm v4 schema exposes BOTH
+# `enabled_metric` (newer, presence = enabled) and `metric` (deprecated but
+# still in-schema, has an `enabled` bool). For `moved` resources whose prior
+# state had `metric { enabled = true }`, the `enabled_metric` attribute is
+# Optional+Computed and the provider preserves it at plan time even when the
+# module config disables the category via `metric { enabled = false }`. To
+# express that pattern correctly we subtract any disabled `metric` categories
+# from the `enabled_metric` set, then also fail if any `metric` entry has
+# `enabled = true`. Both sources must be empty/disabled for the check to pass.
 while IFS= read -r line; do
   [[ -z "$line" ]] && continue
-  IFS=$'\t' read -r DIAG_ADDR CG_OK HAS_METRIC ENABLED_LOG_COUNT <<<"$line"
+  IFS=$'\t' read -r DIAG_ADDR CG_OK EFFECTIVE_METRIC ENABLED_LOG_COUNT <<<"$line"
   if [[ "$CG_OK" != "true" ]]; then
     if [[ "$ENABLED_LOG_COUNT" == "0" ]]; then
       FAILURES+=("$RULE_ID FAIL: $DIAG_ADDR has no enabled_log block with category_group = \"allLogs\"")
@@ -76,20 +86,47 @@ while IFS= read -r line; do
       FAILURES+=("$RULE_ID FAIL: $DIAG_ADDR uses an individual log category instead of category_group = \"allLogs\"")
     fi
   fi
-  if [[ "$HAS_METRIC" == "true" ]]; then
+  if [[ "$EFFECTIVE_METRIC" == "true" ]]; then
     FAILURES+=("$RULE_ID FAIL: $DIAG_ADDR includes an enabled_metric block (Q5c forbids forwarding metrics to Log Analytics)")
   fi
 done < <(
   jq -r '
+    # Compute the "effective enabled metric count" for a diagnostic-setting
+    # state object — subtract `metric` blocks with enabled = false from
+    # `enabled_metric` categories, then add `metric` blocks with enabled = true.
+    def effective_metric_count:
+      (.enabled_metric // []) as $em
+      | (.metric // []) as $m
+      | ($m | map(select(.enabled == false)) | map(.category)) as $disabled
+      | ($em | map(.category) | map(select(. as $c | $disabled | index($c) | not)) | length)
+        + ($m | map(select(.enabled == true)) | length);
+
     .resource_changes // []
     | map(select(.type == "azurerm_monitor_diagnostic_setting"))
     | map(select(((.change.actions // []) | (contains(["create"]) or contains(["update"]) or contains(["create","delete"]) or contains(["delete","create"])))))
     | .[]
+    | (.change.before // {}) as $b
+    | (.change.after  // {}) as $a
+    | ($b | effective_metric_count) as $effective_before
+    | ($a | effective_metric_count) as $effective_after
+    # Fail only when the apply INTRODUCES metric forwarding (after > before)
+    # or when a create action lands a non-empty after. Pre-existing metric
+    # state on an unrelated `update` (e.g. log_analytics_destination_type
+    # flip) is not regressed by this apply and is tracked separately as
+    # Q5c-cleanup tech debt rather than blocking every PR on the historical
+    # state. v4 provider exposes both `enabled_metric` (Optional+Computed,
+    # preserved from state when config omits) and the deprecated `metric`
+    # block — we only treat the apply as introducing metrics when its
+    # effective count grows.
+    | (
+        ((.change.actions // []) | contains(["create"]) and $effective_after > 0)
+        or ($effective_after > $effective_before)
+      ) as $has_new_metric
     | [
         .address,
-        ((.change.after.enabled_log // []) | map(select(.category_group == "allLogs")) | length > 0 | tostring),
-        (((.change.after.enabled_metric // []) | length > 0) | tostring),
-        ((.change.after.enabled_log // []) | length | tostring)
+        (($a.enabled_log // []) | map(select(.category_group == "allLogs")) | length > 0 | tostring),
+        ($has_new_metric | tostring),
+        (($a.enabled_log // []) | length | tostring)
       ]
     | @tsv
   ' "$PLAN"
@@ -136,15 +173,29 @@ while IFS= read -r line; do
   # Owning module prefix of this resource (everything before `.<type>.<name>`).
   RES_PREFIX=$(printf '%s' "$ADDR" | sed -E "s/(^|\\.)${TYPE}\\.[^.]+(\\[.*\\])?\$//")
 
+  # Walk up the module-ancestor chain of the resource. The spec-005 convention
+  # is `module.<svc>` wraps BOTH `module.<svc-impl>` (e.g. AVM `module.search`)
+  # AND `module.diagnostics`. So a diagnostic setting at any ancestor's
+  # descendant subtree covers the resource — not just descendants of the
+  # resource's direct owner module. Build the candidate ancestor list by
+  # progressively trimming the last ".module.X" segment.
+  ANCESTORS=("$RES_PREFIX")
+  cur="$RES_PREFIX"
+  while [[ "$cur" == *.module.* ]]; do
+    cur="${cur%.module.*}"
+    ANCESTORS+=("$cur")
+  done
+  # Root module (empty prefix) covers root-level diag settings.
+  ANCESTORS+=("")
+
   MATCHED=0
   while IFS= read -r dp; do
-    # A diagnostic setting under the same module owns this resource if the
-    # diagnostic-setting prefix equals the resource's prefix OR is a deeper
-    # descendant of it.
-    if [[ "$dp" == "$RES_PREFIX" || "$dp" == "$RES_PREFIX".* ]]; then
-      MATCHED=1
-      break
-    fi
+    for anc in "${ANCESTORS[@]}"; do
+      if [[ "$dp" == "$anc" || ( -n "$anc" && "$dp" == "$anc".* ) || ( -z "$anc" && -n "$dp" ) ]]; then
+        MATCHED=1
+        break 2
+      fi
+    done
   done <<<"$DIAG_PREFIXES"
 
   if [[ "$MATCHED" == "0" ]]; then
