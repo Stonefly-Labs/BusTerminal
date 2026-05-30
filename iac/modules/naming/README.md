@@ -4,29 +4,34 @@ Single source of truth for BusTerminal Azure resource names. Pure-HCL module —
 
 The names this module emits are consumed by every env composition (`iac/environments/<env>/main.tf`) and propagated downstream to every resource module that needs a name. Centralizing the pattern here means a future rename only changes one file.
 
+<!-- BEGIN_TF_DOCS -->
+
+
 ## Inputs
 
-| Name | Type | Required | Description |
-|---|---|---|---|
-| `environment_name` | string | yes | One of `dev`, `test`, `prod`. |
-| `naming_prefix` | string | yes | Short hyphenated prefix matching `^bt-[a-z0-9]{2,8}$` (e.g., `bt-dev`). |
-| `unique_suffix` | string | yes | 4–12 lowercase alphanumeric chars. Used for globally-unique resource names (KV, ACR, Cosmos, Search, Service Bus). |
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_environment_name"></a> [environment\_name](#input\_environment\_name) | Logical environment name. One of dev, test, prod. | `string` | n/a | yes |
+| <a name="input_naming_prefix"></a> [naming\_prefix](#input\_naming\_prefix) | Short hyphenated prefix applied to every derived resource name (e.g., bt-dev, bt-test, bt-prod). | `string` | n/a | yes |
+| <a name="input_unique_suffix"></a> [unique\_suffix](#input\_unique\_suffix) | Globally-unique suffix appended to names that require uniqueness across Azure (Key Vault, ACR, Cosmos, Search, Service Bus). 4-12 lowercase alphanumeric characters. | `string` | n/a | yes |
 
 ## Outputs
 
-| Name | Pattern | Notes |
-|---|---|---|
-| `resource_group_name` | `rg-<naming_prefix>` | |
-| `log_analytics_workspace_name` | `log-<naming_prefix>` | |
-| `application_insights_name` | `appi-<naming_prefix>` | |
-| `key_vault_name` | `kv-<naming_prefix>-<unique_suffix>` | Globally unique. |
-| `container_registry_name` | `acr<naming_prefix><unique_suffix>` | Hyphens stripped (ACR name disallows them). Globally unique. |
-| `container_apps_env_name` | `cae-<naming_prefix>` | |
-| `cosmos_account_name` | `cosmos-<naming_prefix>-<unique_suffix>` | Globally unique. |
-| `ai_search_name` | `srch-<naming_prefix>-<unique_suffix>` | Globally unique. |
-| `service_bus_name` | `sbns-<naming_prefix>-<unique_suffix>` | Globally unique. |
-| `vnet_name` | `vnet-<naming_prefix>` | |
-| `workload_uami_name` | `mi-<naming_prefix>-workload` | |
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_ai_search_name"></a> [ai\_search\_name](#output\_ai\_search\_name) | Azure AI Search service name (srch-<naming\_prefix>-<unique\_suffix>). Globally unique. |
+| <a name="output_application_insights_name"></a> [application\_insights\_name](#output\_application\_insights\_name) | Application Insights resource name (appi-<naming\_prefix>). |
+| <a name="output_container_apps_env_name"></a> [container\_apps\_env\_name](#output\_container\_apps\_env\_name) | Container Apps Environment name (cae-<naming\_prefix>). |
+| <a name="output_container_registry_name"></a> [container\_registry\_name](#output\_container\_registry\_name) | Azure Container Registry name (acr<naming\_prefix><unique\_suffix>, hyphens stripped). Globally unique. |
+| <a name="output_cosmos_account_name"></a> [cosmos\_account\_name](#output\_cosmos\_account\_name) | Cosmos DB account name (cosmos-<naming\_prefix>-<unique\_suffix>). Globally unique. |
+| <a name="output_key_vault_name"></a> [key\_vault\_name](#output\_key\_vault\_name) | Key Vault name (kv-<naming\_prefix>-<unique\_suffix>). Globally unique. |
+| <a name="output_log_analytics_workspace_name"></a> [log\_analytics\_workspace\_name](#output\_log\_analytics\_workspace\_name) | Log Analytics Workspace name (log-<naming\_prefix>). |
+| <a name="output_mandatory_tags"></a> [mandatory\_tags](#output\_mandatory\_tags) | Mandatory tag set per data-model.md §1.2 (application/environment/managed-by/cost-center/owner). Env compositions merge operator-supplied tags on top of this set. |
+| <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Env resource group name (rg-<naming\_prefix>). |
+| <a name="output_service_bus_name"></a> [service\_bus\_name](#output\_service\_bus\_name) | Service Bus namespace name (sbns-<naming\_prefix>-<unique\_suffix>). Globally unique. |
+| <a name="output_vnet_name"></a> [vnet\_name](#output\_vnet\_name) | Virtual network name (vnet-<naming\_prefix>). |
+| <a name="output_workload_uami_name"></a> [workload\_uami\_name](#output\_workload\_uami\_name) | Workload user-assigned managed identity name (mi-<naming\_prefix>-workload). |
+<!-- END_TF_DOCS -->
 
 ## Usage
 

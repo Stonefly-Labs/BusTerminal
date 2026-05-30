@@ -114,8 +114,13 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Observability backbone | **Azure Monitor** + **Application Insights** + **OpenTelemetry for Azure Monitor** | All Azure services must route diagnostic logs to the solution's Log Analytics Workspace. |
 | Infrastructure-as-Code | **OpenTofu** (required) | **Bicep is prohibited** unless approved by ADR-recorded exception. |
 | IaC modules | **Azure Verified Modules (AVM) preferred** | Versions pinned explicitly. Deviations documented in spec or ADR. Exceptions allowed when AVM lacks coverage, blocks secure networking, or introduces unreasonable complexity. |
+| IaC diagnostics convention | **`allLogs`-only diagnostic forwarding** via the project's `iac/modules/diagnostic-settings` wrapper. | Every Azure resource emits a single `enabled_log` block with `category_group = "allLogs"` and **no `enabled_metric` block**. Metrics stay in Azure Monitor's native metric store. Forwarding `AllMetrics` to LAW is prohibited (BT-IAC-003). Originated in spec 005 (Q5c). |
+| IaC policy gates | **BT-IAC-001..007** custom rules (`iac/policies/run-policies.sh`) plus checkov + tfsec. | Gate enumeration: BT-IAC-001 (workload UAMI role-assignment allowlist per FR-033) · BT-IAC-002 (private-by-default for prod) · BT-IAC-003 (`allLogs`-only diagnostics) · BT-IAC-004 (no inline IAM in env compositions) · BT-IAC-005 (no inline credentials) · BT-IAC-006 (`.terraform.lock.hcl` drift) · BT-IAC-007 (stateful-destroy manual approval). Allowlist with per-skip rationale lives in `iac/policies/allowlist.json`. |
+| IaC module docs | **`terraform-docs` inject mode** is the CI formatting gate. | Each `iac/modules/<m>/README.md` carries `<!-- BEGIN_TF_DOCS -->` / `<!-- END_TF_DOCS -->` markers; `iac/.terraform-docs.yml` drives recursive injection. CI fails on drift (`fail-on-diff: true`). Locally regenerate with `terraform-docs -c iac/.terraform-docs.yml iac`. |
+| IaC env posture (Q2c) | **Dev**: `data_services_public_access_enabled = true` + `private_endpoints_enabled = true` (warm PEs, public-on). **Test/prod**: public access disabled by default. | Originated in spec 005. Net effect: dev keeps CI-runner reachability; test/prod enforce private-by-default via BT-IAC-002. |
+| Stateful resource protection | `lifecycle { prevent_destroy = true }` on directly-owned stateful resources; BT-IAC-007 manual-approval gate is the primary CI defense; AVM-wrapped stateful resources documented in `iac/environments/dev/README.md`. | Stateful resource list lives in `specs/005-infrastructure-baseline/data-model.md` §3. |
 | Environment parity | Strongly preferred | Reproducible deployments mandatory. |
-| Networking defaults | Secure-by-default; private networking preferred where feasible | |
+| Networking defaults | Secure-by-default; private networking preferred where feasible | Per-env `private_endpoints_enabled` toggle. Networking module provisions VNet + integration subnet + PE subnet + per-service `privatelink.*` DNS zones; the project's `private-endpoint` wrapper binds PEs to the right subresource per service. |
 
 ---
 
@@ -142,6 +147,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 |---|---|
 | Spec-driven development | All significant functionality begins with a spec (Constitution requires it). |
 | CI gates | Build, unit tests, lint, format, security scanning, dependency vulnerability scanning. Main branch continuously deployable. |
+| IaC CI gates | `tofu fmt -check -recursive` · `tofu validate` · `tofu plan` (PR comment) · `tflint --recursive` · `checkov` (source + plan frameworks) · `tfsec` · custom **BT-IAC-001..007** policy rules · `terraform-docs --output-check` (module README drift) · `iac-stateful-change-approval` manual-approval job (BT-IAC-007). |
 | Testing strategy | Unit, integration, contract, UI component, and end-to-end smoke. Tests assert observable behavior, not implementation detail. |
 | E2E | **Playwright** |
 | Component tests | **Vitest** + **React Testing Library**; **axe** for accessibility |

@@ -38,6 +38,18 @@ jobs:
         working-directory: iac
         run: tofu fmt -check -recursive -diff
 
+      # Spec 005 / Polish / T126 — fail the build when a module's README
+      # drifts from its variables.tf / outputs.tf. Run locally with
+      # `terraform-docs -c iac/.terraform-docs.yml iac` (no --output-check)
+      # to regenerate; the inject markers preserve the hand-written prose.
+      - name: terraform-docs (module READMEs in sync)
+        uses: terraform-docs/gh-actions@v1
+        with:
+          working-dir: iac
+          config-file: .terraform-docs.yml
+          output-method: inject
+          fail-on-diff: true
+
       - name: tofu init -backend=false (dev composition)
         working-directory: iac/environments/dev
         run: tofu init -backend=false

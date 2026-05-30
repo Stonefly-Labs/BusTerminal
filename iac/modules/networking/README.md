@@ -17,28 +17,37 @@ Spec 005 / Phase 3 / US1 — implements the topology in
 | `snet-cae-integration` | Container Apps Environment VNet integration (deferred retrofit — subnet provisioned warm) | delegated to `Microsoft.App/environments` |
 | `snet-private-endpoints` | All private endpoints for data services (KV, Cosmos, AI Search, SB Premium, ACR) | `private_endpoint_network_policies = "Disabled"` |
 
+<!-- BEGIN_TF_DOCS -->
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [terraform_data.subnet_validation](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/data-sources/resource_group) | data source |
+
 ## Inputs
 
-| Name | Type | Required | Description |
-|---|---|---|---|
-| `vnet_name` | string | yes | Convention: `vnet-<naming_prefix>` |
-| `resource_group_name` | string | yes | Env RG (module derives the RG resource ID via a data source) |
-| `location` | string | yes | Azure region |
-| `address_space` | list(string) | yes | e.g., `["10.50.0.0/16"]` |
-| `subnet_integration_cidr` | string | yes | `/23` minimum (CAE requirement) |
-| `subnet_private_endpoints_cidr` | string | yes | `/24` recommended |
-| `private_dns_zones` | list(string) | yes | Zone names to provision (e.g., `privatelink.vaultcore.azure.net`) |
-| `tags` | map(string) | no (default `{}`) | Tags merged onto VNet, subnets, and every zone |
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_address_space"></a> [address\_space](#input\_address\_space) | VNet address space (e.g., ["10.50.0.0/16"]). Per env per research §10. | `list(string)` | n/a | yes |
+| <a name="input_location"></a> [location](#input\_location) | Azure region for the VNet. | `string` | n/a | yes |
+| <a name="input_private_dns_zones"></a> [private\_dns\_zones](#input\_private\_dns\_zones) | List of private DNS zone names to provision and link to this VNet (e.g.,<br/>`privatelink.vaultcore.azure.net`, `privatelink.documents.azure.com`,<br/>`privatelink.search.windows.net`, `privatelink.servicebus.windows.net`,<br/>`privatelink.azurecr.io`). Per research §11 — the env composition decides<br/>which zones to provision based on `private_endpoints_enabled`. | `list(string)` | n/a | yes |
+| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting the VNet and private DNS zones (typically the env RG). | `string` | n/a | yes |
+| <a name="input_subnet_integration_cidr"></a> [subnet\_integration\_cidr](#input\_subnet\_integration\_cidr) | CIDR for the Container Apps Environment integration subnet. /23 minimum (Azure CAE requirement). Must be inside address\_space. | `string` | n/a | yes |
+| <a name="input_subnet_private_endpoints_cidr"></a> [subnet\_private\_endpoints\_cidr](#input\_subnet\_private\_endpoints\_cidr) | CIDR for the private-endpoints subnet. /24 recommended. Must be inside address\_space and non-overlapping with subnet\_integration\_cidr. | `string` | n/a | yes |
+| <a name="input_vnet_name"></a> [vnet\_name](#input\_vnet\_name) | Virtual network name (from naming module). Convention: `vnet-<naming_prefix>`. | `string` | n/a | yes |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags merged onto the VNet, subnets, and every private DNS zone. | `map(string)` | `{}` | no |
 
 ## Outputs
 
-| Name | Type | Description |
-|---|---|---|
-| `vnet_id` | string | Resource ID of the VNet |
-| `vnet_name` | string | VNet name echo |
-| `subnet_integration_id` | string | Resource ID of `snet-cae-integration` |
-| `subnet_private_endpoints_id` | string | Resource ID of `snet-private-endpoints` |
-| `private_dns_zone_ids` | map(string) | Keyed by zone name → zone resource ID |
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_private_dns_zone_ids"></a> [private\_dns\_zone\_ids](#output\_private\_dns\_zone\_ids) | Map of private DNS zone resource IDs keyed by zone name (e.g., `privatelink.vaultcore.azure.net` → /subscriptions/.../privateDnsZones/privatelink.vaultcore.azure.net). Consumed by per-service PE wrapper module calls in the env composition. |
+| <a name="output_subnet_integration_id"></a> [subnet\_integration\_id](#output\_subnet\_integration\_id) | Resource ID of the CAE integration subnet (snet-cae-integration). Delegated to Microsoft.App/environments; consumed by the future Container Apps Environment VNet-integration retrofit. |
+| <a name="output_subnet_private_endpoints_id"></a> [subnet\_private\_endpoints\_id](#output\_subnet\_private\_endpoints\_id) | Resource ID of the private-endpoints subnet (snet-private-endpoints). PE attachment-ready (private\_endpoint\_network\_policies = Disabled). |
+| <a name="output_vnet_id"></a> [vnet\_id](#output\_vnet\_id) | Resource ID of the VNet. |
+| <a name="output_vnet_name"></a> [vnet\_name](#output\_vnet\_name) | VNet name (echo of var.vnet\_name). |
+<!-- END_TF_DOCS -->
 
 ## Validations / preconditions
 

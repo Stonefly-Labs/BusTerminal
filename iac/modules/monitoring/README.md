@@ -5,30 +5,38 @@ Provisions the env-scoped observability backbone: a Log Analytics Workspace (LAW
 - LAW: `Azure/avm-res-operationalinsights-workspace/azurerm` pinned to `0.4.2`.
 - App Insights: `Azure/avm-res-insights-component/azurerm` pinned to `0.3.0`.
 
+<!-- BEGIN_TF_DOCS -->
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [azurerm_key_vault_secret.app_insights_connection_string](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault_secret) | resource |
+
 ## Inputs
 
-| Name | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `log_analytics_workspace_name` | string | yes | n/a | LAW resource name. |
-| `application_insights_name` | string | yes | n/a | App Insights component name. |
-| `resource_group_name` | string | yes | n/a | RG hosting both resources. |
-| `location` | string | yes | n/a | Azure region. |
-| `retention_in_days` | number | no | `30` | LAW retention. Spec 005 / Q5c default; valid range 30–730. |
-| `key_vault_id` | string | no | `null` | When set, an `azurerm_key_vault_secret` named `ApplicationInsightsConnectionString` is created in this KV. Set to `null` to skip (when the env composition wants to materialize the secret itself to break a cycle). |
-| `local_authentication_disabled` | bool | no | `false` | See § Local authentication. |
-| `tags` | map(string) | no | `{}` | Applied to both resources. |
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_application_insights_name"></a> [application\_insights\_name](#input\_application\_insights\_name) | Name of the Application Insights component. | `string` | n/a | yes |
+| <a name="input_location"></a> [location](#input\_location) | Azure region for the monitoring resources. | `string` | n/a | yes |
+| <a name="input_log_analytics_workspace_name"></a> [log\_analytics\_workspace\_name](#input\_log\_analytics\_workspace\_name) | Name of the Log Analytics Workspace. | `string` | n/a | yes |
+| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting both monitoring resources. | `string` | n/a | yes |
+| <a name="input_key_vault_id"></a> [key\_vault\_id](#input\_key\_vault\_id) | Optional Key Vault ID where the Application Insights connection string is exposed as a secret for workload consumption. Set to null to skip secret creation. | `string` | `null` | no |
+| <a name="input_local_authentication_disabled"></a> [local\_authentication\_disabled](#input\_local\_authentication\_disabled) | Forwarded to `azurerm_application_insights.local_authentication_disabled`<br/>(via the AVM `local_authentication_disabled` input). Spec 005 / Q1c /<br/>research §6: MUST remain `false`. The Application Insights JavaScript SDK<br/>does NOT support Microsoft Entra ingestion authentication<br/>(https://learn.microsoft.com/azure/azure-monitor/app/azure-ad-authentication#unsupported-scenarios),<br/>so disabling local auth would break all browser telemetry. The backend<br/>.NET OpenTelemetry exporter authenticates via AAD using<br/>`APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=..."`,<br/>which works ALONGSIDE local auth — not as a replacement for it. See<br/>README.md § Local authentication. | `bool` | `false` | no |
+| <a name="input_retention_in_days"></a> [retention\_in\_days](#input\_retention\_in\_days) | Log Analytics workspace data-retention period in days. | `number` | `30` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to both monitoring resources. | `map(string)` | `{}` | no |
 
 ## Outputs
 
 | Name | Description |
-|---|---|
-| `log_analytics_workspace_id` | LAW resource ID — pass to `diagnostic-settings` module sinks. |
-| `log_analytics_workspace_customer_id` | LAW workspace GUID. |
-| `application_insights_id` | App Insights resource ID — scope for `Monitoring Metrics Publisher` grants. |
-| `application_insights_app_id` | App Insights `app_id` GUID (REST query API). |
-| `application_insights_name` | Echo of `var.application_insights_name`. |
-| `application_insights_connection_string` | Sensitive. Prefer consuming via the KV-secret URI. |
-| `app_insights_connection_string_secret_uri` | KV secret URI (`null` when `key_vault_id` is `null`). |
+| ---- | ----------- |
+| <a name="output_app_insights_connection_string_secret_uri"></a> [app\_insights\_connection\_string\_secret\_uri](#output\_app\_insights\_connection\_string\_secret\_uri) | Key Vault secret URI exposing the connection string (null when no Key Vault was passed). |
+| <a name="output_application_insights_app_id"></a> [application\_insights\_app\_id](#output\_application\_insights\_app\_id) | Application Insights `app_id` — a stable GUID identifying the AI component in the REST query API. |
+| <a name="output_application_insights_connection_string"></a> [application\_insights\_connection\_string](#output\_application\_insights\_connection\_string) | Application Insights connection string. Sensitive — prefer consuming via the Key Vault reference exposed by `app_insights_connection_string_secret_uri`. |
+| <a name="output_application_insights_id"></a> [application\_insights\_id](#output\_application\_insights\_id) | Resource ID of the Application Insights component. |
+| <a name="output_application_insights_name"></a> [application\_insights\_name](#output\_application\_insights\_name) | Application Insights resource name (echo of var.application\_insights\_name). |
+| <a name="output_log_analytics_workspace_customer_id"></a> [log\_analytics\_workspace\_customer\_id](#output\_log\_analytics\_workspace\_customer\_id) | LAW customer (workspace) GUID — needed by some agents that authenticate against the workspace by GUID. |
+| <a name="output_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#output\_log\_analytics\_workspace\_id) | Resource ID of the Log Analytics Workspace. Pass to other modules for diagnostic-settings sinks. |
+<!-- END_TF_DOCS -->
 
 ## Local authentication
 

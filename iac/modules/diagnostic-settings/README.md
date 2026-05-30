@@ -7,19 +7,28 @@ Thin wrapper around `azurerm_monitor_diagnostic_setting` that enforces the BusTe
 
 Using this module everywhere instead of inline `azurerm_monitor_diagnostic_setting` blocks makes the convention impossible to violate by accident.
 
+<!-- BEGIN_TF_DOCS -->
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [azurerm_monitor_diagnostic_setting.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/monitor_diagnostic_setting) | resource |
+
 ## Inputs
 
-| Name | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | yes | Diagnostic setting resource name. Convention: `diag-<short-resource-name>`. |
-| `target_resource_id` | string | yes | Azure resource ID of the resource whose diagnostics should be forwarded. |
-| `log_analytics_workspace_id` | string | yes | Destination Log Analytics Workspace ID. |
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_log_analytics_workspace_id"></a> [log\_analytics\_workspace\_id](#input\_log\_analytics\_workspace\_id) | Destination Log Analytics Workspace ID for all forwarded logs. | `string` | n/a | yes |
+| <a name="input_name"></a> [name](#input\_name) | Diagnostic setting resource name. Convention: `diag-<short-resource-name>`. | `string` | n/a | yes |
+| <a name="input_target_resource_id"></a> [target\_resource\_id](#input\_target\_resource\_id) | Azure resource ID of the resource whose diagnostics should be forwarded. | `string` | n/a | yes |
+| <a name="input_disable_metric_categories"></a> [disable\_metric\_categories](#input\_disable\_metric\_categories) | Metric categories to explicitly DISABLE via the deprecated `metric` block<br/>with `enabled = false`. Required for `moved` resources whose prior state<br/>had a metric category enabled — without an explicit disable, the v4<br/>provider's Optional+Computed behavior preserves the existing block. The<br/>default `["AllMetrics"]` works for every Azure Monitor target this module<br/>fronts in spec 005. Set to `[]` if a future target doesn't accept the<br/>AllMetrics meta-category. Per Q5c, no metric category should be forwarded<br/>to Log Analytics, so the only sensible values are subsets of categories<br/>the target supports. | `list(string)` | <pre>[<br/>  "AllMetrics"<br/>]</pre> | no |
 
 ## Outputs
 
 | Name | Description |
-|---|---|
-| `id` | Resource ID of the diagnostic setting. |
+| ---- | ----------- |
+| <a name="output_id"></a> [id](#output\_id) | Resource ID of the diagnostic setting. |
+<!-- END_TF_DOCS -->
 
 ## FR-047 compliance — no PII leakage via `allLogs`
 

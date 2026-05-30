@@ -67,3 +67,31 @@ module "workload_federation_environment" {
 - `subject` must be non-empty and **must not contain `*`** — wildcards
   widen trust beyond a single repo/branch/env and require an ADR-recorded
   exception per data-model.md § Federated Credential
+
+<!-- BEGIN_TF_DOCS -->
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [azurerm_federated_identity_credential.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/federated_identity_credential) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_name"></a> [name](#input\_name) | Display name shown in the Entra portal and surfaced in federation-failure<br/>diagnostics (FR-030). Convention: `github-environment-<env>` for<br/>environment-scoped subjects; `github-branch-<branch>` for branch-scoped<br/>subjects. | `string` | n/a | yes |
+| <a name="input_parent_id"></a> [parent\_id](#input\_parent\_id) | Resource ID of the parent user-assigned managed identity that this<br/>credential federates *to*. Typically `module.workload_identity.id` or<br/>`module.pipeline_identity[<env>].resource_id`. | `string` | n/a | yes |
+| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group of the parent managed identity. Required by the underlying provider even though the FIC itself is a child resource of the MI. | `string` | n/a | yes |
+| <a name="input_subject"></a> [subject](#input\_subject) | Federation subject pattern that the inbound OIDC token's `sub` claim<br/>must match exactly. Common shapes:<br/>  - `repo:<org>/<repo>:environment:<env>`  (deployment env subjects)<br/>  - `repo:<org>/<repo>:ref:refs/heads/<branch>`  (branch subjects)<br/>  - `repo:<org>/<repo>:pull_request`  (PR subjects — avoid for prod)<br/>Per data-model.md § Federated Credential, the chosen subject MUST also<br/>appear verbatim in `docs/identity-and-secrets.md` so federation-drift<br/>failures can be diagnosed in one step. | `string` | n/a | yes |
+| <a name="input_audience"></a> [audience](#input\_audience) | Federation audience value. Entra mandates `api://AzureADTokenExchange`<br/>for workload-identity federation and rejects all other values, so the<br/>default fits every current use case. Surfaced as a variable for<br/>forward-compatibility only. | `string` | `"api://AzureADTokenExchange"` | no |
+| <a name="input_issuer"></a> [issuer](#input\_issuer) | OIDC issuer URL of the external identity provider. Defaults to<br/>GitHub Actions' issuer; override for other CI systems or external<br/>workloads. Must be HTTPS. | `string` | `"https://token.actions.githubusercontent.com"` | no |
+
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_credential_id"></a> [credential\_id](#output\_credential\_id) | Resource ID of the federated identity credential. Useful for `depends_on` wiring in downstream resources that race FIC propagation. |
+| <a name="output_name"></a> [name](#output\_name) | Echoes the credential's display name for downstream references and documentation. |
+| <a name="output_subject"></a> [subject](#output\_subject) | Echoes the federation subject pattern. Surface this in plan output so PR reviewers can sanity-check the subject without reading the module call. |
+<!-- END_TF_DOCS -->
+
