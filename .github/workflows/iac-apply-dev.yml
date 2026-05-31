@@ -201,11 +201,17 @@ jobs:
     name: tofu apply (approval-gated)
     runs-on: ubuntu-latest
     needs: plan
-    # Reuses the dev GitHub Environment. When BT-IAC-007 fires (destructive
-    # plan), the manual-approval gate below blocks apply until a maintainer
-    # re-runs this job. Configure required reviewers on the `dev-iac-apply`
-    # environment in repo settings to require sign-off on every apply.
-    environment: dev-iac-apply
+    # Reuses the dev GitHub Environment. The original spec 005 design
+    # routed apply through a separate `dev-iac-apply` environment so
+    # required reviewers could be configured independently — but the
+    # OIDC federation on the dev pipeline MI is scoped to subject
+    # `repo:Stonefly-Labs/BusTerminal:environment:dev`, so a separate
+    # `dev-iac-apply` environment would need its own federated credential
+    # provisioned by the platform-bootstrap stack. Until a future spec
+    # adds that, this job rides on the `dev` environment that already
+    # carries `AZURE_CLIENT_ID`. The BT-IAC-007 manual-approval gate
+    # already fires in `iac-validate.yml` during PR review.
+    environment: dev
     timeout-minutes: 30
     if: needs.plan.result == 'success'
     env:
