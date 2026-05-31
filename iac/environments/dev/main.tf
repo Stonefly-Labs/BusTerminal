@@ -568,7 +568,9 @@ module "ai_search" {
 
   name                = module.naming.ai_search_name
   resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
+  # Allow overriding the search service's region independently of the env
+  # (var.ai_search_location). Defaults to the env location when null.
+  location = coalesce(var.ai_search_location, azurerm_resource_group.this.location)
 
   sku                           = var.ai_search_sku
   public_network_access_enabled = var.data_services_public_access_enabled

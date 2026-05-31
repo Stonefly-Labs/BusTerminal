@@ -49,7 +49,14 @@ subnet_private_endpoints_cidr = "10.50.2.0/24"
 data_services_public_access_enabled = true
 private_endpoints_enabled           = true
 
-ai_search_sku   = "basic"
+ai_search_sku = "basic"
+
+# AI Search regional override — eastus2 was out of basic-SKU search
+# capacity on 2026-05-31 (`InsufficientResourcesAvailable`). westus3
+# accepted the provisioning request on probe. Flip back to null (or
+# remove the line) to colocate with the env once eastus2 has capacity.
+ai_search_location = "westus3"
+
 service_bus_sku = "Standard"
 # service_bus_capacity is intentionally omitted — required only when sku=Premium.
 

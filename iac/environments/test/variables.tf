@@ -215,6 +215,15 @@ variable "ai_search_sku" {
   }
 }
 
+# AI Search regional override. Leave null to colocate with the env's
+# `var.location`. Override only if the env region runs out of search
+# capacity for the chosen SKU.
+variable "ai_search_location" {
+  description = "Azure region for the AI Search service. Defaults to var.location when null."
+  type        = string
+  default     = null
+}
+
 variable "service_bus_sku" {
   description = "Service Bus namespace SKU. Test/prod default Premium (required for private endpoints). Basic is rejected at module level."
   type        = string

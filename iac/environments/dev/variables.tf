@@ -217,6 +217,20 @@ variable "ai_search_sku" {
   }
 }
 
+# AI Search regional override. Azure rejected `srch-bt-dev-chdev01` creation
+# in eastus2 with `InsufficientResourcesAvailable: The region 'eastus2' is
+# currently out of the resources required to provision new services`
+# (basic SKU, observed 2026-05-31). When set, the AI Search service +
+# its diagnostic setting + PE are pinned to this region instead of
+# `var.location`. The PE provisions cross-region into the env VNet's
+# `snet-private-endpoints`; Azure supports cross-region PEs with a
+# small added DNS-resolution hop. Leave null to colocate with the env.
+variable "ai_search_location" {
+  description = "Azure region for the AI Search service. Defaults to var.location when null. Override when the env's primary region is out of basic-SKU search capacity."
+  type        = string
+  default     = null
+}
+
 variable "service_bus_sku" {
   description = "Service Bus namespace SKU. Dev defaults Standard; test/prod default Premium (required for private endpoints). Basic is rejected at module level."
   type        = string
