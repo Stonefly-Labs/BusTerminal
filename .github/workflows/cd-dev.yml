@@ -5,8 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Shared concurrency group with `iac-apply-dev.yml` — both run `tofu apply`
+# against the same dev tfstate. Without sharing, they race for the state
+# lock on every push touching `iac/` and the loser times out at plan time.
+# See `iac-apply-dev.yml` for the matching group name.
 concurrency:
-  group: cd-dev-${{ github.workflow }}-${{ github.ref }}
+  group: dev-tofu-apply-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
