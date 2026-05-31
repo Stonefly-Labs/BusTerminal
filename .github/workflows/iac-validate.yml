@@ -38,6 +38,32 @@ jobs:
         working-directory: iac
         run: tofu fmt -check -recursive -diff
 
+      # Spec 005 / Polish / T126 — fail the build when a module's README
+      # drifts from its variables.tf / outputs.tf. Run locally with
+      # `terraform-docs -c iac/.terraform-docs.yml iac` (no --output-check)
+      # to regenerate; the inject markers preserve the hand-written prose.
+      #
+      # We install terraform-docs directly (rather than using the
+      # `terraform-docs/gh-actions@v1` wrapper) so we can pin the version
+      # exactly. The wrapper's v1.4.1 image ships terraform-docs v0.20.0,
+      # which emits different table-separator whitespace (`|------|`) than
+      # the v0.24.0 release contributors install via Homebrew (`| ---- |`).
+      # Pinning here matches the latest stable that `brew install terraform-docs`
+      # produces; bump in lockstep with contributor-local versions.
+      - name: Install terraform-docs (pinned)
+        env:
+          TERRAFORM_DOCS_VERSION: v0.24.0
+        run: |
+          set -euo pipefail
+          curl -sSLo /tmp/terraform-docs.tar.gz \
+            "https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}/terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz"
+          tar -xzf /tmp/terraform-docs.tar.gz -C /tmp terraform-docs
+          sudo mv /tmp/terraform-docs /usr/local/bin/terraform-docs
+          terraform-docs --version
+
+      - name: terraform-docs (module READMEs in sync)
+        run: terraform-docs --config iac/.terraform-docs.yml --output-check iac
+
       - name: tofu init -backend=false (dev composition)
         working-directory: iac/environments/dev
         run: tofu init -backend=false
@@ -152,20 +178,114 @@ jobs:
           tofu plan -no-color -lock-timeout=300s -out=tfplan > plan.out 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           # Cap comment size at ~60KB to stay under the GitHub comment limit.
+          # `head -c` can truncate mid-line; without a trailing newline, the
+          # subsequent `echo 'PLAN_EOF'` would append to the unterminated last
+          # line — producing a heredoc with no line that is exactly "PLAN_EOF"
+          # and breaking GITHUB_OUTPUT parsing. Force a trailing newline.
           head -c 60000 plan.out > plan.trimmed
+          printf '\n' >> plan.trimmed
           {
             echo 'plan<<PLAN_EOF'
             cat plan.trimmed
             echo 'PLAN_EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Comment plan on PR
+      # Spec 005 / US6 / T118 — convert the binary tfplan to JSON so the
+      # custom policy gate (and checkov's plan framework) can read it.
+      # Only meaningful when the plan command itself succeeded (exit 0 or 2).
+      - name: tofu show -json tfplan
+        if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
+        working-directory: iac/environments/dev
+        run: tofu show -json tfplan > tfplan.json
+
+      # Spec 005 / US6 / T118 — custom policy gate (BT-IAC-001..007).
+      # Emits Markdown to stdout (captured for the PR comment) and a JSON
+      # detail report to policies-report.json. Writes
+      # `requires-manual-approval.flag` next to the report when BT-IAC-007
+      # fires — the approval-gate job below consumes that flag.
+      - name: Custom IaC policy gate (BT-IAC-001..007)
+        if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
+        id: policy_gate
+        working-directory: iac/environments/dev
+        run: |
+          set +e
+          bash "$GITHUB_WORKSPACE/iac/policies/run-policies.sh" \
+            --plan tfplan.json \
+            --env dev \
+            --allowlist "$GITHUB_WORKSPACE/iac/policies/allowlist.json" \
+            --composition-dir . \
+            --report policies-report.json \
+            > policies-summary.md 2> policies-stderr.log
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ -f requires-manual-approval.flag ]; then
+            echo "requires_manual_approval=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "requires_manual_approval=false" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo '## Custom IaC policy gate'
+            echo ''
+            cat policies-summary.md
+            if [ -s policies-stderr.log ]; then
+              echo ''
+              echo '<details><summary>Rule failure detail (stderr)</summary>'
+              echo ''
+              echo '```'
+              cat policies-stderr.log
+              echo '```'
+              echo ''
+              echo '</details>'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Surface failures, but DO NOT exit non-zero from this step — the
+          # approval-gate job is the authoritative blocker so reviewers see
+          # the full plan + policy summary as a PR comment first.
+          exit 0
+
+      # Spec 005 / US6 / T118 — checkov against the resolved plan (catches
+      # post-render issues the source-HCL scan would miss).
+      - name: Checkov (Terraform plan scan)
+        if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          file: iac/environments/dev/tfplan.json
+          framework: terraform_plan
+          config_file: iac/.checkov.yaml
+          soft_fail: false
+
+      # Spec 005 / US6 / T118 — tfsec on the iac/ tree.
+      - name: tfsec (Terraform / OpenTofu scan)
+        if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: iac
+          soft_fail: false
+
+      # Spec 005 / US6 / T118 — upload the policy gate artifacts so the
+      # approval-gate job (below) can consume requires-manual-approval.flag
+      # and policies-report.json without re-running the plan.
+      - name: Upload policy gate artifacts
+        if: always() && (steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2')
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-gate-${{ github.run_id }}
+          path: |
+            iac/environments/dev/tfplan.json
+            iac/environments/dev/policies-report.json
+            iac/environments/dev/policies-summary.md
+            iac/environments/dev/policies-stderr.log
+            iac/environments/dev/requires-manual-approval.flag
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Comment plan + policy summary on PR
         uses: actions/github-script@v7
         # The plan-comment is a reviewer convenience, not a gate. Transient
         # GitHub API failures (e.g., 401 Bad credentials on a token that
         # logs as PullRequests: write) shouldn't fail the IaC check —
-        # the dedicated "Fail job if plan errored" step below is the
-        # authoritative pass/fail signal.
+        # the dedicated "Fail job if plan errored" + approval-gate jobs
+        # are the authoritative pass/fail signal.
         continue-on-error: true
         env:
           # Pass the plan text via an env var, not via `${{ ... }}` expression
@@ -175,15 +295,29 @@ jobs:
           # the JS template literal early and break script parsing with
           # `SyntaxError: Unexpected identifier 'metric'`.
           PLAN: ${{ steps.plan.outputs.plan }}
+          POLICY_GATE_RC: ${{ steps.policy_gate.outputs.exit_code }}
+          REQUIRES_APPROVAL: ${{ steps.policy_gate.outputs.requires_manual_approval }}
         with:
           script: |
+            const fs = require('fs');
             const plan = process.env.PLAN || '(empty plan output)';
+            let policySummary = '(policy gate did not run)';
+            try {
+              policySummary = fs.readFileSync('iac/environments/dev/policies-summary.md', 'utf8');
+            } catch (e) {
+              // Policy gate didn't run (e.g., plan errored) — leave the placeholder.
+            }
+            const approvalBadge = process.env.REQUIRES_APPROVAL === 'true'
+              ? '\n> ⚠️ **REQUIRES MANUAL APPROVAL** — BT-IAC-007 detected a stateful destroy. The `iac-stateful-change-approval` job is failing intentionally; a maintainer must re-run it after reviewing the destroy.\n'
+              : '';
             const body = [
               '### OpenTofu plan — `dev`',
-              '',
+              approvalBadge,
               '```',
               plan,
               '```',
+              '',
+              policySummary,
             ].join('\n');
             await github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -197,3 +331,49 @@ jobs:
         run: |
           echo "::error::tofu plan exited with ${{ steps.plan.outputs.exit_code }}"
           exit 1
+
+      - name: Fail job if policy gate failed
+        if: steps.policy_gate.outputs.exit_code != '0' && steps.policy_gate.outputs.exit_code != ''
+        run: |
+          echo "::error::custom IaC policy gate exited with ${{ steps.policy_gate.outputs.exit_code }} — see policies-summary.md / policies-stderr.log artifacts"
+          exit 1
+
+  # Spec 005 / US6 / T119 — separate manual-approval gate job.
+  # Fails the workflow run when BT-IAC-007 flagged a stateful destroy.
+  # GitHub's "Re-run failed jobs" UI doubles as the manual override: a
+  # maintainer reviews the plan + policy summary in the PR comment, then
+  # re-runs this single job after acknowledging the destructive change.
+  iac-stateful-change-approval:
+    name: IaC stateful change approval gate (BT-IAC-007)
+    runs-on: ubuntu-latest
+    needs: plan-dev
+    if: always() && needs.plan-dev.result == 'success'
+    timeout-minutes: 5
+    steps:
+      - name: Download policy gate artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: policy-gate-${{ github.run_id }}
+          path: ./policy-gate
+        continue-on-error: true
+
+      - name: Check for stateful-destroy flag
+        run: |
+          set -euo pipefail
+          if [ -f ./policy-gate/requires-manual-approval.flag ]; then
+            echo "::error::BT-IAC-007 detected a stateful destroy in this plan. Manual reviewer approval required."
+            echo ""
+            echo "Review the plan + policy summary posted to the PR. If the destroy is intentional:"
+            echo "  1. Document the rationale in the PR description."
+            echo "  2. Add an allowlist entry under BT-IAC-007 in iac/policies/allowlist.json."
+            echo "  3. A maintainer re-runs THIS job to acknowledge the destructive change."
+            echo ""
+            echo "If the destroy is unintentional, fix the underlying module change and push a new commit."
+            if [ -f ./policy-gate/policies-stderr.log ]; then
+              echo ""
+              echo "--- policy gate stderr ---"
+              cat ./policy-gate/policies-stderr.log
+            fi
+            exit 1
+          fi
+          echo "BT-IAC-007: no stateful destroys detected. Approval gate cleared."

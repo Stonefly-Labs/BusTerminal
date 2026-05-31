@@ -1,0 +1,103 @@
+# BusTerminal — test environment tfvars template (spec 005)
+#
+# Copy to `terraform.tfvars` and replace placeholders before running
+# `tofu apply`. Sensitive or per-tenant values are supplied by the CD pipeline
+# via `-var` flags or environment variables and are NOT committed to a live
+# tfvars in the repo.
+#
+# Source of truth for the schema:
+# specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+
+# -----------------------------------------------------------------------------
+# Identity & subscription
+# -----------------------------------------------------------------------------
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+environment_name = "test"
+location         = "eastus2"
+naming_prefix    = "bt-test"
+unique_suffix    = "chtest01"
+
+github_org_repo = "<org>/BusTerminal"
+
+# -----------------------------------------------------------------------------
+# Workload identity & Entra
+# -----------------------------------------------------------------------------
+entra_tenant_id     = "00000000-0000-0000-0000-000000000000"
+entra_api_client_id = "00000000-0000-0000-0000-000000000000"
+entra_web_client_id = "00000000-0000-0000-0000-000000000000"
+
+platform_role_ids = {
+  admin     = "00000000-0000-0000-0000-000000000001"
+  operator  = "00000000-0000-0000-0000-000000000002"
+  reader    = "00000000-0000-0000-0000-000000000003"
+  developer = "00000000-0000-0000-0000-000000000004"
+}
+
+# -----------------------------------------------------------------------------
+# Container images — supplied by the CD pipeline; placeholders here.
+# -----------------------------------------------------------------------------
+frontend_image = "acr<unique-suffix>.azurecr.io/busterminal/web:placeholder"
+backend_image  = "acr<unique-suffix>.azurecr.io/busterminal/api:placeholder"
+
+frontend_min_replicas = 0
+frontend_max_replicas = 3
+backend_min_replicas  = 0
+backend_max_replicas  = 3
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+tags = {
+  slice = "005-infrastructure-baseline"
+}
+
+# -----------------------------------------------------------------------------
+# Optional standing access (operators with Key Vault Secrets Officer)
+# -----------------------------------------------------------------------------
+# kv_operator_object_ids = []
+
+# Spec 003 — internal-caller probe job (off by default)
+probe_job_enabled = false
+
+# Spec 004 — canonical Cosmos SQL database name
+canonical_db_name = "busterminal-canonical"
+
+# -----------------------------------------------------------------------------
+# Spec 005 — Infrastructure Baseline
+# Per specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+# Test ships private-by-default: public access OFF on data services, PEs ON,
+# Premium SB SKU, Standard Search SKU, KV purge protection ON, 90-day KV
+# soft-delete retention.
+# -----------------------------------------------------------------------------
+
+# VNet + subnet CIDRs per research §10. Test uses 10.51.0.0/16 to avoid
+# colliding with dev (10.50.x.x) or prod (10.52.x.x) if envs are ever peered.
+network_address_space         = ["10.51.0.0/16"]
+subnet_integration_cidr       = "10.51.0.0/23"
+subnet_private_endpoints_cidr = "10.51.2.0/24"
+
+# Test private-by-default posture (FR-031). PEs are warm and public access
+# is off. Workloads MUST be on the VNet (or routed via a private path) to
+# reach data services.
+data_services_public_access_enabled = false
+private_endpoints_enabled           = true
+
+# Test/prod SKU defaults — production-grade SKUs for parity with prod.
+ai_search_sku        = "standard"
+service_bus_sku      = "Premium"
+service_bus_capacity = 1
+
+# Test KV hardening per FR-019.
+key_vault_purge_protection_enabled   = true
+key_vault_soft_delete_retention_days = 90
+
+# Q5c — LA retention as tf-var, default 30. Operators override if compliance
+# requires longer (max 730 interactive).
+log_analytics_retention_days = 30
+
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Test
+# defaults `true` (mirrors dev for parity-of-debugging during stand-up);
+# flip to `false` via this tfvars once workloads are stable and external
+# ingress is no longer needed. Prod template defaults `false`.
+backend_external_ingress = true

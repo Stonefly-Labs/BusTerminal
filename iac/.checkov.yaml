@@ -124,6 +124,49 @@ skip-check:
   # in CI covers the same supply-chain hygiene goal (see ci.yml).
   - CKV_AZURE_166
 
+  # CKV_AZURE_163 — "Enable vulnerability scanning for container images".
+  # Image vulnerability scanning is the Microsoft Defender for Containers
+  # Premium add-on, billed per-image. Out of scope for the foundation;
+  # Trivy in CI (ci.yml) provides equivalent pre-push vulnerability
+  # scanning at no extra cost. Re-evaluate when Defender for Cloud is
+  # adopted org-wide.
+  - CKV_AZURE_163
+
+  # CKV_AZURE_165 — "Ensure geo-replicated container registries to match
+  # multi-region container deployments". BusTerminal dev is intentionally
+  # single-region (eastus2). Multi-region replication is a prod-tier
+  # decision tied to the future test/prod env standup — re-evaluate when
+  # prod is provisioned. Same reasoning as CKV_AZURE_233 (zone redundancy).
+  - CKV_AZURE_165
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Azure AI Search (spec 005) — intentional design
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_207 — "Ensure Azure Cognitive Search service uses managed
+  # identities to access Azure resources". The rule checks for a system-
+  # assigned identity ON the search service. Spec 005 / T036 intentionally
+  # disables it: the WORKLOAD UAMI calls the search data plane via RBAC
+  # (Search Index Data Contributor, granted by T039). The search service
+  # itself does not need to authenticate outward to anything else in this
+  # baseline (no skillsets, no indexers reaching customer storage), so
+  # adding an identity-on-search would just be unused privilege.
+  # Re-evaluate when AI Search starts pulling from external data sources.
+  - CKV_AZURE_207
+
+  # CKV_AZURE_208 — "Ensure that Azure Cognitive Search maintains SLA for
+  # index updates". The basic / free SKU does not carry an SLA. Dev runs
+  # on basic per research §4 (NFR-003 cost awareness). Test/prod templates
+  # (T094 / T100) default to standard, which DOES carry the SLA — this rule
+  # only fires on dev. Operators standing up prod will not hit this skip
+  # because standard SKU satisfies the check.
+  - CKV_AZURE_208
+
+  # CKV_AZURE_209 — "Ensure that Azure Cognitive Search maintains SLA for
+  # search index queries". Same rationale as CKV_AZURE_208 — basic SKU in
+  # dev does not carry an SLA; test/prod use standard.
+  - CKV_AZURE_209
+
   # CKV_AZURE_237 — "Ensure dedicated data endpoints are enabled."
   # Premium SKU optional feature; AVM does not expose the input.
   # Re-evaluate when private endpoints are introduced.
@@ -150,3 +193,83 @@ skip-check:
   # Storage Queue service; the state account holds only blobs. Rule is a
   # false positive against an unused service.
   - CKV_AZURE_33
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Spec 005 / Q2c — dev opts into public access until destructive retrofit
+  #
+  # The dev composition runs with `data_services_public_access_enabled = true`
+  # AND `private_endpoints_enabled = true` (warm PEs). Test and prod templates
+  # default to `data_services_public_access_enabled = false`. The CI policy
+  # gate BT-IAC-002 (iac/policies/check-public-access.sh) enforces private-by-
+  # default for prod independently of these checks — so skipping these here
+  # does NOT weaken the prod posture; it only prevents the dev plan from
+  # tripping the global rule. Re-evaluate when the dev retrofit slice flips
+  # public access off.
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_124 — "Ensure that Azure Cognitive Search disables public
+  # network access". Dev's AI Search is public per Q2c; test/prod templates
+  # default to public_network_access_enabled = false.
+  - CKV_AZURE_124
+
+  # CKV_AZURE_189 — "Ensure that Azure Key Vault disables public network
+  # access". Same as above — dev KV is public per Q2c, test/prod templates
+  # default private. (Cosmos' parallel rule CKV_AZURE_101 is already skipped
+  # above with the same rationale.)
+  - CKV_AZURE_189
+
+  # CKV_AZURE_204 — "Ensure 'public network access enabled' is set to 'False'
+  # for Azure Service Bus". Same rationale — dev SB is public; test/prod
+  # templates default private. Dev's SB is also Standard SKU (Premium not
+  # required for the dev workload), and PE support requires Premium anyway.
+  - CKV_AZURE_204
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Spec 005 — Service Bus features deferred to a later hardening slice
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV_AZURE_201 — "Ensure that Azure Service Bus uses a customer-managed
+  # key to encrypt data". Same rationale as CKV_AZURE_100 (Cosmos CMK): no
+  # CMK in this slice — no compliance requirement is on the table. CMK
+  # introduces a KV key + rotation workflow + access-policy dependency that
+  # a dedicated compliance slice will own. Service Bus uses Microsoft-managed
+  # keys (default), which still encrypts at rest.
+  - CKV_AZURE_201
+
+  # CKV_AZURE_199 — "Ensure that Azure Service Bus uses double encryption".
+  # Infrastructure encryption (double encryption) is a Premium-SKU-only
+  # feature. Dev defaults to Standard SKU per Q2c (cost-optimized). Test
+  # and prod templates default to Premium; if compliance later requires
+  # double encryption, it can be enabled there without affecting dev. The
+  # AVM `azurerm_servicebus_namespace` resource exposes the input when
+  # Premium is selected.
+  - CKV_AZURE_199
+
+  # CKV_AZURE_202 — "Ensure that Managed identity provider is enabled for
+  # Azure Service Bus". The check looks for a system-assigned identity ON
+  # the SB namespace. Spec 005 / T044 intentionally does NOT enable one:
+  # the WORKLOAD UAMI calls the SB data plane via RBAC (Data Sender +
+  # Data Receiver, granted by T047). The namespace itself does not need
+  # outbound auth in this baseline (no CMK Key Vault access, no Event
+  # Grid integration). Same pattern as CKV_AZURE_207 for AI Search above.
+  # Re-evaluate when SB introduces a CMK or outbound integration.
+  - CKV_AZURE_202
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Composite checks that don't trace through nested modules
+  # ─────────────────────────────────────────────────────────────────────────
+
+  # CKV2_AZURE_32 — "Ensure private endpoint is configured to key vault".
+  # The dev KV DOES have a private endpoint warm per Q2c, provisioned by
+  # `iac/modules/keyvault/main.tf` via the project's `private-endpoint`
+  # wrapper module (`module.private_endpoint`). Checkov's composite check
+  # CKV2_AZURE_32 walks the plan looking for an `azurerm_private_endpoint`
+  # resource referencing the vault's resource ID via `private_service_
+  # connection.private_connection_resource_id`, but it can't trace the
+  # connection through the keyvault wrapper → private-endpoint child module
+  # → AVM-owned KV resource indirection. The PE is provisioned and bound
+  # to `privatelink.vaultcore.azure.net` (confirmed by `tofu plan` output
+  # showing `module.keyvault.module.private_endpoint[0].azurerm_private_
+  # endpoint.this` will be created). Re-evaluate if Checkov improves
+  # cross-module tracing.
+  - CKV2_AZURE_32

@@ -503,6 +503,18 @@ terraform.rc
 # Allow committed per-environment defaults that only contain non-secret values
 !iac/environments/*/terraform.tfvars
 
+# --- OpenTofu plan artifacts (slice 005) ---
+**/tfplan
+**/tfplan.json
+
+# --- IaC policy gate scratch files (slice 005 / US6) ---
+# Produced by iac/policies/run-policies.sh (and iac/scripts/apply-env.sh).
+# CI uploads these as artifacts; locally they're scratch.
+**/policies-report.json
+**/policies-summary.md
+**/policies-stderr.log
+**/requires-manual-approval.flag
+
 # Checkov download cache + scan artifacts. Created when running with
 # `download-external-modules: true`; contains transitively cloned AVM modules
 # (each with its own .git). Never commit.

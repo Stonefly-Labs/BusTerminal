@@ -1,0 +1,52 @@
+formatter: markdown table
+
+# Recursive mode walks every module under iac/modules and runs the same
+# inject-mode rendering against each module's README.md. CI runs
+# `terraform-docs --output-check` against this config; any drift between
+# variables.tf / outputs.tf and the rendered tables fails the build.
+# Locally, drop `--output-check` to write the changes in place.
+
+recursive:
+  enabled: true
+  path: modules
+  # Skip the iac/ root itself — the root has no provider/variable surface
+  # worth rendering. Only the per-module subdirectories of `path:` are processed.
+  include-main: false
+
+sections:
+  hide:
+    - providers
+    - requirements
+    - modules
+
+settings:
+  anchor: true
+  default: true
+  description: false
+  escape: true
+  hide-empty: true
+  html: true
+  indent: 2
+  read-comments: true
+  required: true
+  sensitive: true
+  type: true
+
+output:
+  file: README.md
+  # `inject` preserves hand-written prose outside the begin/end markers.
+  # The terraform-docs-managed block lives between:
+  #   <!-- BEGIN_TF_DOCS -->
+  #   <!-- END_TF_DOCS -->
+  # Modules that do not yet have these markers will fail `--output-check`
+  # the first time they are scanned; add the markers (anywhere in the
+  # README) and re-run to populate the block.
+  mode: inject
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->
+
+sort:
+  enabled: true
+  by: required

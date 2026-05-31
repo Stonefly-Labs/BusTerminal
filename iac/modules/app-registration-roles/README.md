@@ -64,3 +64,26 @@ fight the `azuread_application_app_role` resources every plan.
 The `role_id` (UUID) of each role MUST stay constant across applies — Entra
 treats `role_id` as the identity of the role. Generate once (e.g. via
 `uuidgen`), commit the value, never let `random_uuid` regenerate.
+
+<!-- BEGIN_TF_DOCS -->
+## Resources
+
+| Name | Type |
+| ---- | ---- |
+| [azuread_application_app_role.this](https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/resources/application_app_role) | resource |
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_api_application_id"></a> [api\_application\_id](#input\_api\_application\_id) | Resource ID of the API `azuread_application` the roles attach to. Pass the<br/>`id` attribute of either a managed `azuread_application` resource (in which<br/>case its block must declare `lifecycle { ignore_changes = [app_role] }`) or<br/>a `data "azuread_application"` source for an app registration that lives<br/>outside tofu state. | `string` | n/a | yes |
+| <a name="input_role_definitions"></a> [role\_definitions](#input\_role\_definitions) | Map of platform role definitions to declare on the target app registration.<br/>Each key is a stable role nickname (e.g. `admin`, `operator`, `reader`,<br/>`developer`); each value carries the on-wire role claim value, display<br/>metadata, and the stable role GUID used as the resource's role\_id. | <pre>map(object({<br/>    role_id              = string<br/>    value                = string<br/>    display_name         = string<br/>    description          = string<br/>    allowed_member_types = list(string)<br/>  }))</pre> | n/a | yes |
+
+## Outputs
+
+| Name | Description |
+| ---- | ----------- |
+| <a name="output_role_ids"></a> [role\_ids](#output\_role\_ids) | Map of role nickname → role\_id (UUID) for downstream `azuread_app_role_assignment` consumers. |
+| <a name="output_role_values"></a> [role\_values](#output\_role\_values) | Map of role nickname → on-wire role claim value (e.g. `BusTerminal.Admin`). |
+<!-- END_TF_DOCS -->
+

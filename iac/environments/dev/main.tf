@@ -1,13 +1,29 @@
-locals {
-  resource_group_name = "rg-${var.naming_prefix}"
+# Spec 005 — central naming convention (T059). The naming module computes the
+# same names the inline locals below produced for spec 002 resources, plus the
+# new spec 005 names (ai_search_name, service_bus_name, vnet_name,
+# workload_uami_name). Names match the previous spec-002 computation exactly,
+# so introducing the module is a non-destructive refactor — zero state churn.
+module "naming" {
+  source = "../../modules/naming"
 
-  log_analytics_workspace_name = "log-${var.naming_prefix}"
-  application_insights_name    = "appi-${var.naming_prefix}"
-  key_vault_name               = "kv-${var.naming_prefix}-${var.unique_suffix}"
-  container_registry_name      = replace("acr${var.naming_prefix}${var.unique_suffix}", "-", "")
-  container_apps_env_name      = "cae-${var.naming_prefix}"
-  workload_identity_name       = "mi-${var.naming_prefix}-workload"
-  cosmos_account_name          = "cosmos-${var.naming_prefix}-${var.unique_suffix}"
+  environment_name = var.environment_name
+  naming_prefix    = var.naming_prefix
+  unique_suffix    = var.unique_suffix
+}
+
+locals {
+  # Existing spec-002 names retained as locals so the existing module-call
+  # graph below doesn't churn. Each value is identical to the corresponding
+  # `module.naming.*` output by construction.
+  resource_group_name = module.naming.resource_group_name
+
+  log_analytics_workspace_name = module.naming.log_analytics_workspace_name
+  application_insights_name    = module.naming.application_insights_name
+  key_vault_name               = module.naming.key_vault_name
+  container_registry_name      = module.naming.container_registry_name
+  container_apps_env_name      = module.naming.container_apps_env_name
+  workload_identity_name       = module.naming.workload_uami_name
+  cosmos_account_name          = module.naming.cosmos_account_name
 
   frontend_app_name = "ca-${var.naming_prefix}-web"
   backend_app_name  = "ca-${var.naming_prefix}-api"
@@ -15,13 +31,21 @@ locals {
   frontend_target_port = 3000
   backend_target_port  = 8080
 
+  # Spec 005 — private DNS zones provisioned in dev. SB zone is included even
+  # though the dev SB SKU is Standard (no PE) so the Premium upgrade is a
+  # single attribute flip. ACR zone is included for the same reason (PE
+  # deferred per research §2 but the zone is warm). Storage + Azure Monitor
+  # zones are deferred to the test/prod template (research §14).
+  private_dns_zone_names = [
+    "privatelink.vaultcore.azure.net",
+    "privatelink.documents.azure.com",
+    "privatelink.search.windows.net",
+    "privatelink.servicebus.windows.net",
+    "privatelink.azurecr.io",
+  ]
+
   shared_tags = merge(
-    {
-      application = "BusTerminal"
-      environment = var.environment_name
-      managed-by  = "opentofu"
-      cost-center = "platform"
-    },
+    module.naming.mandatory_tags,
     var.tags,
   )
 }
@@ -30,6 +54,36 @@ resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.location
   tags     = local.shared_tags
+
+  # Spec 005 / US7 / T121 — every env-scoped resource lives in this RG.
+  # Destroying it would cascade-delete every stateful child (Cosmos, KV,
+  # ACR, LAW, App Insights, ACE, workload UAMI). BT-IAC-007 is primary;
+  # this is the secondary block. To intentionally tear down the env,
+  # remove this block in a dedicated PR (and expect manual approval).
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Spec 005 — VNet + subnets + private DNS zones (T060). Provisioned WARM in
+# dev per Q2c: PE subnet exists, zones exist, links exist — public access on
+# the data services stays on via `data_services_public_access_enabled = true`
+# until a future destructive-retrofit slice flips it. Allocating the CAE
+# integration subnet now means the Container Apps Environment VNet-integration
+# retrofit is a single attribute flip later (no destructive subnet replacement).
+module "networking" {
+  source = "../../modules/networking"
+
+  vnet_name           = module.naming.vnet_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  address_space                 = var.network_address_space
+  subnet_integration_cidr       = var.subnet_integration_cidr
+  subnet_private_endpoints_cidr = var.subnet_private_endpoints_cidr
+  private_dns_zones             = local.private_dns_zone_names
+
+  tags = local.shared_tags
 }
 
 # Monitoring is split from the Key Vault secret creation so the dependency
@@ -45,7 +99,7 @@ module "monitoring" {
   location                     = azurerm_resource_group.this.location
 
   key_vault_id      = null
-  retention_in_days = 30
+  retention_in_days = var.log_analytics_retention_days
 
   tags = local.shared_tags
 }
@@ -57,6 +111,26 @@ module "keyvault" {
   resource_group_name        = azurerm_resource_group.this.name
   location                   = azurerm_resource_group.this.location
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+
+  # Spec 005 (T063) — KV public access tied to per-env toggle; PE inputs
+  # warm-on-by-default in dev per Q2c (both flags default true in dev tfvars
+  # so both wires are active simultaneously — public access stays on AND a PE
+  # exists, until a future destructive-retrofit slice flips public access off).
+  #
+  # `private_endpoint_enabled` is the plan-time bool that drives the
+  # conditional PE child module; subnet_id + dns_zone_id are passed
+  # unconditionally (known-after-apply outputs) and the module's precondition
+  # validates them when enabled.
+  public_network_access_enabled = var.data_services_public_access_enabled
+  private_endpoint_enabled      = var.private_endpoints_enabled
+  private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.vaultcore.azure.net"]
+
+  # Spec 005 / US7 / T122 — per-env purge-protection + soft-delete tuning
+  # per FR-019. Dev's deployed KV has purge protection ON (Azure forbids
+  # disabling once set); tfvars sets the var to true so plan is a no-op.
+  purge_protection_enabled   = var.key_vault_purge_protection_enabled
+  soft_delete_retention_days = var.key_vault_soft_delete_retention_days
 
   tags = local.shared_tags
 }
@@ -179,6 +253,11 @@ module "workload_identity" {
   environment         = var.environment_name
   workload            = "workload"
 
+  # Spec 005 / FR-033 — non-data-service roles only. Data-service roles
+  # (Search Index Data Contributor, SB Data Sender/Receiver, Cosmos Data
+  # Contributor) are emitted by their owning modules / by the Cosmos SQL
+  # role assignment below. See iac/modules/workload-identity/README.md
+  # § Role-assignment split convention.
   assigned_azure_rbac = {
     acr-pull = {
       role_definition_name = "AcrPull"
@@ -187,6 +266,10 @@ module "workload_identity" {
     kv-secrets-user = {
       role_definition_name = "Key Vault Secrets User"
       scope                = module.keyvault.id
+    }
+    monitoring-metrics-publisher = {
+      role_definition_name = "Monitoring Metrics Publisher"
+      scope                = module.monitoring.application_insights_id
     }
   }
 
@@ -224,11 +307,14 @@ module "backend_app" {
   image                         = var.backend_image
   registry_login_server         = module.container_registry.login_server
   target_port                   = local.backend_target_port
-  ingress_external              = true
-  min_replicas                  = var.backend_min_replicas
-  max_replicas                  = var.backend_max_replicas
-  cpu                           = 0.5
-  memory                        = "1Gi"
+  # Spec 005 / T134 / FR-010 — backend ingress externality is per-env;
+  # dev default is `true` (preserves the existing developer + smoke-test
+  # workflow that hits the backend over the public internet).
+  ingress_external = var.backend_external_ingress
+  min_replicas     = var.backend_min_replicas
+  max_replicas     = var.backend_max_replicas
+  cpu              = 0.5
+  memory           = "1Gi"
 
   env_vars = {
     ASPNETCORE_ENVIRONMENT = var.environment_name == "dev" ? "Development" : title(var.environment_name)
@@ -239,6 +325,16 @@ module "backend_app" {
     AzureAd__Audience      = "api://${var.entra_api_client_id}"
     AZURE_KEY_VAULT_URI    = module.keyvault.uri
     AZURE_CLIENT_ID        = module.workload_identity.client_id
+
+    # Spec 005 / Q1c (research §6) — backend .NET OpenTelemetry exporter
+    # authenticates to App Insights ingestion via AAD using the workload
+    # UAMI. The ClientId discriminates between MIs when multiple are
+    # attached. `APPLICATIONINSIGHTS_CONNECTION_STRING` still flows from
+    # KV below (the exporter needs both: connection string to identify
+    # the target component, auth string to authenticate to it). The
+    # `Monitoring Metrics Publisher` role is granted on the App Insights
+    # resource via `module.workload_identity.assigned_azure_rbac`.
+    APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=${module.workload_identity.client_id}"
   }
 
   secret_env_vars = {
@@ -290,29 +386,58 @@ module "frontend_app" {
   tags = local.shared_tags
 }
 
-# FR-072 — every Azure resource routes diagnostic logs + AllMetrics to the LAW.
-# AVM modules already wire diagnostic settings on Key Vault, ACR, and the
-# Container Apps Environment. Container App resources themselves do not have a
-# `diagnostic_settings` parameter on the AVM module today, so we wire AllMetrics
-# explicitly here (logs flow through the Environment binding to the LAW).
-resource "azurerm_monitor_diagnostic_setting" "backend_app" {
+# Spec 005 / T084 — Container App diagnostic settings routed through the
+# central `diagnostic-settings` wrapper. The wrapper enforces the Q5c convention
+# by construction: exactly one `enabled_log { category_group = "allLogs" }` and
+# NO `enabled_metric` block. AVM modules already wire diagnostic settings on
+# Key Vault, ACR, and the Container Apps Environment; Container App resources
+# themselves do not have a `diagnostic_settings` parameter on the AVM today so
+# we wire the dedicated wrapper here.
+#
+# The pre-spec-005 inline settings (`enabled_metric { category = "AllMetrics" }`
+# only, no `enabled_log`) are removed per Q5c. The `moved` blocks below carry
+# the prior state addresses into the new module path so Tofu treats the change
+# as an in-place attribute update on the existing Azure resource (same name,
+# same target) instead of a destroy/create cycle.
+module "backend_app_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
   name                       = "ca-backend-diagnostics"
   target_resource_id         = module.backend_app.id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-
-  enabled_metric {
-    category = "AllMetrics"
-  }
 }
 
-resource "azurerm_monitor_diagnostic_setting" "frontend_app" {
+module "frontend_app_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
   name                       = "ca-frontend-diagnostics"
   target_resource_id         = module.frontend_app.id
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+}
 
-  enabled_metric {
-    category = "AllMetrics"
-  }
+moved {
+  from = azurerm_monitor_diagnostic_setting.backend_app
+  to   = module.backend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
+}
+
+moved {
+  from = azurerm_monitor_diagnostic_setting.frontend_app
+  to   = module.frontend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
+}
+
+# Spec 005 / T086 — Application Insights diagnostic setting forwarding `allLogs`
+# to the env LAW. AI Search and Service Bus diagnostics are emitted inside their
+# own modules (T037, T045). Key Vault, ACR, Container Apps Environment, and
+# Cosmos diagnostics are emitted inside those modules. This call handles
+# App Insights, which has no module wrapper of its own — the AVM `insights-component`
+# module does not expose a `diagnostic_settings` input, so we wire the wrapper
+# at the composition level.
+module "application_insights_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
+  name                       = "appi-diagnostics"
+  target_resource_id         = module.monitoring.application_insights_id
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 }
 
 # Workload-identity federated credentials so the running workloads can obtain
@@ -391,10 +516,10 @@ module "graph_permissions" {
 
 # Spec 004 — Cosmos DB account hosting the canonical metadata store.
 #
-# Public-endpoint, AAD-only data plane (no account keys) per plan.md §Constraints
-# and §Complexity Tracking (private networking is an explicit deferral). The
-# canonical store's database + containers are provisioned by the
-# cosmos-canonical-store module against this account.
+# Spec 005 (T063) extends this call with a per-env public-access toggle and a
+# warm private endpoint. Dev defaults to BOTH public-access ON AND a PE
+# attached (Q2c) — the destructive retrofit (flipping public access off)
+# is a future spec.
 module "cosmos_account" {
   source = "../../modules/cosmos-account"
 
@@ -403,6 +528,11 @@ module "cosmos_account" {
   location                   = azurerm_resource_group.this.location
   log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
 
+  public_network_access_enabled = var.data_services_public_access_enabled
+  private_endpoint_enabled      = var.private_endpoints_enabled
+  private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.documents.azure.com"]
+
   tags = local.shared_tags
 }
 
@@ -410,6 +540,7 @@ module "cosmos_canonical_store" {
   source = "../../modules/cosmos-canonical-store"
 
   cosmos_account_name = module.cosmos_account.account_name
+  cosmos_account_id   = module.cosmos_account.account_id
   resource_group_name = azurerm_resource_group.this.name
   database_name       = var.canonical_db_name
 }
@@ -419,21 +550,15 @@ module "cosmos_canonical_store" {
 # 00000000-0000-0000-0000-000000000002. `azurerm_cosmosdb_sql_role_assignment`
 # expects the FULL resource id of the role definition, not the bare GUID.
 #
-# Spec 004 / T156 — the `scope` argument MUST use the Cosmos data-plane path
-# form (`.../databaseAccounts/<acct>/dbs/<db>`), NOT the ARM resource id form
-# (`.../sqlDatabases/<db>`) that the SQL-database resource exposes via `.id`.
-# Submitting the ARM form returns HTTP 400 "Expected path segment [dbs] at
-# position [0] but found [sqlDatabases]" from the Cosmos provider. Build the
-# correct shape from the account id + database name at the call site.
-locals {
-  cosmos_canonical_database_role_scope = "${module.cosmos_account.account_id}/dbs/${module.cosmos_canonical_store.database_name}"
-}
-
+# Spec 005 / T073 — the data-plane scope path is computed inside the
+# `cosmos-canonical-store` module and surfaced as
+# `canonical_database_role_scope` so this composition (and any future spec)
+# can't re-rediscover the ARM-vs-data-plane-path trap (research §15).
 resource "azurerm_cosmosdb_sql_role_assignment" "workload_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = local.cosmos_canonical_database_role_scope
+  scope               = module.cosmos_canonical_store.canonical_database_role_scope
   principal_id        = module.workload_identity.principal_id
 }
 
@@ -446,8 +571,60 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   resource_group_name = azurerm_resource_group.this.name
   account_name        = module.cosmos_account.account_name
   role_definition_id  = "${module.cosmos_account.account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
-  scope               = local.cosmos_canonical_database_role_scope
+  scope               = module.cosmos_canonical_store.canonical_database_role_scope
   principal_id        = data.azurerm_client_config.current.object_id
+}
+
+# Spec 005 — Azure AI Search service (T061). Warm PE in dev per Q2c.
+# Workload UAMI is granted `Search Index Data Contributor` inside the module
+# (per the FR-033 forward-looking workload RBAC enumeration).
+module "ai_search" {
+  source = "../../modules/ai-search"
+
+  name                = module.naming.ai_search_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  sku                           = var.ai_search_sku
+  public_network_access_enabled = var.data_services_public_access_enabled
+
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+  workload_principal_id      = module.workload_identity.principal_id
+
+  private_endpoint_enabled   = var.private_endpoints_enabled
+  private_endpoint_subnet_id = module.networking.subnet_private_endpoints_id
+  private_dns_zone_id        = module.networking.private_dns_zone_ids["privatelink.search.windows.net"]
+
+  tags = local.shared_tags
+}
+
+# Spec 005 — Service Bus namespace (T062). Dev defaults to Standard SKU — no
+# PE on Standard (per research §3 + service-bus module precondition). The PE
+# inputs are SKU-conditionally nulled here so the same composition file works
+# unchanged when an operator overrides `service_bus_sku = "Premium"` via
+# tfvars. Workload UAMI is granted both `Azure Service Bus Data Sender` AND
+# `Azure Service Bus Data Receiver` inside the module (FR-033).
+module "service_bus" {
+  source = "../../modules/service-bus"
+
+  name                = module.naming.service_bus_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = azurerm_resource_group.this.location
+
+  sku                           = var.service_bus_sku
+  capacity                      = var.service_bus_capacity
+  public_network_access_enabled = var.data_services_public_access_enabled
+
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+  workload_principal_id      = module.workload_identity.principal_id
+
+  # SKU-conditional PE wiring: only attach a PE when SKU=Premium AND PEs
+  # are enabled. The service-bus module's precondition fires if Standard SKU
+  # receives non-null PE inputs.
+  private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null
+  private_dns_zone_id        = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.private_dns_zone_ids["privatelink.servicebus.windows.net"] : null
+
+  tags = local.shared_tags
 }
 
 module "app_registration_roles" {

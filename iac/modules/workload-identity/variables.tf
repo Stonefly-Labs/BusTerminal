@@ -64,10 +64,29 @@ variable "workload" {
 
 variable "assigned_azure_rbac" {
   description = <<-EOT
-    Downstream Azure RBAC assignments for this workload's data-plane access
-    (ACR pulls, Key Vault secret reads, future Cosmos / AI Search / Service
-    Bus / OpenAI / App Config grants). Key is a stable nickname; value is a
-    `(scope, role_definition_name)` tuple.
+    Downstream Azure RBAC assignments for this workload's data-plane access.
+    Key is a stable nickname; value is a `(scope, role_definition_name)` tuple.
+    Each entry produces one `azurerm_role_assignment`.
+
+    Pass ONLY non-data-service roles via this map. Spec 005 (FR-033)
+    forward-looking set for the BusTerminal workload UAMI:
+
+      - `acr-pull`                    AcrPull on the ACR
+      - `kv-secrets-user`             Key Vault Secrets User on the KV
+      - `monitoring-metrics-publisher` Monitoring Metrics Publisher on the
+                                       App Insights resource (enables AAD
+                                       ingestion per research §6 / Q1c)
+
+    Data-service roles are intentionally emitted by their owning modules so
+    each module remains self-contained (and so consumers don't accidentally
+    double-grant). DO NOT include these here:
+
+      - `search-index-data-contributor` (emitted by `iac/modules/ai-search/`)
+      - `sb-data-sender` + `sb-data-receiver` (emitted by `iac/modules/service-bus/`)
+      - `cosmos-data-contributor` (granted via `azurerm_cosmosdb_sql_role_assignment`
+        at the env composition; Cosmos uses native RBAC, not Azure RBAC)
+
+    See README.md § Role-assignment split convention.
   EOT
   type = map(object({
     role_definition_name = string

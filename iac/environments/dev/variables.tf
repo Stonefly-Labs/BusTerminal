@@ -152,3 +152,127 @@ variable "kv_operator_object_ids" {
   type        = list(string)
   default     = []
 }
+
+# -----------------------------------------------------------------------------
+# Spec 005 — Infrastructure Baseline
+# Per `specs/005-infrastructure-baseline/contracts/config-profile-schema.md`
+# and the Q2c networking clarification (dev opts into public access until the
+# destructive retrofit follow-up). Defaults below are dev-specific; test/prod
+# templates override via their own variables.tf.
+# -----------------------------------------------------------------------------
+
+variable "network_address_space" {
+  description = "VNet address space for the env. Dev default is 10.50.0.0/16 (test=10.51.0.0/16, prod=10.52.0.0/16) per research §10."
+  type        = list(string)
+  default     = ["10.50.0.0/16"]
+
+  validation {
+    condition     = length(var.network_address_space) > 0 && alltrue([for c in var.network_address_space : can(cidrnetmask(c))])
+    error_message = "network_address_space must contain one or more valid CIDR blocks."
+  }
+}
+
+variable "subnet_integration_cidr" {
+  description = "CIDR for the Container Apps Environment integration subnet. /23 minimum (Azure Container Apps requirement). Must be inside network_address_space."
+  type        = string
+  default     = "10.50.0.0/23"
+
+  validation {
+    condition     = can(cidrnetmask(var.subnet_integration_cidr)) && tonumber(split("/", var.subnet_integration_cidr)[1]) <= 23
+    error_message = "subnet_integration_cidr must be a valid CIDR with prefix /23 or larger (Container Apps Environment minimum)."
+  }
+}
+
+variable "subnet_private_endpoints_cidr" {
+  description = "CIDR for the private-endpoints subnet. /24 recommended. Must be inside network_address_space and non-overlapping with subnet_integration_cidr."
+  type        = string
+  default     = "10.50.2.0/24"
+
+  validation {
+    condition     = can(cidrnetmask(var.subnet_private_endpoints_cidr))
+    error_message = "subnet_private_endpoints_cidr must be a valid CIDR block."
+  }
+}
+
+variable "data_services_public_access_enabled" {
+  description = "Per-env toggle for public-network access on data services (KV, Cosmos, AI Search, Service Bus). Dev defaults to true per Q2c selective retrofit; test/prod default false."
+  type        = bool
+  default     = true
+}
+
+variable "private_endpoints_enabled" {
+  description = "When true, the env provisions private endpoints for data services. Dev defaults true (warm PEs per Q2c) so the future retrofit is a public-access flip only."
+  type        = bool
+  default     = true
+}
+
+variable "ai_search_sku" {
+  description = "Azure AI Search SKU. Dev defaults to basic; test/prod default standard (S1). Per research §4."
+  type        = string
+  default     = "basic"
+
+  validation {
+    condition     = contains(["free", "basic", "standard", "standard2", "standard3"], var.ai_search_sku)
+    error_message = "ai_search_sku must be one of: free, basic, standard, standard2, standard3."
+  }
+}
+
+variable "service_bus_sku" {
+  description = "Service Bus namespace SKU. Dev defaults Standard; test/prod default Premium (required for private endpoints). Basic is rejected at module level."
+  type        = string
+  default     = "Standard"
+
+  validation {
+    condition     = contains(["Standard", "Premium"], var.service_bus_sku)
+    error_message = "service_bus_sku must be one of: Standard, Premium. Basic is rejected (no topics/subscriptions support)."
+  }
+}
+
+variable "service_bus_capacity" {
+  description = "Service Bus Premium messaging units. Required (and only used) when service_bus_sku = Premium. One of 1, 2, 4, 8, 16."
+  type        = number
+  default     = null
+
+  validation {
+    condition     = var.service_bus_capacity == null || contains([1, 2, 4, 8, 16], var.service_bus_capacity)
+    error_message = "service_bus_capacity must be null (Standard SKU) or one of: 1, 2, 4, 8, 16 (Premium SKU)."
+  }
+}
+
+variable "key_vault_purge_protection_enabled" {
+  description = "Enable Key Vault purge protection. Dev defaults false (fresh-env case allows quick recreate); test/prod default true per FR-019. Threaded into module.keyvault by US7 / T122."
+  type        = bool
+  default     = false
+}
+
+variable "key_vault_soft_delete_retention_days" {
+  description = "Key Vault soft-delete retention window in days. Dev defaults 7; test/prod default 90. Azure range: 7-90. Threaded into module.keyvault by US7 / T122."
+  type        = number
+  default     = 7
+
+  validation {
+    condition     = var.key_vault_soft_delete_retention_days >= 7 && var.key_vault_soft_delete_retention_days <= 90
+    error_message = "key_vault_soft_delete_retention_days must be between 7 and 90."
+  }
+}
+
+variable "log_analytics_retention_days" {
+  description = "Log Analytics Workspace retention in days. All envs default to 30 per Q5c. Azure range: 30-730 (interactive)."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.log_analytics_retention_days >= 30 && var.log_analytics_retention_days <= 730
+    error_message = "log_analytics_retention_days must be between 30 and 730."
+  }
+}
+
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev
+# defaults `true` (external ingress) so the backend remains reachable from
+# outside the CAE for local developer + smoke-test workflows. Prod template
+# defaults `false`; test mirrors dev.
+variable "backend_external_ingress" {
+  description = "Controls the backend Container App's ingress.external_enabled. Dev defaults true (developer + smoke-test workflows reach the backend over the public internet). Prod template defaults false (FR-010: internal-only ingress)."
+  type        = bool
+  default     = true
+}

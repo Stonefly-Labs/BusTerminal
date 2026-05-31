@@ -1,0 +1,100 @@
+# BusTerminal — prod environment tfvars template (spec 005)
+#
+# Copy to `terraform.tfvars` and replace placeholders before running
+# `tofu apply`. Sensitive or per-tenant values are supplied by the CD pipeline
+# via `-var` flags or environment variables and are NOT committed to a live
+# tfvars in the repo.
+#
+# Source of truth for the schema:
+# specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+
+# -----------------------------------------------------------------------------
+# Identity & subscription
+# -----------------------------------------------------------------------------
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+environment_name = "prod"
+location         = "centralus" # research §17 — regional diversity from dev/test
+naming_prefix    = "bt-prod"
+unique_suffix    = "chprod01"
+
+github_org_repo = "<org>/BusTerminal"
+
+# -----------------------------------------------------------------------------
+# Workload identity & Entra
+# -----------------------------------------------------------------------------
+entra_tenant_id     = "00000000-0000-0000-0000-000000000000"
+entra_api_client_id = "00000000-0000-0000-0000-000000000000"
+entra_web_client_id = "00000000-0000-0000-0000-000000000000"
+
+platform_role_ids = {
+  admin     = "00000000-0000-0000-0000-000000000001"
+  operator  = "00000000-0000-0000-0000-000000000002"
+  reader    = "00000000-0000-0000-0000-000000000003"
+  developer = "00000000-0000-0000-0000-000000000004"
+}
+
+# -----------------------------------------------------------------------------
+# Container images — supplied by the CD pipeline; placeholders here.
+# -----------------------------------------------------------------------------
+frontend_image = "acr<unique-suffix>.azurecr.io/busterminal/web:placeholder"
+backend_image  = "acr<unique-suffix>.azurecr.io/busterminal/api:placeholder"
+
+frontend_min_replicas = 0
+frontend_max_replicas = 3
+backend_min_replicas  = 0
+backend_max_replicas  = 3
+
+# -----------------------------------------------------------------------------
+# Tags
+# -----------------------------------------------------------------------------
+tags = {
+  slice = "005-infrastructure-baseline"
+}
+
+# -----------------------------------------------------------------------------
+# Optional standing access (operators with Key Vault Secrets Officer)
+# -----------------------------------------------------------------------------
+# kv_operator_object_ids = []
+
+# Spec 003 — internal-caller probe job (off by default)
+probe_job_enabled = false
+
+# Spec 004 — canonical Cosmos SQL database name
+canonical_db_name = "busterminal-canonical"
+
+# -----------------------------------------------------------------------------
+# Spec 005 — Infrastructure Baseline
+# Per specs/005-infrastructure-baseline/contracts/config-profile-schema.md
+# Prod ships private-by-default: public access OFF on data services, PEs ON,
+# Premium SB SKU, Standard Search SKU, KV purge protection ON, 90-day KV
+# soft-delete retention. Backend ingress is internal-only (FR-010).
+# -----------------------------------------------------------------------------
+
+# VNet + subnet CIDRs per research §10. Prod uses 10.52.0.0/16.
+network_address_space         = ["10.52.0.0/16"]
+subnet_integration_cidr       = "10.52.0.0/23"
+subnet_private_endpoints_cidr = "10.52.2.0/24"
+
+# Prod private-by-default posture (FR-031). Public access is off; PEs are on.
+data_services_public_access_enabled = false
+private_endpoints_enabled           = true
+
+# Prod SKU defaults.
+ai_search_sku        = "standard"
+service_bus_sku      = "Premium"
+service_bus_capacity = 1
+
+# Prod KV hardening per FR-019.
+key_vault_purge_protection_enabled   = true
+key_vault_soft_delete_retention_days = 90
+
+# Q5c — LA retention as tf-var, default 30. Operators override per compliance
+# requirements (max 730 interactive).
+log_analytics_retention_days = 30
+
+# Spec 005 / T134 / FR-010 — backend Container App ingress is internal-only
+# in prod. Do not flip this to `true` without a documented justification: the
+# CI BT-IAC-002 policy gate expects prod to keep the backend off the public
+# internet.
+backend_external_ingress = false

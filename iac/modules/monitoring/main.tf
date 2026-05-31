@@ -30,7 +30,10 @@ module "application_insights" {
   location            = var.location
   workspace_id        = module.log_analytics.resource_id
   application_type    = "web"
-  tags                = var.tags
+  # Spec 005 / Q1c / research §6 — MUST stay `false`. See variables.tf and
+  # README.md § Local authentication for the full rationale.
+  local_authentication_disabled = var.local_authentication_disabled
+  tags                          = var.tags
 }
 
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {
@@ -48,4 +51,13 @@ resource "azurerm_key_vault_secret" "app_insights_connection_string" {
   expiration_date = "2099-12-31T23:59:59Z"
 
   tags = var.tags
+
+  # Spec 005 / US7 / T121 — Container Apps caches the secret reference at
+  # container-start time. Replacing this KV secret URI silently breaks the
+  # API + Web container's `APPLICATIONINSIGHTS_CONNECTION_STRING` env var
+  # until the next container revision. BT-IAC-007 is primary; this blocks
+  # the destroy-replace path at plan time.
+  lifecycle {
+    prevent_destroy = true
+  }
 }

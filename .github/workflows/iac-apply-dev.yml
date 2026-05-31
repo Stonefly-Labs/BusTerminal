@@ -1,0 +1,285 @@
+name: IaC · apply · dev
+
+# Spec 005 / US6 / T120. Infra-focused CD for the dev environment.
+#
+# Triggers on push to `main` touching the IaC tree only. Re-runs the
+# validate workflow's plan, then applies. Destructive changes
+# (BT-IAC-007) fail the run; a maintainer must re-run the apply job
+# after acknowledging the destroy.
+#
+# Coordination note: `cd-dev.yml` also runs `tofu apply` on every push
+# to `main` as part of the app rollout (build → push → revision
+# update). Both workflows target the same state. The 5-minute
+# `-lock-timeout` mirrors the iac-validate pattern and lets whichever
+# workflow holds the state lock first run to completion. Until a future
+# spec splits image-rollout from infra-apply cleanly, both pipelines
+# coexist and serialize on the azurerm backend's blob lease.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "iac/environments/dev/**"
+      - "iac/modules/**"
+      - "iac/platform-bootstrap/**"
+      - "iac/policies/**"
+      - "iac/scripts/**"
+      - ".github/workflows/iac-apply-dev.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: iac-apply-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan:
+    name: tofu plan · policy gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: dev
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_github_org_repo: ${{ github.repository }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX_DEV }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
+      # Reuse whatever container images are currently live; this workflow
+      # only manages infrastructure, not app rollouts (cd-dev.yml does that).
+      TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+      TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    outputs:
+      requires_manual_approval: ${{ steps.policy_gate.outputs.requires_manual_approval }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: Azure login (OIDC federated)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: tofu init (azurerm backend via OIDC)
+        working-directory: iac/environments/dev
+        run: |
+          tofu init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
+
+      # First, reuse the currently-deployed image refs from state so the
+      # plan doesn't show spurious image-var changes that cd-dev would
+      # immediately reconcile.
+      - name: Reuse live image refs from state (if any)
+        id: live_images
+        working-directory: iac/environments/dev
+        run: |
+          set -euo pipefail
+          BACKEND="$TF_VAR_backend_image"
+          FRONTEND="$TF_VAR_frontend_image"
+          if tofu state list 2>/dev/null | grep -q .; then
+            JSON=$(tofu output -json 2>/dev/null || true)
+            if echo "$JSON" | jq empty >/dev/null 2>&1; then
+              REUSE_BACKEND=$(echo "$JSON" | jq -r '.backend_image_in_use.value // empty')
+              REUSE_FRONTEND=$(echo "$JSON" | jq -r '.frontend_image_in_use.value // empty')
+              [ -n "$REUSE_BACKEND" ] && BACKEND="$REUSE_BACKEND"
+              [ -n "$REUSE_FRONTEND" ] && FRONTEND="$REUSE_FRONTEND"
+            fi
+          fi
+          echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
+          echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+
+      - name: tofu plan
+        id: plan
+        working-directory: iac/environments/dev
+        run: |
+          set +e
+          tofu plan -no-color -input=false -lock-timeout=300s \
+            -var "backend_image=${{ steps.live_images.outputs.backend }}" \
+            -var "frontend_image=${{ steps.live_images.outputs.frontend }}" \
+            -out=tfplan > plan.out 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          tail -c 60000 plan.out > plan.tail
+          {
+            echo '### OpenTofu plan — dev (infra apply)'
+            echo ''
+            echo '```'
+            cat plan.tail
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if plan errored
+        if: steps.plan.outputs.exit_code != '0' && steps.plan.outputs.exit_code != '2'
+        run: |
+          echo "::error::tofu plan exited with ${{ steps.plan.outputs.exit_code }}"
+          exit 1
+
+      - name: tofu show -json tfplan
+        working-directory: iac/environments/dev
+        run: tofu show -json tfplan > tfplan.json
+
+      - name: Custom IaC policy gate (BT-IAC-001..007)
+        id: policy_gate
+        working-directory: iac/environments/dev
+        run: |
+          set +e
+          bash "$GITHUB_WORKSPACE/iac/policies/run-policies.sh" \
+            --plan tfplan.json \
+            --env dev \
+            --allowlist "$GITHUB_WORKSPACE/iac/policies/allowlist.json" \
+            --composition-dir . \
+            --report policies-report.json \
+            > policies-summary.md 2> policies-stderr.log
+          rc=$?
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ -f requires-manual-approval.flag ]; then
+            echo "requires_manual_approval=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "requires_manual_approval=false" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo ''
+            echo '---'
+            echo ''
+            cat policies-summary.md
+            if [ -s policies-stderr.log ]; then
+              echo ''
+              echo '<details><summary>Rule failure detail (stderr)</summary>'
+              echo ''
+              echo '```'
+              cat policies-stderr.log
+              echo '```'
+              echo '</details>'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          # Non-zero blocks apply via the conditional on the apply job.
+          exit $rc
+
+      - name: Upload plan + policy artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-apply-dev-plan-${{ github.run_id }}
+          path: |
+            iac/environments/dev/tfplan
+            iac/environments/dev/tfplan.json
+            iac/environments/dev/policies-report.json
+            iac/environments/dev/policies-summary.md
+            iac/environments/dev/policies-stderr.log
+            iac/environments/dev/requires-manual-approval.flag
+          if-no-files-found: ignore
+          retention-days: 14
+
+  apply:
+    name: tofu apply (approval-gated)
+    runs-on: ubuntu-latest
+    needs: plan
+    # Reuses the dev GitHub Environment. When BT-IAC-007 fires (destructive
+    # plan), the manual-approval gate below blocks apply until a maintainer
+    # re-runs this job. Configure required reviewers on the `dev-iac-apply`
+    # environment in repo settings to require sign-off on every apply.
+    environment: dev-iac-apply
+    timeout-minutes: 30
+    if: needs.plan.result == 'success'
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_github_org_repo: ${{ github.repository }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX_DEV }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download plan artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: iac-apply-dev-plan-${{ github.run_id }}
+          path: iac/environments/dev
+
+      - name: Manual approval check (BT-IAC-007)
+        run: |
+          set -euo pipefail
+          if [ -f iac/environments/dev/requires-manual-approval.flag ]; then
+            echo "::warning::BT-IAC-007 flagged a stateful destroy in the plan. Apply will proceed because a maintainer re-ran this job after acknowledging the destructive change."
+          fi
+          if [ ! -f iac/environments/dev/tfplan ]; then
+            echo "::error::tfplan artifact missing — the plan job did not capture the binary plan."
+            exit 1
+          fi
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: Azure login (OIDC federated)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: tofu init (azurerm backend via OIDC)
+        working-directory: iac/environments/dev
+        run: |
+          tofu init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
+
+      - name: tofu apply tfplan
+        working-directory: iac/environments/dev
+        run: tofu apply -input=false -lock-timeout=300s tfplan
+
+      - name: Apply summary
+        if: always()
+        working-directory: iac/environments/dev
+        run: |
+          {
+            echo '### Apply complete — dev'
+            echo ''
+            echo 'Outputs:'
+            echo ''
+            echo '```'
+            tofu output 2>/dev/null || echo '(no outputs available)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -34,3 +34,40 @@ variable "log_analytics_workspace_id" {
   type        = string
   default     = null
 }
+
+# Spec 005 — private-endpoint extension (T051–T053). Defaults preserve existing
+# (pre-spec-005) behavior: no PE provisioned, public access on. Env composition
+# opts in via Q2c per-env toggles.
+
+variable "private_endpoint_enabled" {
+  description = <<-EOT
+    Plan-time bool toggling the conditional private-endpoint child module.
+    Required as a separate variable from `private_endpoint_subnet_id`
+    because the subnet ID is sourced from the networking module's output,
+    which is "known after apply" — using a nullable string in the `count`
+    expression breaks plan with "Invalid count argument: count value
+    depends on resource attributes that cannot be determined until apply".
+    The env composition passes a literal bool here (`var.private_endpoints_enabled`)
+    so plan can statically resolve the count.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "private_endpoint_subnet_id" {
+  description = "Subnet ID for the Cosmos account private endpoint. Required when private_endpoint_enabled = true. Bound to the `Sql` subresource via the project's private-endpoint module."
+  type        = string
+  default     = null
+}
+
+variable "private_dns_zone_id" {
+  description = "Private DNS zone ID for `privatelink.documents.azure.com`. Required when private_endpoint_enabled = true."
+  type        = string
+  default     = null
+}
+
+variable "public_network_access_enabled" {
+  description = "When true, the Cosmos account accepts traffic from the internet (gated by AAD/RBAC). When false, requires private endpoints. Defaults to true to preserve pre-spec-005 behavior."
+  type        = bool
+  default     = true
+}

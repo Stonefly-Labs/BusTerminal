@@ -27,12 +27,15 @@ module "environment" {
 
   zone_redundancy_enabled = var.zone_redundancy_enabled
 
+  # Spec 005 / T085 / Q5c — `metric_categories = []` drops the AVM's default
+  # `["AllMetrics"]` so the emitted diagnostic setting contains zero metric
+  # blocks. The `allLogs` log group still flows. Satisfies BT-IAC-003.
   diagnostic_settings = {
     audit = {
       name                  = "cae-diagnostics"
       workspace_resource_id = data.azurerm_log_analytics_workspace.this.id
       log_groups            = ["allLogs"]
-      metric_categories     = ["AllMetrics"]
+      metric_categories     = []
     }
   }
 

@@ -35,3 +35,36 @@ platform_role_ids = {
 # not a secret). Defaults match the cosmos-canonical-store module defaults; the
 # explicit value here documents intent and gives the env a single edit point.
 canonical_db_name = "busterminal-canonical"
+
+# Spec 005 — Infrastructure Baseline (T065)
+# Per `specs/005-infrastructure-baseline/contracts/config-profile-schema.md` and
+# the Q2c networking clarification. Dev opts into public access on data
+# services AND provisions warm PEs — the destructive flip (public access off
+# on data services) is a future spec, not this slice. See spec.md §Clarifications
+# for the Q2c trade-off rationale.
+network_address_space         = ["10.50.0.0/16"]
+subnet_integration_cidr       = "10.50.0.0/23"
+subnet_private_endpoints_cidr = "10.50.2.0/24"
+
+data_services_public_access_enabled = true
+private_endpoints_enabled           = true
+
+ai_search_sku   = "basic"
+service_bus_sku = "Standard"
+# service_bus_capacity is intentionally omitted — required only when sku=Premium.
+
+# Dev's KV was provisioned with purge protection ENABLED (the module hardcoded
+# `true` pre-spec-005). Azure does not permit disabling purge protection once
+# enabled, so dev's tfvars stays `true` to match the deployed reality. The
+# variable default in variables.tf remains `false` per the spec's per-env
+# table — a NEW dev environment that's never opted in could keep that default.
+key_vault_purge_protection_enabled   = true
+key_vault_soft_delete_retention_days = 90
+
+log_analytics_retention_days = 30
+
+# Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev keeps
+# external ingress on so the existing developer + smoke-test workflows (hitting
+# the backend over the public internet via the FQDN output) continue to work.
+# Prod template defaults to false.
+backend_external_ingress = true

@@ -3,6 +3,19 @@ variable "cosmos_account_name" {
   type        = string
 }
 
+variable "cosmos_account_id" {
+  description = <<-EOT
+    ARM resource id of the Cosmos DB account (e.g.,
+    `/subscriptions/.../databaseAccounts/<acct>`). Used ONLY to compute the
+    `canonical_database_role_scope` output — the path-construction trap
+    documented in research §15: `azurerm_cosmosdb_sql_role_assignment.scope`
+    requires the data-plane path form (`<account-id>/dbs/<db-name>`), not the
+    ARM form (`<account-id>/sqlDatabases/<db-name>`). Surface the correct
+    shape from the module so consumers can't re-discover the trap.
+  EOT
+  type        = string
+}
+
 variable "resource_group_name" {
   description = "Resource group hosting the Cosmos DB account. Required by `azurerm_cosmosdb_sql_database`."
   type        = string
