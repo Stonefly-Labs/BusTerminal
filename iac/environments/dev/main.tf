@@ -386,44 +386,29 @@ module "frontend_app" {
   tags = local.shared_tags
 }
 
-# Spec 005 / T084 — Container App diagnostic settings routed through the
-# central `diagnostic-settings` wrapper. The wrapper enforces the Q5c convention
-# by construction: exactly one `enabled_log { category_group = "allLogs" }` and
-# NO `enabled_metric` block. AVM modules already wire diagnostic settings on
-# Key Vault, ACR, and the Container Apps Environment; Container App resources
-# themselves do not have a `diagnostic_settings` parameter on the AVM today so
-# we wire the dedicated wrapper here.
+# Spec 005 / T084 (revised post-merge defect fix) — per-Container-App
+# diagnostic settings are intentionally NOT provisioned. Azure rejects them:
 #
-# The pre-spec-005 inline settings (`enabled_metric { category = "AllMetrics" }`
-# only, no `enabled_log`) are removed per Q5c. The `moved` blocks below carry
-# the prior state addresses into the new module path so Tofu treats the change
-# as an in-place attribute update on the existing Azure resource (same name,
-# same target) instead of a destroy/create cycle.
-module "backend_app_diagnostics" {
-  source = "../../modules/diagnostic-settings"
-
-  name                       = "ca-backend-diagnostics"
-  target_resource_id         = module.backend_app.id
-  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-}
-
-module "frontend_app_diagnostics" {
-  source = "../../modules/diagnostic-settings"
-
-  name                       = "ca-frontend-diagnostics"
-  target_resource_id         = module.frontend_app.id
-  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-}
-
-moved {
-  from = azurerm_monitor_diagnostic_setting.backend_app
-  to   = module.backend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
-}
-
-moved {
-  from = azurerm_monitor_diagnostic_setting.frontend_app
-  to   = module.frontend_app_diagnostics.azurerm_monitor_diagnostic_setting.this
-}
+#   - The Container App resource type accepts diagnostic settings with ONLY
+#     `--metrics AllMetrics`; the `--logs` parameter is not supported at the
+#     per-app level (verified via Microsoft Learn `log-options#configure-
+#     logging-options`).
+#   - Spec 005 / Q5c forbids forwarding `AllMetrics` to Log Analytics. With
+#     logs disallowed by Azure and metrics disallowed by Q5c, there is no
+#     valid shape for a per-app diagnostic setting.
+#
+# Container App logs (`ContainerAppConsoleLogs`, `ContainerAppSystemLogs`)
+# still reach the env Log Analytics Workspace via the Container Apps
+# Environment's `allLogs` diagnostic setting (wired inside the
+# container-apps-env module's AVM call). Per-app diagnostics would be a
+# duplicate sink even if Azure accepted them.
+#
+# Removed in main: pre-spec-005 had `azurerm_monitor_diagnostic_setting.
+# backend_app` + `.frontend_app` carrying `enabled_metric AllMetrics` only.
+# Spec 005 routed them through the `diagnostic-settings` wrapper, which
+# Azure then rejected (`CategoryGroup: 'allLogs' is not supported,
+# supported ones are: ''`). Both blocks are now deleted; `tofu apply`
+# will destroy the in-state resources.
 
 # Spec 005 / T086 — Application Insights diagnostic setting forwarding `allLogs`
 # to the env LAW. AI Search and Service Bus diagnostics are emitted inside their

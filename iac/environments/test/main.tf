@@ -334,23 +334,13 @@ module "frontend_app" {
   tags = local.shared_tags
 }
 
-# Spec 005 / T084 — Container App diagnostic settings routed through the
-# central `diagnostic-settings` wrapper (Q5c: `allLogs` only, no metrics).
-module "backend_app_diagnostics" {
-  source = "../../modules/diagnostic-settings"
-
-  name                       = "ca-backend-diagnostics"
-  target_resource_id         = module.backend_app.id
-  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-}
-
-module "frontend_app_diagnostics" {
-  source = "../../modules/diagnostic-settings"
-
-  name                       = "ca-frontend-diagnostics"
-  target_resource_id         = module.frontend_app.id
-  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-}
+# Spec 005 / T084 (revised post-merge defect fix) — per-Container-App
+# diagnostic settings are intentionally NOT provisioned. Azure rejects
+# `categoryGroup = "allLogs"` on individual Container Apps; only
+# `--metrics AllMetrics` is supported per-app, which Q5c forbids. Logs
+# (`ContainerAppConsoleLogs`, `ContainerAppSystemLogs`) reach LAW via the
+# Container Apps Environment's `allLogs` diagnostic setting. See
+# `iac/environments/dev/main.tf` for the full rationale.
 
 # Spec 005 / T086 — Application Insights diagnostic setting forwarding `allLogs`
 # to the env LAW. AI Search and Service Bus diagnostics are emitted inside their
