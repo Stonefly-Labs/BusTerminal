@@ -12,6 +12,18 @@
 
 ---
 
+## Clarifications
+
+### Session 2026-06-01
+
+- Q: Deletion policy for entities with children (block vs cascade vs soft-delete)? → A: Block deletion until children are removed (no cascade in this slice).
+- Q: Delete semantics and `status` lifecycle? → A: Hard delete (physical removal). `status` in this slice supports `Active` and `Deprecated` (operator-settable, not auto-driven); `Deleted` is reserved for a future soft-delete spec but is not emitted by any code path. Restoration is not supported; the audit trail (FR-032) carries the historical record.
+- Q: Concurrency conflict UX (FR-020)? → A: Refresh-or-overwrite modal. On a stale-version save, the API returns a recoverable conflict carrying the current server-side entity state plus an identification of which fields changed. The UI shows a dialog with two explicit actions: "Discard my changes and refresh" or "Force overwrite". Force overwrite proceeds with the user's submitted values and is recorded as an explicit user choice in the audit event for that update.
+- Q: Authorization scope — who counts as an "operator"? → A: Any authenticated tenant user can read AND write. No role gating in this slice. Role-based differentiation (Reader vs Writer vs Admin) is reserved for a future governance spec. Operational risk is accepted on the basis that initial deployments will be in tenants/environments scoped to messaging engineering teams.
+- Q: Tag schema — labels vs key/value? → A: Key/value pairs, free-form on both sides. Tag keys are case-insensitive on match and case-preserving on display; tag values are case-preserving and matched as entered. Filter supports key-only, value-only, and key+value matches. No enumerated key vocabulary in this slice.
+
+---
+
 ## Overview
 
 This feature establishes the first feature-complete product slice of BusTerminal — the **Service Bus Registry Core**. Before this slice, BusTerminal is a platform shell (auth, branding, infrastructure baseline) with no user-facing registry capability. After this slice, an operator can register, browse, search, edit, and delete Azure Service Bus assets (namespaces, queues, topics, subscriptions, rules) across environments, with persistent storage, full-text discovery, relationship traversal, and basic audit history.
@@ -78,8 +90,8 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 
 ### Edge Cases
 
-- **Concurrent edits**: Two operators open the same entity, both edit it, both save. The second save must either succeed with a clear "this was updated by someone else — review and confirm" prompt or fail with a recoverable conflict error. Silent overwrite is not acceptable.
-- **Orphaned children**: A namespace is deleted while it still has queues registered under it. The system must either block the delete with a clear message ("12 queues still reference this namespace") or cascade the delete with explicit confirmation. Silent orphaning is not acceptable.
+- **Concurrent edits**: Two operators open the same entity, both edit it, both save. The first save succeeds. The second save fails with a conflict response and the UI shows the dialog defined in FR-020 — the second operator chooses **Discard & refresh** or **Force overwrite**, and Force overwrite is recorded as an explicit choice in the resulting audit event. Silent overwrite is never acceptable.
+- **Orphaned children**: A namespace is deleted while it still has queues registered under it. The system MUST block the delete with a clear message identifying the blocking children (e.g., "12 queues still reference this namespace — remove them first"). Cascade deletion is out of scope for this slice.
 - **Search indexer lag**: An entity is created, the operator immediately searches for it, but the search index has not caught up. The browse view (sourced from the persistent store) must always reflect the create immediately; search lag of a few seconds is acceptable as long as eventual consistency is reached.
 - **Indexer failure**: The search indexing pipeline fails mid-batch for transient reasons. The pipeline must retry, and failures that exhaust retries must be visible in operational logs/telemetry — the persistent store must never become inconsistent with what was actually saved.
 - **Invalid Azure resource IDs**: An operator pastes a malformed ARM resource ID. The system must reject it with a validation message that identifies what's wrong (wrong format, wrong resource type, wrong subscription scope), not a generic "invalid input."
@@ -97,7 +109,7 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 #### Registry Entity Model
 
 - **FR-001**: The system MUST support the following registry entity types: Namespace, Queue, Topic, Subscription, and Rule.
-- **FR-002**: Every registry entity MUST carry the canonical shared fields defined by the source artifact: `id` (stable identifier), `entityType`, `name`, `fullyQualifiedName`, `description`, `tags`, `owner`, `environment`, `status` (Active / Deprecated / Deleted), `createdAtUtc`, `updatedAtUtc`, `source` (Manual / Discovered), `azureResourceId`, `namespaceName`, and `metadata` (extensible structured metadata).
+- **FR-002**: Every registry entity MUST carry the canonical shared fields defined by the source artifact: `id` (stable identifier), `entityType`, `name`, `fullyQualifiedName`, `description`, `tags`, `owner`, `environment`, `status`, `createdAtUtc`, `updatedAtUtc`, `source` (Manual / Discovered), `azureResourceId`, `namespaceName`, and `metadata` (extensible structured metadata). In this slice the `status` enumeration accepts `Active` and `Deprecated` only; `Deleted` is reserved for a future soft-delete spec and MUST NOT be emitted by any code path in this slice. The `tags` field is a collection of key/value pairs (both free-form strings); a single entity MAY carry zero or more tags. Tag keys are matched case-insensitively and displayed case-preserved (the first-written casing wins for display when normalized); tag values are matched and displayed case-preserved as entered.
 - **FR-003**: The system MUST enforce required fields: `id`, `entityType`, `name`, `environment`, and `status` MUST be present on every entity; other shared fields MAY be omitted.
 - **FR-004**: The system MUST stamp `source = Manual` for all entities created via the user interface in this slice. Automatic discovery is out of scope (reserved for a future spec).
 - **FR-005**: The system MUST maintain `createdAtUtc` immutably on first save and update `updatedAtUtc` on every subsequent mutation.
@@ -107,14 +119,15 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 - **FR-006**: The system MUST model and persist parent/child relationships: Namespace → Queue, Namespace → Topic, Topic → Subscription, Subscription → Rule.
 - **FR-007**: The system MUST allow an operator to traverse relationships in both directions from any entity detail view (parent navigation and child enumeration).
 - **FR-008**: The system MUST reject creation of a child entity whose declared parent does not exist, with a clear validation error.
-- **FR-009**: The system MUST define and apply a deletion policy for entities with children — either blocking deletion until children are removed or performing a confirmed cascade. The chosen policy MUST be consistent, documented in user-facing messaging, and never silently orphan children.
+- **FR-009**: The system MUST block deletion of any entity that still has registered children. The attempted deletion MUST return a validation error that enumerates (or identifies the count and types of) the blocking children so the operator knows what to clean up first. Cascade deletion is out of scope for this slice and is reserved for a future spec. Children MUST never be silently orphaned.
 
 #### CRUD Operations
 
 - **FR-010**: Authenticated operators MUST be able to create entities of every supported type.
 - **FR-011**: Authenticated operators MUST be able to view any entity's full metadata and relationships.
 - **FR-012**: Authenticated operators MUST be able to edit any mutable field on an existing entity. `id`, `createdAtUtc`, and `entityType` MUST NOT be editable.
-- **FR-013**: Authenticated operators MUST be able to delete entities, with confirmation, subject to the deletion policy in FR-009.
+- **FR-013**: Authenticated operators MUST be able to delete leaf entities (or entities whose children have already been removed), with explicit confirmation, subject to the block-with-children policy in FR-009. Deletion is a physical (hard) removal of the entity record. The historical record of the deletion lives in the audit trail (FR-032), not in the entity table. Restoration is not supported in this slice.
+- **FR-013a**: Authenticated operators MUST be able to transition an entity's `status` between `Active` and `Deprecated` as an explicit, audited action. A `Deprecated` entity remains fully visible in browse, search, and detail experiences; the `Deprecated` state is a governance signal, NOT a hide-from-view mechanism. The UI MUST visually distinguish `Deprecated` entities so operators can see at a glance not to build on them.
 - **FR-014**: The system MUST reject duplicate names within the same parent scope and environment, with a clear validation error.
 
 #### Validation
@@ -127,13 +140,13 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 
 - **FR-018**: The system MUST treat the registry's primary data store as the authoritative source of truth.
 - **FR-019**: The persistent store MUST guarantee that every successful create/update/delete is durable before the operation is reported as successful to the user.
-- **FR-020**: The system MUST detect concurrent edits and prevent silent overwrites. On detection, the second writer MUST receive a recoverable conflict response with enough information to decide whether to retry, merge, or abandon.
+- **FR-020**: The system MUST detect concurrent edits and prevent silent overwrites. On detection, the API MUST return a recoverable conflict response carrying (a) the current server-side state of the entity and (b) an identification of which fields differ from the submitter's basis version. The UI MUST present a conflict dialog with exactly two explicit actions: **Discard my changes and refresh** (abandon the submission, reload current state) and **Force overwrite** (proceed with the submitter's values). The Force-overwrite path MUST be recorded in the audit event for that update as an explicit user choice, so the resolution is traceable.
 - **FR-021**: All persistence operations MUST be asynchronous and cancellable.
 
 #### Search & Discovery
 
 - **FR-022**: The system MUST provide a global search experience over registry entities supporting full-text matching against name, description, fully-qualified name, tags, owner, and structured metadata.
-- **FR-023**: Search MUST support filtering by entity type, environment, status, and tag, and sorting by name and last-updated time.
+- **FR-023**: Search MUST support filtering by entity type, environment, status, and tag, and sorting by name and last-updated time. Tag filtering MUST support three forms: **key-only** (entity has any tag with this key), **value-only** (entity has any tag with this value), and **key+value** (entity has this exact key/value pair). Key matching is case-insensitive; value matching is case-sensitive.
 - **FR-024**: Search MUST return paginated results with stable ordering.
 - **FR-025**: The system MUST keep the search index eventually consistent with the persistent store. Create, update, and delete events MUST trigger index updates. Index update failures MUST be retried; permanent failures MUST be observable in telemetry.
 - **FR-026**: Browse and detail experiences MUST be served from the persistent store, NOT from the search index, so they always reflect the latest committed state regardless of index lag.
@@ -144,7 +157,7 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 - **FR-028**: Each entity MUST have a detail page displaying its canonical metadata, tags, ownership, environment, Azure resource identifier, parent and child relationships (where applicable), and a placeholder/active audit-history section per the priorities in Story 3.
 - **FR-029**: The frontend MUST provide create and edit forms for every supported entity type, with inline validation and clear submission states (saving, saved, error).
 - **FR-030**: Entity deletion in the UI MUST require explicit confirmation and clearly communicate the deletion policy (block vs cascade).
-- **FR-031**: The frontend MUST surface loading, empty, error, and unauthorized states distinctly across explorer, search, detail, and form experiences.
+- **FR-031**: The frontend MUST surface loading, empty, error, unauthorized, and **conflict** states distinctly across explorer, search, detail, and form experiences. The conflict state on edit forms MUST render the dialog defined in FR-020.
 
 #### Audit Foundations
 
@@ -159,7 +172,7 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 
 #### Security & Authorization
 
-- **FR-037**: All registry read and write endpoints MUST require an authenticated identity, using the authentication foundation established by the earlier auth spec.
+- **FR-037**: All registry read and write endpoints MUST require an authenticated identity, using the authentication foundation established by the earlier auth spec. In this slice ANY authenticated tenant user is authorized for both read and write operations — there is no role-based differentiation. The user's identity MUST still be captured on every write for the audit trail (FR-032). Role/group-gated authorization is reserved for a future governance spec.
 - **FR-038**: Service-to-service authentication to Azure dependencies (data store, search service, key store) MUST prefer managed identity over secrets.
 - **FR-039**: No secrets, connection strings, or credentials MUST appear in source code, build artifacts, or container images. All such values MUST be sourced from the managed secrets store at runtime.
 
@@ -197,7 +210,7 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 - **Subscription**: Represents a subscription on a topic. Has a single parent Topic and zero-or-more child Rules.
 - **Rule**: Represents a subscription rule/filter. Has a single parent Subscription.
 - **Audit Event**: An immutable record of one create/update/delete operation on a registry entity. Carries actor identity, UTC timestamp, entity type, entity identifier, and change summary.
-- **Tag**: An arbitrary key/value (or label) attached to an entity for grouping, filtering, and ownership signaling. Tags are not entities in their own right — they are properties of entities.
+- **Tag**: A free-form key/value pair attached to an entity for grouping, filtering, and governance signaling. Keys are matched case-insensitively and displayed case-preserved; values are matched and displayed case-preserved. There is no enumerated key vocabulary in this slice. Tags are not entities in their own right — they are properties of entities.
 - **Environment**: A logical classification (e.g., dev, test, prod) attached to every entity. Used for partitioning, filtering, and visual scoping. Environments are configurable and not a fixed enumeration baked into the model.
 
 ---
@@ -226,8 +239,9 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 - **Foundations are in place**: The earlier specs in this project (branding/design foundation, solution foundation, authentication & identity, core domain model, and infrastructure baseline) are merged and deployed. This slice consumes them — it does not redefine authentication, design primitives, project layout, or the foundational infrastructure scaffolding.
 - **Single-tenant scope**: This slice is single-tenant. Multi-tenant partitioning is explicitly excluded by the source artifact.
 - **Source = Manual only**: All entities in this slice are operator-created via the UI. The `source = Discovered` enumeration value is reserved in the data model for a future automatic-discovery spec but is not emitted by any code path in this slice.
+- **Status = Active or Deprecated only in this slice**: The `Deleted` value of the `status` enumeration is reserved in the data model for a future soft-delete spec but is not emitted in this slice. Deletion in this slice is a physical (hard) removal; restoration is not supported. `Deprecated` is an operator-driven governance signal that keeps the entity fully visible.
 - **No semantic / AI search**: This slice provides keyword-based full-text search with filters. AI-assisted semantic search is reserved for a future spec.
-- **No advanced RBAC**: Authorization in this slice is "authenticated operator may read and write." Role/ownership-based fine-grained authorization is reserved for a future governance spec.
+- **No advanced RBAC**: Authorization in this slice is "any authenticated tenant user may read and write." There is no Reader/Writer/Admin role distinction. The audit trail (FR-032) captures the acting user's identity on every mutation, so traceability is preserved even without role gating. Role/ownership-based fine-grained authorization is reserved for a future governance spec, and the initial deployment is expected to be scoped to a tenant whose member population is already restricted to messaging engineering personnel.
 - **No CLI**: This slice is delivered via the web UI and a documented API only. A CLI is reserved for a future spec.
 - **Environment list is configurable, not hard-coded**: The environment classification field accepts a configurable list of environment values; the application does not bake `dev/test/prod` into source code as a closed enumeration.
 - **English-only content, RTL-safe foundation**: Per project convention, v1 content is English; layouts are built RTL-safely using logical CSS properties, but no translation pipeline is shipped in this slice.
