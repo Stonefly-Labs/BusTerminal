@@ -59,6 +59,19 @@ variable "private_endpoint_subnet_id" {
   default     = null
 }
 
+# Azure requires the private endpoint resource itself to live in the same
+# region as its subnet (`InvalidResourceReference: ... both resources are
+# in the same region`). The PE's *target* can be cross-region — but the PE
+# resource and the VNet/subnet hosting it cannot. When the search service
+# is pinned to a different region than the env VNet (see the env-level
+# `ai_search_location` override), the env composition MUST pass the
+# subnet's region here so the PE lands in the right place.
+variable "private_endpoint_location" {
+  description = "Azure region for the private endpoint resource (must match the subnet's region). Defaults to var.location when null."
+  type        = string
+  default     = null
+}
+
 variable "private_dns_zone_id" {
   description = "Private DNS zone ID for `privatelink.search.windows.net`. Required when private_endpoint_enabled = true."
   type        = string

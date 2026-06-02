@@ -100,7 +100,11 @@ module "private_endpoint" {
 
   name                = "pe-${var.name}"
   resource_group_name = var.resource_group_name
-  location            = var.location
+  # PE must live in the SUBNET's region, not the search service's. When
+  # `var.private_endpoint_location` is supplied (env composition pinned the
+  # search service to a different region than its VNet), use it; otherwise
+  # fall back to `var.location`.
+  location            = coalesce(var.private_endpoint_location, var.location)
   subnet_id           = var.private_endpoint_subnet_id
   target_resource_id  = module.search.resource_id
   subresource_name    = "searchService"

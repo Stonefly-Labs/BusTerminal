@@ -459,6 +459,10 @@ module "ai_search" {
   private_endpoint_enabled   = var.private_endpoints_enabled
   private_endpoint_subnet_id = module.networking.subnet_private_endpoints_id
   private_dns_zone_id        = module.networking.private_dns_zone_ids["privatelink.search.windows.net"]
+  # When the search service is pinned to a different region than the env
+  # (`var.ai_search_location` set), the PE still has to live in the env's
+  # VNet region. Otherwise Azure rejects with InvalidResourceReference.
+  private_endpoint_location = var.ai_search_location != null ? azurerm_resource_group.this.location : null
 
   tags = local.shared_tags
 }
