@@ -72,11 +72,14 @@ SKIP_TF_TYPES_JSON='[
 
 # azapi_resource is a generic wrapper that can target any Azure ARM resource
 # type. Some of those Azure types don't accept tags (notably subnets, which
-# are children of virtual networks and inherit their parent's tag context).
+# are children of virtual networks and inherit their parent's tag context,
+# and AI Search indexes, whose REST API has no tags field — the parent
+# searchServices resource carries the env tags instead).
 # This list matches against the azapi resource's `type` attribute by PREFIX —
 # the trailing `@<api-version>` is ignored so AVM bumps don't break the skip.
 SKIP_AZAPI_TYPE_PREFIXES_JSON='[
-  "Microsoft.Network/virtualNetworks/subnets"
+  "Microsoft.Network/virtualNetworks/subnets",
+  "Microsoft.Search/searchServices/indexes"
 ]'
 
 ALLOWED_JSON='[]'
