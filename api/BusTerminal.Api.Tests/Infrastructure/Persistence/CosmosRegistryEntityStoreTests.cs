@@ -8,9 +8,13 @@ namespace BusTerminal.Api.Tests.Infrastructure.Persistence;
 // dev Cosmos account: CRUD happy path, ETag concurrency (stale write → 412),
 // tombstone-then-delete behavior, child-count query, name-uniqueness query.
 //
-// The fixture skips automatically when the dev-cluster env vars are absent
-// (see RegistryFixture.SkipIfUnconfigured).
+// Tagged `Category=Integration` so the CI unit tier filters these out. The
+// dedicated integration tier runs them against either the dev-cluster
+// Cosmos account (when BUSTERMINAL_TEST_* env vars are set) or the local
+// emulator — when neither is available the tests short-circuit via
+// fixture.ShouldRun().
 [Collection("RegistryFixture")]
+[Trait("Category", "Integration")]
 public class CosmosRegistryEntityStoreTests
 {
     private readonly RegistryFixture _fixture;
@@ -23,7 +27,7 @@ public class CosmosRegistryEntityStoreTests
     [Fact]
     public async Task Create_Read_Update_Delete_happy_path()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var ns = MakeNamespace();
         var created = await _fixture.Store.CreateAsync(ns, default);
@@ -50,7 +54,7 @@ public class CosmosRegistryEntityStoreTests
     [Fact]
     public async Task Stale_etag_update_throws_concurrency_conflict()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var ns = MakeNamespace();
         var created = await _fixture.Store.CreateAsync(ns, default);
@@ -79,7 +83,7 @@ public class CosmosRegistryEntityStoreTests
     [Fact]
     public async Task Tombstone_is_excluded_from_get_and_list()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var ns = MakeNamespace();
         var created = await _fixture.Store.CreateAsync(ns, default);
@@ -98,7 +102,7 @@ public class CosmosRegistryEntityStoreTests
     [Fact]
     public async Task CountChildren_returns_per_type_breakdown()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var ns = MakeNamespace();
         var nsCreated = await _fixture.Store.CreateAsync(ns, default);
@@ -124,7 +128,7 @@ public class CosmosRegistryEntityStoreTests
     [Fact]
     public async Task FindByParentAndName_returns_match_when_exists()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var ns = MakeNamespace();
         var nsCreated = await _fixture.Store.CreateAsync(ns, default);

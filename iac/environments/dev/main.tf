@@ -636,7 +636,6 @@ module "cosmos_registry_store" {
   source = "../../modules/cosmos-registry-store"
 
   cosmos_account_name            = module.cosmos_account.account_name
-  cosmos_account_id              = module.cosmos_account.account_id
   resource_group_name            = azurerm_resource_group.this.name
   cosmos_canonical_database_name = module.cosmos_canonical_store.database_name
 }
@@ -652,7 +651,6 @@ module "indexer_container_app" {
 
   name                          = "ca-${var.naming_prefix}-indexer"
   resource_group_name           = azurerm_resource_group.this.name
-  location                      = azurerm_resource_group.this.location
   container_apps_environment_id = module.container_apps_env.id
 
   workload_uami_id        = module.workload_identity.id

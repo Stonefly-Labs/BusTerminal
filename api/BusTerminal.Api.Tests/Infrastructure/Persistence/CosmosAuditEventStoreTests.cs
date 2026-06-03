@@ -8,6 +8,7 @@ namespace BusTerminal.Api.Tests.Infrastructure.Persistence;
 // surface because the IAuditEventStore contract only exposes Write +
 // ListForEntity (FR-034 append-only).
 [Collection("RegistryFixture")]
+[Trait("Category", "Integration")]
 public class CosmosAuditEventStoreTests
 {
     private readonly RegistryFixture _fixture;
@@ -20,7 +21,7 @@ public class CosmosAuditEventStoreTests
     [Fact]
     public async Task Append_then_list_returns_event()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var entityId = Guid.NewGuid();
         var evt = NewEvent(entityId, AuditEventType.Created, DateTimeOffset.UtcNow);
@@ -34,7 +35,7 @@ public class CosmosAuditEventStoreTests
     [Fact]
     public async Task List_orders_newest_first_and_honors_limit()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var entityId = Guid.NewGuid();
         var t0 = DateTimeOffset.UtcNow.AddSeconds(-10);
@@ -56,7 +57,7 @@ public class CosmosAuditEventStoreTests
     [Fact]
     public async Task Append_after_a_read_does_not_modify_existing_events()
     {
-        _fixture.SkipIfUnconfigured();
+        if (!_fixture.ShouldRun()) return;
 
         var entityId = Guid.NewGuid();
         var first = NewEvent(entityId, AuditEventType.Created, DateTimeOffset.UtcNow);

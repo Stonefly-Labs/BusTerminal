@@ -5,11 +5,6 @@ variable "cosmos_account_name" {
   type        = string
 }
 
-variable "cosmos_account_id" {
-  description = "ARM resource id of the existing Cosmos DB account. Used to compose the data-plane RBAC scope output."
-  type        = string
-}
-
 variable "resource_group_name" {
   description = "Resource group hosting the Cosmos DB account."
   type        = string

@@ -43,11 +43,13 @@ public static class RegistryServiceCollectionExtensions
         services.AddValidatorsFromAssemblyContaining<RegistryDtoMapping>();
 
         // Helpers used by the endpoint layer. ConcurrencyConflictMapper and
-        // ChildCountChecker are stateless and register as singletons. The
-        // DTO mapper (T041) and endpoints builder (T040) are added in
-        // their own files in Phase 3.
+        // RegistryDtoMapping are stateless and register as singletons.
+        // ChildCountChecker depends on the scoped IRegistryEntityStore so it
+        // MUST register as scoped — the ServiceProvider's validate-on-build
+        // catches singleton-consuming-scoped at startup (caught by the
+        // integration suite in CI).
         services.AddSingleton<ConcurrencyConflictMapper>();
-        services.AddSingleton<ChildCountChecker>();
+        services.AddScoped<ChildCountChecker>();
         services.AddSingleton<RegistryDtoMapping>();
 
         // ISearchClient resolves to AzureAiSearchClient (T036). Registered as

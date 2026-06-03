@@ -10,11 +10,6 @@ variable "resource_group_name" {
   type        = string
 }
 
-variable "location" {
-  description = "Azure region (typically inherited from the resource group)."
-  type        = string
-}
-
 variable "container_apps_environment_id" {
   description = "Container Apps Environment resource id (from spec 005)."
   type        = string
