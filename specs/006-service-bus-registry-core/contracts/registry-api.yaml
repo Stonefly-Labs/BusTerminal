@@ -217,6 +217,26 @@ paths:
                     items: { $ref: '#/components/schemas/AuditEvent' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /registry/environments:
+    get:
+      tags: [Registry]
+      summary: List the distinct environments currently present in the registry.
+      description: |
+        Populates the explorer's environment switcher (FR-035). Cross-partition distinct query against `registry-entities`; cached server-side for 60s.
+      responses:
+        '200':
+          description: Sorted distinct environments.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /registry/search:
     get:
       tags: [Search]

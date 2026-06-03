@@ -167,7 +167,7 @@ A messaging architect reviewing a topic before a refactor needs to see every sub
 
 #### Environment Awareness
 
-- **FR-035**: Every entity MUST be classified into an environment, and the system MUST scope browse, filter, and search operations by environment where the operator selects one.
+- **FR-035**: Every entity MUST be classified into an environment. Browse and list operations MUST be scoped to a single environment — cross-environment browse is not supported. Cross-environment discovery is available exclusively via the search experience (FR-022), which MAY span environments when the operator omits the environment filter. The Registry Explorer MUST present an environment switcher; on first visit the UI selects the first configured environment alphabetically and persists the operator's last selection across reloads.
 - **FR-036**: The system MUST display environment indicators prominently in the explorer, search results, and detail pages so operators never act on a prod entity thinking it is dev.
 
 #### Security & Authorization

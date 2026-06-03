@@ -193,6 +193,8 @@ Goal: validate FR-022..FR-026 + SC-002 + SC-005.
 
 ## 11. Tech-stack updates (post-merge follow-up)
 
+> **Mirrored**: this section duplicates [`research.md` §21](./research.md#tech-stack-updates) for operator convenience. Keep both in sync — review is manual.
+
 Update `speckit-artifacts/tech-stack.md` per research §21:
 
 - **§1 Backend**: add row for FluentValidation 11.10.x (boundary HTTP request validation).

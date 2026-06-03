@@ -129,7 +129,8 @@ Validation runs on the API boundary via FluentValidation (research §1). The fro
 | `EntityTypeImmutableRule` | Error | On PUT, the submitted `entityType` must match the persisted value. (FR-012) |
 | `IdImmutableRule` | Error | On PUT, the submitted `id` must match the URL `{id}`. (FR-012) |
 | `TimestampImmutableRule` | Error | `createdAtUtc` and `entityType` must not change. `updatedAtUtc` is server-stamped on every successful write. (FR-005, FR-012) |
-| `NameFormatRule` | Error | `name` matches Azure Service Bus naming rules: `^[A-Za-z0-9][A-Za-z0-9._\-/]{0,259}$` (per Azure docs; total length ≤ 260; first char alphanumeric). |
+| `NameFormatRule` | Error | `name` matches the **base** Azure Service Bus naming pattern: `^[A-Za-z0-9][A-Za-z0-9._\-/]{0,259}$` (first char alphanumeric). Per-entity-type length and charset specialization is layered on top by `EntityTypeNameSpecializationRule` (§3.2). |
+| `TimestampImmutableRule` | Error | `createdAtUtc` MUST NOT change on update; `updatedAtUtc` is server-stamped on every successful write (FR-005). Clients MUST NOT submit these fields; the API ignores client-supplied values. |
 | `StatusValueRule` | Error | `status` ∈ { `Active`, `Deprecated` }. `Deleted` is rejected (FR-002 clarification). |
 | `SourceValueRule` | Error | `source` = `Manual` only in this slice. `Discovered` is rejected. (FR-004) |
 | `AzureResourceIdFormatRule` | Error | When present: matches ARM-resource-ID pattern AND the resource-type segment is consistent with `entityType` (e.g., for `entityType: "Queue"`, the ARM ID must contain `.../namespaces/<ns>/queues/<name>`). (Edge Case "Invalid Azure resource IDs"). |
@@ -141,6 +142,7 @@ Validation runs on the API boundary via FluentValidation (research §1). The fro
 
 | Rule | Severity | Description |
 |---|---|---|
+| `EntityTypeNameSpecializationRule` | Error | Per Azure Service Bus naming reference, name length and charset narrow by type: **Namespace** 6–50 chars, charset `^[A-Za-z][A-Za-z0-9\-]{4,48}[A-Za-z0-9]$` (must start with letter, end alphanumeric, hyphens only inside); **Queue / Topic** ≤ 260 chars, base pattern; **Subscription / Rule** ≤ 50 chars, base pattern. Validators per type compose `NameFormatRule` (base) AND this rule. |
 | `ParentRequiredRule` | Error | Queue / Topic / Subscription / Rule require `parentId`. Namespace requires `parentId` to be null. (FR-008) |
 | `ParentExistenceRule` | Error | When `parentId` is set, the parent entity must exist in the same `environment` partition AND its `entityType` must match the expected parent type (Namespace for Queue/Topic, Topic for Subscription, Subscription for Rule). Validated by Cosmos point-read (research §11). (FR-008) |
 | `DuplicateNameRule` | Error | Within the same `(parentId, environment)` scope, no two entities of the same `entityType` may share the same `name`. Validated by partition-scoped Cosmos query. (FR-014) |
@@ -208,6 +210,16 @@ Per `contracts/audit-event.schema.json` and research §15. One document per even
 | `correlationId` | `string` | The W3C `traceparent` trace ID. Links to the originating frontend trace (FR-042 + SC-012). |
 
 Audit events are written **after** a successful entity write in the same API request. If the audit append fails, the failure is logged at Error and surfaced as a `audit-append-failed` structured event; the entity write is NOT rolled back (the audit container is an *additional* observability surface, not a transactional prerequisite — same trade-off as spec-004's `ChangeEvent` log).
+
+**Audit vs telemetry — PII boundary**: Audit events are a **first-class user-facing governance record**, NOT telemetry. Constitution Principle IV and tech-stack §4 forbid PII in telemetry payloads by default ("Only correlation identifiers propagate unless an explicit opt-in is added by a future spec"). The `actor.displayName` field on audit events intentionally carries the operator's preferred-name claim (mild PII) because FR-032 mandates "actor identity" on every recorded write. This is permitted because audit storage:
+- Lives in a dedicated Cosmos container (`registry-audit`), NOT in the App Insights / OTel telemetry pipeline.
+- Is access-gated by the same authentication wall as the registry itself (FR-037).
+- Is retained per audit-retention policy (TBD by a future ops-hardening spec), separately from telemetry retention (30d in LAW per spec-005 Q5c).
+- Is surfaced to operators in the application UI by design (FR-033 audit panel on detail pages).
+
+Telemetry emitted by registry code paths (OTel spans, App Insights events, structured logs) MUST continue to carry only correlation identifiers (`entityId`, `correlationId`/`traceparent`, principal `objectId`) and NOT the `displayName` or any other PII. The audit-vs-telemetry boundary is enforced by:
+- `IAuditEventStore` writes go to Cosmos `registry-audit` only — never echoed into log/trace events.
+- `IPlatformPrincipalAccessor` returns the principal OID for telemetry attribution; the `displayName` claim is read separately and used only at audit-write time.
 
 ---
 

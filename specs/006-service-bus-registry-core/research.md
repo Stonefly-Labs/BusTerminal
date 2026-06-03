@@ -452,6 +452,10 @@ The lease container is **explicitly NOT auto-created** — IaC provisions it (Mi
 
 ## 21. Tech-stack reference updates (follow-up after this slice ships)
 
+<a id="tech-stack-updates"></a>
+
+> **Mirrored**: this section is duplicated for operator handoff at [`quickstart.md` §11](./quickstart.md#11-tech-stack-updates-post-merge-follow-up). Any change here MUST be reflected there (and vice-versa). The shared-schema contract test (T060) does NOT cover this drift — review is manual.
+
 The following additions to `speckit-artifacts/tech-stack.md` are required as a follow-up — they are *new approved technologies* introduced by this slice:
 
 | Section | Addition |
