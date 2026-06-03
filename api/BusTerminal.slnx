@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="BusTerminal.Api.Tests/BusTerminal.Api.Tests.csproj" />
   <Project Path="BusTerminal.Api/BusTerminal.Api.csproj" />
+  <Project Path="BusTerminal.Indexer/BusTerminal.Indexer.csproj" />
+  <Project Path="BusTerminal.Indexer.Tests/BusTerminal.Indexer.Tests.csproj" />
   <Project Path="../tools/load-fixtures/LoadFixtures.csproj" />
 </Solution>

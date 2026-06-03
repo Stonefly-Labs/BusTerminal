@@ -2,69 +2,70 @@
 
 **Purpose**: Author-side audit of `spec.md` for completeness, clarity, consistency, and measurability before `/speckit-plan`. Each item is a unit test for the requirements writing, not for the implementation.
 **Created**: 2026-06-01
+**Walked**: 2026-06-02 — all items resolved by spec amendments, plan-phase decisions, or explicit deferrals to future specs.
 **Feature**: [spec.md](../spec.md)
 **Audience**: Spec author, pre-plan
 **Depth**: Standard
 
 ## Requirement Completeness
 
-- [ ] CHK001 — Is the numeric reliability/availability target for the registry quantified (uptime %, RTO, RPO)? [Gap]
-- [ ] CHK002 — Is an audit-event retention window specified (how long are audit records kept, can they be archived)? [Gap, Spec §FR-032 to §FR-034]
-- [ ] CHK003 — Are upper bounds specified for entity name length, description length, tag key length, tag value length, and the maximum number of tags per entity? [Gap, Spec §FR-002]
-- [ ] CHK004 — Are pagination defaults defined (default page size, maximum page size, what happens when a request exceeds the max)? [Gap, Spec §FR-024]
-- [ ] CHK005 — Is the composition rule for `fullyQualifiedName` specified for each entity type (e.g., `namespace/queue` vs `namespace/topics/<topic>/subscriptions/<sub>/rules/<rule>`)? [Completeness, Spec §FR-002]
-- [ ] CHK006 — Are entity-type-specific fields (e.g., queue delivery behavior, topic settings) clearly delegated to the extensible `metadata` field, or are required type-specific fields enumerated? [Completeness, Spec §FR-002]
-- [ ] CHK007 — Is the mechanism for managing the configurable environment list (who configures it, where it lives, how a new environment becomes available to operators) specified? [Gap, Spec §FR-035, §FR-036]
-- [ ] CHK008 — Are search relevance/ranking expectations specified beyond the word "ranked" (e.g., name-prefix matches outrank metadata matches)? [Gap, Spec §Story 2 AC #1]
+- [X] CHK001 — Numeric reliability/availability target. **Resolution**: Explicit "no formal SLO" in v1, captured in `spec.md` §Assumptions (best-effort; underlying Azure SLAs apply; formal SLO reserved for future ops-hardening spec). Added to §Non-Goals.
+- [X] CHK002 — Audit-event retention window. **Resolution**: `spec.md` FR-032 + §Non-Goals state indefinite retention in v1; archival/TTL reserved for future ops-hardening spec. `data-model.md` §5 confirms no TTL on audit documents in this slice.
+- [X] CHK003 — Upper bounds for entity name / description / tag key / tag value / max tags. **Resolution**: Promoted into `spec.md` FR-002 ("Bounds (enforced by validation)" sub-clause); per-type name lengths in `data-model.md` §3.2 + `contracts/registry-entity.schema.json`.
+- [X] CHK004 — Pagination defaults. **Resolution**: Promoted into `spec.md` FR-024 ("Defaults: page size 25, max 100; 400 on exceed"). Audit-list defaults (50 default / 200 max) in `contracts/registry-api.yaml`. Browse continuation-token pagination in `research.md` §13.
+- [X] CHK005 — `fullyQualifiedName` composition rule per entity type. **Resolution**: Promoted into `spec.md` FR-002 (explicit per-type composition table).
+- [X] CHK006 — Entity-type-specific fields delegated to `metadata`. **Resolution**: Already covered by FR-002 + §Key Entities ("queue-specific metadata captured under the extensible metadata field"). No spec change needed.
+- [X] CHK007 — Mechanism for managing the configurable environment list. **Resolution**: Promoted into `spec.md` FR-035 ("implicitly defined by entity writes; admin-managed registry reserved for future governance spec"). Added to §Non-Goals.
+- [X] CHK008 — Search relevance/ranking expectations beyond "ranked". **Resolution**: Plan-phase decision in `research.md` §6.2 (default BM25-like, no custom scoring profile in v1). Acceptable to leave at plan-phase; future spec may tune.
 
 ## Requirement Clarity
 
-- [ ] CHK009 — Is "expected load" in FR-043/FR-044/FR-045 and SC-002/SC-003/SC-004 quantified with specific concurrency and registry-size assumptions, or only described qualitatively in the Assumptions section? [Clarity, Spec §FR-043 to §FR-045, §SC-002 to §SC-004, §Assumptions]
-- [ ] CHK010 — Is the shape and content of "human-readable change summary" (FR-032) defined (free-form sentence vs structured diff vs field-list)? [Ambiguity, Spec §FR-032]
-- [ ] CHK011 — Is "stable ordering" for paginated search results (FR-024) defined by an explicit sort key (e.g., score then id, name ascending)? [Clarity, Spec §FR-024]
-- [ ] CHK012 — Is "explicit confirmation" for deletion (FR-013, FR-030) prescribed with a specific UX pattern (e.g., modal with typed-name confirmation, single-click confirm), or left to planning? [Clarity, Spec §FR-013, §FR-030]
-- [ ] CHK013 — Are the Azure Service Bus naming rules referenced by FR-015 cited by source/version, or restated, so frontend and backend can validate identically? [Clarity, Spec §FR-015, §FR-017]
-- [ ] CHK014 — Is the "identification of which fields changed" returned by the conflict response (FR-020) defined as a field-name list, a diff payload, or both? [Ambiguity, Spec §FR-020]
-- [ ] CHK015 — Is the visual treatment that "must visually distinguish `Deprecated` entities" (FR-013a) specified with measurable criteria, or left to the design phase? [Clarity, Spec §FR-013a]
+- [X] CHK009 — "Expected load" quantified. **Resolution**: `spec.md` §Assumptions states "a few hundred concurrent operators and registry sizes in the tens of thousands of entities per environment" — already there.
+- [X] CHK010 — "Human-readable change summary" shape. **Resolution**: Promoted into `spec.md` FR-032 (single-sentence change summary + structured `fieldChanges` array on Updated/StatusChanged). Schema in `contracts/audit-event.schema.json`.
+- [X] CHK011 — "Stable ordering" explicit sort key. **Resolution**: Promoted into `spec.md` FR-024 (stable-sort key `(relevance_score DESC, updatedAtUtc DESC, id ASC)` with explicit sort-override fallback).
+- [X] CHK012 — "Explicit confirmation" UX prescription. **Resolution**: Plan-phase decision in `tasks.md` T102 (`registry-delete-confirmation.tsx`) implements the modal confirmation pattern; specific copy/typed-name pattern is a design-phase choice within FR-030's bounds.
+- [X] CHK013 — Azure Service Bus naming rules cited. **Resolution**: Cited by source in `spec.md` FR-002 (link to `learn.microsoft.com/azure/service-bus-messaging/service-bus-quotas`); per-type regex set in `data-model.md` §3.2.
+- [X] CHK014 — Conflict response "fields changed" definition. **Resolution**: Schema-locked in `contracts/conflict-response.schema.json` (current state + `changedFields[]` with `field, currentValue, submittedValue`). Promoted shape into `spec.md` FR-032 via the audit-event clause.
+- [X] CHK015 — Visual treatment for Deprecated entities. **Resolution**: FR-013a + FR-047 establish the criteria (color + icon + text, not color alone); specific design tokens are design-phase (Storybook). `tasks.md` T090 implements `registry-status-badge.tsx`.
 
 ## Requirement Consistency
 
-- [ ] CHK016 — Does the duplicate-name rule in FR-014 ("same parent scope and environment") read consistently for top-level Namespaces, which have no parent? Specifically: is the Namespace uniqueness rule "name unique per environment" written explicitly anywhere? [Consistency, Spec §FR-014, §Story 1 AC #5]
-- [ ] CHK017 — Is the relationship between `owner` (a first-class field on every entity, FR-002) and tags that signal ownership (Key Entities §Tag) clarified so operators know which is canonical? [Consistency, Spec §FR-002, §Key Entities — Tag]
-- [ ] CHK018 — Is `status` change from `Active` to `Deprecated` an "edit" (covered by FR-012's mutable-field rule) or a separate first-class action (FR-013a)? Is the distinction reflected consistently in API surface, audit-event categorization, and UI? [Consistency, Spec §FR-012, §FR-013a]
-- [ ] CHK019 — FR-026 says browse and detail are served from the persistent store. Is the source-of-truth rule applied consistently to tree expansion, child enumeration on detail pages, and relationship traversal — or could any of those legitimately read from the search index? [Consistency, Spec §FR-026, §FR-007, §FR-027, §FR-028]
-- [ ] CHK020 — Are FR-024 (paginated search) and FR-027 (tree explorer with expand/collapse) consistent about whether tree expansion is server-paginated, lazy-loaded, or eagerly loaded? [Consistency, Gap, Spec §FR-024, §FR-027]
+- [X] CHK016 — Namespace uniqueness rule for null-parent case. **Resolution**: Made explicit in amended `spec.md` FR-014 ("For Namespace entities, the uniqueness scope is `(name, environment)`...").
+- [X] CHK017 — `owner` vs ownership-tag canonicality. **Resolution**: Promoted into `spec.md` FR-002 ("`owner` is the canonical owning team/person identifier; tags MAY carry ownership-style pairs but `owner` remains authoritative").
+- [X] CHK018 — Status change as edit vs first-class action. **Resolution**: FR-013a treats it as a first-class audited action; `tasks.md` T081 implements a separate `PATCH /api/registry/{id}/status` endpoint; audit `eventType: "StatusChanged"` is distinct from `"Updated"` in `contracts/audit-event.schema.json`. Consistent across API, audit, UI.
+- [X] CHK019 — Source-of-truth rule applied consistently to tree expansion / child enumeration / relationships. **Resolution**: FR-026 reads "browse and detail" universally; `research.md` §12 and `data-model.md` confirm Cosmos is the source for explorer tree, child enumeration, and detail-page relationships. AI Search is used ONLY for the search box.
+- [X] CHK020 — Tree expansion lazy/paginated/eager. **Resolution**: Promoted into `spec.md` FR-027 ("lazy-loaded server-side; same continuation-token pagination shape as the list endpoint").
 
 ## Acceptance Criteria Quality
 
-- [ ] CHK021 — Are the "expected load" qualifiers in SC-002, SC-003, and SC-004 measurable without circular reference (i.e., is "expected load" defined numerically somewhere a test plan can cite)? [Measurability, Spec §SC-002 to §SC-004]
-- [ ] CHK022 — Is SC-008's "passes automated WCAG 2.2 AA accessibility checks with zero violations" measurable without naming a specific scanner (which can drift)? Is the criterion stated as "any conformant WCAG 2.2 AA evaluator", or is a named tool acceptable? [Measurability, Spec §SC-008]
-- [ ] CHK023 — Are Story 2 AC #3 ("within a reasonable indexing window — a few seconds at most under normal conditions") and SC-005 ("under five seconds at the 95th percentile under normal indexing-pipeline conditions") reconciled into one stated target? [Consistency, Spec §Story 2 AC #3, §SC-005]
-- [ ] CHK024 — Are the operator-journey timing claims (SC-001 "under 10 minutes", SC-010 "under 30 seconds") accompanied by enough scenario specification (registry preload, network conditions, operator familiarity) to be reproducibly measured? [Measurability, Spec §SC-001, §SC-010]
+- [X] CHK021 — SC-002/003/004 "expected load" measurable. **Resolution**: Same source as CHK009 — `spec.md` §Assumptions defines "expected load" numerically. SCs cite Assumptions implicitly.
+- [X] CHK022 — SC-008 zero violations without naming scanner. **Resolution**: SC-008 reads "passes automated WCAG 2.2 AA accessibility checks with zero violations" — already scanner-neutral. `tasks.md` uses axe-playwright but the criterion does not bind that choice.
+- [X] CHK023 — Story 2 AC #3 vs SC-005 reconciliation. **Resolution**: Story 2 AC #3 rewritten to reference the SC-005 budget directly ("within the SC-005 budget (under five seconds at p95 under normal indexing-pipeline conditions)").
+- [X] CHK024 — SC-001 and SC-010 scenario specification. **Resolution**: `quickstart.md` §5 + §6 + new §G3 timed-find scenario in `tasks.md` T129b provide the reproducible test scenarios. Spec-level addition would be redundant.
 
 ## Scenario & Edge Case Coverage
 
-- [ ] CHK025 — Is the recovery path for index-pipeline failures whose retries exhaust (FR-025 says "permanent failures MUST be observable in telemetry") specified — does an operator action exist to re-trigger indexing, or is the dead-letter only visible passively? [Gap, Spec §FR-025]
-- [ ] CHK026 — Are session-expiry mid-form scenarios specified beyond "preserve form data where reasonable" (Edge Cases) — what does "reasonable" mean, and is re-auth + auto-resume in scope? [Ambiguity, Spec §Edge Cases — unauth]
-- [ ] CHK027 — Is the case-collision behavior for tag keys (FR-002: case-insensitive match, case-preserving display, "first-written casing wins") covered by an acceptance scenario or edge case so QA can validate it? [Coverage, Spec §FR-002]
-- [ ] CHK028 — Are bulk operations (multi-select edit, multi-delete, import/export) explicitly declared out of scope, or are they unaddressed by accident? [Gap, Coverage]
-- [ ] CHK029 — Is the scenario "parent entity is `Deprecated` — can children still be created beneath it?" addressed, or is the behavior left to be inferred? [Gap, Coverage, Spec §FR-013a]
+- [X] CHK025 — Index-pipeline permanent-failure recovery path. **Resolution**: Promoted into `spec.md` FR-025 ("re-deploy the indexer with a mapping fix OR a re-touch no-op PUT; first-class retry-index action reserved for future ops-hardening spec"). Added to §Non-Goals.
+- [X] CHK026 — Session-expiry mid-form recovery. **Resolution**: Expanded "Unauthenticated/unauthorized access" Edge Case in `spec.md` (best-effort browser-session preservation, re-auth CTA returns to same URL to restore form). Implementation in `tasks.md` T103a (`registry-unauthorized-state.tsx`) + T103d Playwright test.
+- [X] CHK027 — Tag case-collision AC. **Resolution**: New Edge Case "Tag key case-collision" added to `spec.md` (case-insensitive match, first-write display wins, behavior on both POST and PUT).
+- [X] CHK028 — Bulk operations scope. **Resolution**: Explicit Non-Goal added to `spec.md` §Non-Goals ("no multi-select edit, no multi-delete, no bulk import/export, no batch tagging — reserved for future productivity spec").
+- [X] CHK029 — Parent Deprecated, can children be created. **Resolution**: New Story 1 AC #7 added to `spec.md` (warn-loudly-but-allow + audit `changeSummary` prefix `UNDER_DEPRECATED_PARENT:`). `tasks.md` T075 implements server-side prefix; T095/T097/T098 implement form-level warning banner.
 
 ## Non-Functional & Cross-Cutting
 
-- [ ] CHK030 — Are data-at-rest and data-in-transit encryption requirements specified at the spec level, or are they assumed-inherited from the constitution/tech-stack? [Coverage, Spec §Security Requirements]
-- [ ] CHK031 — Are data residency / region constraints specified for the persistent store and search service (relevant if any environment has compliance obligations)? [Gap]
-- [ ] CHK032 — Is i18n/locale handling beyond "RTL-safe foundation" specified — specifically, are date/number/duration formatting requirements written into the spec or only inherited from the project convention? [Clarity, Spec §Assumptions]
+- [X] CHK030 — Encryption at rest / in transit. **Resolution**: New §Assumptions bullet ("Encryption — inherited") citing spec 005's FR-019..FR-023, FR-041..FR-042. No new requirement; inheritance documented.
+- [X] CHK031 — Data residency / region constraints. **Resolution**: New §Assumptions bullet ("Data residency — inherited") citing spec 005's per-env region configuration. Compliance-driven residency declared a §Non-Goal for v1.
+- [X] CHK032 — i18n/locale formatting beyond RTL. **Resolution**: `spec.md` §Assumptions already says "English-only content, RTL-safe foundation" + tech-stack reference covers locale-aware date/number/duration formatting. No spec change needed.
 
 ## Dependencies & Assumptions
 
-- [ ] CHK033 — Is the dependency on prior specs (003 Auth/Identity, 004 Core Domain Model, 005 Infrastructure Baseline) cited with section-level references rather than spec-level references, so plan-phase consumers know exactly which prior decisions they inherit? [Traceability, Spec §Assumptions]
-- [ ] CHK034 — Is the assumption "initial deployments will be in tenants/environments scoped to messaging engineering teams" (justifying the no-RBAC choice in FR-037) recorded as an explicit deployment constraint that someone must verify before each environment go-live? [Assumption, Spec §FR-037, §Assumptions]
+- [X] CHK033 — Section-level prior-spec references. **Resolution**: New §Assumptions bullet "Prior-spec section references" enumerates exact sections consumed from specs 003, 004, 005.
+- [X] CHK034 — Deployment-constraint verification for FR-037 tenant-restriction assumption. **Resolution**: Promoted into `spec.md` FR-037 ("Pre-deployment verification — captured as attestation in the deployment runbook under 'Pre-go-live attestations'"). New §Assumptions bullet "Pre-go-live verification".
 
 ## Ambiguities & Conflicts
 
-- [ ] CHK035 — Does "any authenticated tenant user" (FR-037, Clarifications Q4) need a definition of "tenant" — is it the Entra tenant configured in spec 003, or could it expand later? [Ambiguity, Spec §FR-037]
-- [ ] CHK036 — Is there any remaining requirement in the spec that uses an unquantified adjective ("modern", "fast", "minimal", "enterprise-grade", "dense but readable" — the UX Requirements section) without a measurable translation in either FRs or SCs? [Ambiguity, Spec §UX Requirements (per source artifact)]
+- [X] CHK035 — "Tenant" definition. **Resolution**: Promoted into `spec.md` FR-037 ("the Microsoft Entra tenant configured in spec 003; any principal whose access token's `tid` claim matches the configured tenant id qualifies").
+- [X] CHK036 — Unquantified-adjective sweep. **Resolution**: Verified — `spec.md` does not carry the source-artifact's "modern / fast / minimal / enterprise-grade / dense but readable" qualifiers from its UX Requirements section. The spec's quality-bound phrasing throughout uses measurable language (perf budgets via FR-043..FR-045 + SC-002..SC-005; accessibility via FR-046..FR-048 + SC-008; visual-treatment criteria via FR-047). No spec change needed.
 
 ## Notes
 
@@ -75,3 +76,20 @@
 - Items marked **[Measurability]** point at SCs that may not be objectively testable as written.
 - **Recommendation**: Resolve [Gap]s and [Ambiguity]s before `/speckit-plan` (these will become open questions during planning otherwise). [Consistency] and [Clarity] items can be tightened during the planning phase if they don't change scope.
 - Items not resolved here should either (a) be added to the Clarifications section via another `/speckit-clarify` pass, (b) be promoted to explicit FRs/SCs by editing `spec.md`, or (c) be marked as intentionally deferred (with rationale).
+
+---
+
+## Walk Summary (2026-06-02)
+
+All 36 items resolved. Breakdown:
+
+| Disposition | Count | Items |
+|---|---|---|
+| Promoted to `spec.md` (FR/SC/AC/Edge Case/Assumption/Non-Goal amendments) | 22 | CHK001, CHK002, CHK003, CHK004, CHK005, CHK007, CHK010, CHK011, CHK013, CHK014, CHK016, CHK017, CHK020, CHK023, CHK025, CHK026, CHK027, CHK028, CHK029, CHK030, CHK031, CHK033, CHK034, CHK035 |
+| Resolved by plan-phase artifact (no spec change needed) | 9 | CHK006, CHK008, CHK009, CHK012, CHK015, CHK018, CHK019, CHK022, CHK032 |
+| Resolved by tasks-phase artifact | 1 | CHK024 (covered by `quickstart.md` walkthroughs + new T129b timed test) |
+| Verified by inspection (no change needed) | 1 | CHK036 (unquantified-adjective sweep — spec is clean) |
+
+The walk also produced two corresponding tasks.md amendments (T075 audit prefix, T095/T097/T098 form warning banner) per CHK029.
+
+`spec.md` is ready for `/speckit-implement`. Phase 1 may begin.

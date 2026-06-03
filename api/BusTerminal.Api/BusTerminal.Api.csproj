@@ -23,6 +23,14 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
+    <!-- Spec 006 / Phase 1 T004 — Azure AI Search SDK; consumed by the
+         AzureAiSearchClient adapter wired in Phase 2 T036. -->
+    <PackageReference Include="Azure.Search.Documents" Version="11.6.0" />
+    <!-- Spec 006 / Phase 1 T003 — boundary HTTP request validation
+         (research §1); the per-entity-type validators in T074 register through
+         AddValidatorsFromAssemblyContaining<RegistryEntityValidator>(). -->
+    <PackageReference Include="FluentValidation" Version="11.10.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.10.0" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
