@@ -24,6 +24,7 @@ import { ErrorBoundary } from "@/lib/observability/error-boundary";
 import { RouteChangeReporter } from "@/lib/observability/route-change";
 import { startWebVitalsCapture } from "@/lib/observability/web-vitals";
 import { getAdapter } from "@/lib/observability/adapter";
+import { RegistryQueryProvider } from "@/lib/registry/query-client";
 import { THEME_STORAGE_KEY } from "@/lib/theme-provider-constants";
 
 function ObservabilityBootstrap(): null {
@@ -58,7 +59,7 @@ export function Providers({ children }: ProvidersProps) {
         <Suspense fallback={null}>
           <RouteChangeReporter />
         </Suspense>
-        {children}
+        <RegistryQueryProvider>{children}</RegistryQueryProvider>
       </ErrorBoundary>
     </ThemeProvider>
   );

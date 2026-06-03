@@ -28,6 +28,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>Contracts\%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>
+    <!-- Spec 006 / T061 — registry contract files copied so
+         SharedSchemaContractTests can resolve the canonical JSON schemas. -->
+    <None Include="..\..\specs\006-service-bus-registry-core\contracts\*.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Contracts\%(Filename)%(Extension)</Link>
+    </None>
     <None Include="..\BusTerminal.Api\Fixtures\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>Fixtures\%(Filename)%(Extension)</Link>

@@ -304,3 +304,63 @@ output "frontend_image_in_use" {
   description = "Frontend container image currently applied to state. Counterpart to backend_image_in_use."
   value       = var.frontend_image
 }
+
+# -----------------------------------------------------------------------------
+# Spec 006 — Service Bus registry slice (T017). Additive only; defined per
+# `specs/006-service-bus-registry-core/contracts/outputs-contract.md`.
+# -----------------------------------------------------------------------------
+
+output "cosmos_registry_entities_container_name" {
+  description = "Name of the registry-entities Cosmos container. Bound to CosmosRegistry:EntitiesContainer."
+  value       = module.cosmos_registry_store.entities_container_name
+}
+
+output "cosmos_registry_entities_container_id" {
+  description = "Full resource id of the registry-entities Cosmos container."
+  value       = module.cosmos_registry_store.entities_container_id
+}
+
+output "cosmos_registry_audit_container_name" {
+  description = "Name of the registry-audit Cosmos container. Bound to CosmosRegistry:AuditContainer."
+  value       = module.cosmos_registry_store.audit_container_name
+}
+
+output "cosmos_registry_audit_container_id" {
+  description = "Full resource id of the registry-audit Cosmos container."
+  value       = module.cosmos_registry_store.audit_container_id
+}
+
+output "cosmos_registry_leases_container_name" {
+  description = "Name of the change-feed lease container. Consumed by the indexer."
+  value       = module.cosmos_registry_store.leases_container_name
+}
+
+output "cosmos_registry_leases_container_id" {
+  description = "Full resource id of the change-feed lease container."
+  value       = module.cosmos_registry_store.leases_container_id
+}
+
+output "ai_search_registry_index_name" {
+  description = "Name of the registry search index (registry-entities-v1). Bound to AiSearch:IndexName."
+  value       = module.ai_search_registry_index.index_name
+}
+
+output "ai_search_registry_index_id" {
+  description = "Full azapi-managed resource id of the registry search index."
+  value       = module.ai_search_registry_index.index_id
+}
+
+output "indexer_container_app_id" {
+  description = "ARM resource id of the indexer Container App."
+  value       = module.indexer_container_app.container_app_id
+}
+
+output "indexer_container_app_name" {
+  description = "Indexer Container App resource name. Useful for `az containerapp ...` follow-up commands."
+  value       = module.indexer_container_app.container_app_name
+}
+
+output "indexer_container_app_fqdn" {
+  description = "Indexer Container App internal FQDN (empty when no ingress is configured)."
+  value       = module.indexer_container_app.container_app_fqdn
+}

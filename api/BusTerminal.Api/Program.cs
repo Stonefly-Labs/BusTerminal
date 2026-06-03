@@ -1,6 +1,7 @@
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Health;
 using BusTerminal.Api.Features.Identity;
+using BusTerminal.Api.Features.Registry.Shared;
 using BusTerminal.Api.Features.RoleProbes;
 using BusTerminal.Api.Infrastructure.Authentication;
 using BusTerminal.Api.Infrastructure.Configuration;
@@ -33,6 +34,10 @@ builder.Services.AddBusTerminalGraphClient();
 
 // Spec 004 — canonical resource store + change-event log + validation engine.
 builder.Services.AddCosmosCanonicalStore(builder.Configuration);
+
+// Spec 006 — registry slice. Persistence + audit + search + helpers.
+// Endpoint mapping (`MapRegistryEndpoints`) is added in T080 (Phase 3 US1).
+builder.Services.AddRegistryFeature(builder.Configuration);
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();

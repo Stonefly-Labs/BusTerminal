@@ -1,3 +1,11 @@
-# Spec 006 / Phase 1 T009 — output surface (scaffold).
-# Concrete outputs (index_name, index_id) land with the implementation in
-# Phase 2 T014. See specs/006-service-bus-registry-core/contracts/outputs-contract.md.
+# Spec 006 / T014 / contracts/outputs-contract.md.
+
+output "index_name" {
+  description = "Name of the registry search index. Bound to AiSearchOptions.IndexName."
+  value       = azapi_resource.registry_index.name
+}
+
+output "index_id" {
+  description = "Full azapi-managed resource id of the index."
+  value       = azapi_resource.registry_index.id
+}

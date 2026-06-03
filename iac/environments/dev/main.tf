@@ -618,6 +618,74 @@ module "service_bus" {
   tags = local.shared_tags
 }
 
+# ---------------------------------------------------------------------------
+# Spec 006 — Service Bus registry slice (T016).
+#
+# Three modules compose the registry data plane:
+#   1. cosmos-registry-store      — three SQL containers on the canonical db
+#   2. ai-search-index            — registry-entities-v1 via azapi
+#   3. functions-container-app    — containerized indexer on the existing CAE
+#
+# RBAC: the workload UAMI already carries `Search Index Data Contributor` on
+# the AI Search service (granted inside `ai-search` module). Cosmos data
+# contributor at the database scope (`workload_data_contributor` above)
+# covers the new containers. No new role assignments needed.
+# ---------------------------------------------------------------------------
+
+module "cosmos_registry_store" {
+  source = "../../modules/cosmos-registry-store"
+
+  cosmos_account_name            = module.cosmos_account.account_name
+  cosmos_account_id              = module.cosmos_account.account_id
+  resource_group_name            = azurerm_resource_group.this.name
+  cosmos_canonical_database_name = module.cosmos_canonical_store.database_name
+}
+
+module "ai_search_registry_index" {
+  source = "../../modules/ai-search-index"
+
+  ai_search_id = module.ai_search.id
+}
+
+module "indexer_container_app" {
+  source = "../../modules/functions-container-app"
+
+  name                          = "ca-${var.naming_prefix}-indexer"
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  container_apps_environment_id = module.container_apps_env.id
+
+  workload_uami_id        = module.workload_identity.id
+  workload_uami_client_id = module.workload_identity.client_id
+
+  # Spec 006 / quickstart §3 — the indexer image is built from
+  # `api/BusTerminal.Indexer/Dockerfile` and pushed to the env ACR by the CD
+  # pipeline. The placeholder tag below tracks the next deploy; the CD
+  # pipeline overrides it via tfvars in the CD apply step.
+  container_image       = "${module.container_registry.login_server}/busterminal/indexer:placeholder"
+  registry_login_server = module.container_registry.login_server
+
+  cosmos_account_endpoint        = module.cosmos_account.account_endpoint
+  cosmos_database_name           = module.cosmos_canonical_store.database_name
+  cosmos_entities_container_name = module.cosmos_registry_store.entities_container_name
+  cosmos_leases_container_name   = module.cosmos_registry_store.leases_container_name
+
+  ai_search_endpoint   = module.ai_search.endpoint
+  ai_search_index_name = module.ai_search_registry_index.index_name
+
+  app_insights_connection_string_kv_secret_uri = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
+
+  tags = local.shared_tags
+}
+
+module "indexer_diagnostics" {
+  source = "../../modules/diagnostic-settings"
+
+  name                       = "diag-${var.naming_prefix}-indexer"
+  target_resource_id         = module.indexer_container_app.container_app_id
+  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
+}
+
 module "app_registration_roles" {
   source = "../../modules/app-registration-roles"
 
