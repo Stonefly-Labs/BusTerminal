@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/registry-entity.schema.json",
+  "title": "RegistryEntity",
+  "description": "Canonical JSON shape for every Service Bus registry entity (Namespace, Queue, Topic, Subscription, Rule). See specs/006-service-bus-registry-core/data-model.md §2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "entityType", "name", "environment", "status", "createdAtUtc", "updatedAtUtc", "source"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Stable identifier; immutable after first save (FR-003, FR-012)."
+    },
+    "entityType": {
+      "type": "string",
+      "enum": ["Namespace", "Queue", "Topic", "Subscription", "Rule"],
+      "description": "Closed enum discriminator (FR-001). Immutable after first save (FR-012)."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 260,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._\\-/]{0,259}$",
+      "description": "Azure-Service-Bus-compliant logical name; case-preserved (FR-015, Edge Case 'Special characters')."
+    },
+    "fullyQualifiedName": {
+      "type": ["string", "null"],
+      "description": "Server-computed canonical path. Read-only from client perspective."
+    },
+    "description": {
+      "type": ["string", "null"],
+      "maxLength": 4000
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "value"],
+        "properties": {
+          "key":   { "type": "string", "minLength": 1, "maxLength": 256 },
+          "value": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        }
+      },
+      "default": [],
+      "description": "Free-form key/value pairs (FR-002). Key matched case-insensitively, displayed case-preserved (research §9). Multi-value-per-key permitted."
+    },
+    "owner": {
+      "type": ["string", "null"],
+      "maxLength": 512,
+      "description": "Free-form owning team/person identifier. NOT a reference to a Team entity in this slice."
+    },
+    "environment": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Configurable environment classification (FR-035). Cosmos partition key."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Active", "Deprecated"],
+      "description": "FR-013a status. 'Deleted' is reserved for a future soft-delete spec and MUST NOT appear here (FR-002 clarification)."
+    },
+    "createdAtUtc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Immutable on first save (FR-005). Server-stamped."
+    },
+    "updatedAtUtc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Server-stamped on every mutation (FR-005)."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["Manual"],
+      "description": "FR-004. 'Discovered' is reserved for a future automatic-discovery spec and MUST NOT appear in this slice."
+    },
+    "azureResourceId": {
+      "type": ["string", "null"],
+      "maxLength": 2048,
+      "description": "ARM resource ID. Format-validated when present (FR-015, Edge Case 'Invalid Azure resource IDs')."
+    },
+    "namespaceName": {
+      "type": ["string", "null"],
+      "maxLength": 260,
+      "description": "Logical parent namespace name (echoes self for namespaces)."
+    },
+    "metadata": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "Extensible structured metadata (FR-002). Persisted as opaque JSON; projected to AI Search as flattened key=value pairs."
+    },
+    "parentId": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "Required for Queue/Topic/Subscription/Rule (FR-008). Null for Namespace."
+    }
+  },
+  "allOf": [
+    {
+      "if":   { "properties": { "entityType": { "const": "Namespace" } } },
+      "then": { "properties": { "parentId": { "type": "null" } } }
+    },
+    {
+      "if":   { "properties": { "entityType": { "enum": ["Queue", "Topic", "Subscription", "Rule"] } } },
+      "then": { "required": ["parentId"], "properties": { "parentId": { "type": "string", "format": "uuid" } } }
+    }
+  ]
+}

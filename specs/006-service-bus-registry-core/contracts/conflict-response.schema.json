@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/conflict-response.schema.json",
+  "title": "ConcurrencyConflictResponse",
+  "description": "RFC 7807 problem document with registry-specific extension members carrying the current server-side entity and the field diff (FR-020). Returned as the 409 Conflict body when a PUT is rejected on stale ETag.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "title", "status", "code", "entityId", "currentVersion", "submittedVersion", "currentEntity", "changedFields"],
+  "properties": {
+    "type":     { "type": "string", "format": "uri", "const": "https://busterminal.dev/probs/concurrency-conflict" },
+    "title":    { "type": "string", "const": "Concurrency conflict" },
+    "status":   { "type": "integer", "const": 409 },
+    "code":     { "type": "string", "const": "ConcurrencyConflict" },
+    "detail":   { "type": "string" },
+    "instance": { "type": "string", "format": "uri-reference" },
+    "entityId": { "type": "string", "format": "uuid" },
+    "currentVersion": {
+      "type": "string",
+      "description": "Opaque ETag string for the current server-side state. Client must re-submit this in If-Match when force-overwriting."
+    },
+    "submittedVersion": {
+      "type": "string",
+      "description": "Opaque ETag string the client sent in If-Match on the rejected PUT."
+    },
+    "currentEntity": {
+      "$ref": "registry-entity.schema.json",
+      "description": "Full current server-side entity (FR-020)."
+    },
+    "changedFields": {
+      "type": "array",
+      "description": "Field-level diff between submitted and current state (FR-020).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field"],
+        "properties": {
+          "field":          { "type": "string", "description": "JSON pointer to the field." },
+          "currentValue":   {},
+          "submittedValue": {}
+        }
+      }
+    }
+  }
+}

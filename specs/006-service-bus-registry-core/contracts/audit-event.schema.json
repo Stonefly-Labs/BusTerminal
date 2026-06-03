@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/audit-event.schema.json",
+  "title": "AuditEvent",
+  "description": "Append-only audit event recording a create/update/delete/status-change on a registry entity (FR-032..FR-034). One document per event in the registry-audit Cosmos container.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "entityId", "entityType", "environment", "eventType", "timestamp", "actor", "changeSummary", "wasForceOverwrite", "correlationId"],
+  "properties": {
+    "id":          { "type": "string", "format": "uuid" },
+    "entityId":    { "type": "string", "format": "uuid", "description": "Subject of the change. Cosmos partition key (/entityId)." },
+    "entityType":  { "type": "string", "enum": ["Namespace", "Queue", "Topic", "Subscription", "Rule"] },
+    "environment": { "type": "string", "minLength": 1 },
+    "eventType":   { "type": "string", "enum": ["Created", "Updated", "Deleted", "StatusChanged"] },
+    "timestamp":   { "type": "string", "format": "date-time" },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principalId", "displayName"],
+      "properties": {
+        "principalId": { "type": "string", "description": "Entra OID of the acting user." },
+        "displayName": { "type": "string", "description": "Human-readable preferred-name claim." }
+      }
+    },
+    "changeSummary": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Human-readable one-line summary (FR-032)."
+    },
+    "fieldChanges": {
+      "type": ["array", "null"],
+      "description": "Field-level diff. Present on Updated and StatusChanged; null on Created and Deleted.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field"],
+        "properties": {
+          "field":  { "type": "string" },
+          "before": {},
+          "after":  {}
+        }
+      }
+    },
+    "wasForceOverwrite": {
+      "type": "boolean",
+      "description": "True iff the originating PUT carried _overwriteAcknowledged=true and the API detected a conflict (FR-020)."
+    },
+    "correlationId": {
+      "type": "string",
+      "description": "W3C traceparent trace ID. Links back to the originating frontend trace in App Insights (FR-042, SC-012)."
+    }
+  }
+}
