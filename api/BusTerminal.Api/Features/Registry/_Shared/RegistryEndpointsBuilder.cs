@@ -1,3 +1,4 @@
+using BusTerminal.Api.Features.Registry.Search;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
@@ -22,6 +23,9 @@ public static class RegistryEndpointsBuilder
         // T103c — distinct environments list. Declared BEFORE the catch-all
         // routes so the `environments` literal isn't shadowed by `{id:guid}`.
         group.MapEnvironmentsEndpoint();
+
+        // US2 search surface (T109).
+        group.MapSearchEndpoint();
 
         // US1 CRUD surface (T075–T079, T081).
         group.MapCreateRegistryEntity();

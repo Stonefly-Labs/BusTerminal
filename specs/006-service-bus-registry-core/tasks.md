@@ -204,24 +204,24 @@ description: "Task list for spec 006 — Service Bus Registry Core"
 
 ### Tests for User Story 2 (TDD) ⚠️
 
-- [ ] T104 [P] [US2] [TEST] Contract test for `GET /api/registry/search` in `api/BusTerminal.Api.Tests/Features/Registry/SearchEndpointTests.cs` covering query, filters, sort variants, pagination, and 503 fallback.
-- [ ] T105 [P] [US2] [TEST] Integration test for end-to-end search lag in `api/BusTerminal.Api.Tests/Features/Registry/SearchIndexLagTests.cs` (uses `RegistryFixture` + dev AI Search): create entity → search within SC-005 budget; verify ranked order.
-- [ ] T106 [P] [US2] [TEST] Vitest component test `web/components/registry/__tests__/registry-search-results-table.test.tsx` covering empty/loading/loaded/error states and the empty-state distinction (FR-031).
-- [ ] T107 [P] [US2] [TEST] Playwright E2E `web/tests/e2e/registry/search.e2e.spec.ts` covering the quickstart §6 walkthrough.
-- [ ] T108 [P] [US2] [TEST] axe-playwright a11y test `web/tests/a11y/registry/search.a11y.spec.ts` on dark + light themes.
+- [X] T104 [P] [US2] [TEST] Contract test for `GET /api/registry/search` in `api/BusTerminal.Api.Tests/Features/Registry/SearchEndpointTests.cs` covering query, filters, sort variants, pagination, and 503 fallback.
+- [X] T105 [P] [US2] [TEST] Integration test for end-to-end search lag in `api/BusTerminal.Api.Tests/Features/Registry/SearchIndexLagTests.cs` (uses `RegistryFixture` + dev AI Search): create entity → search within SC-005 budget; verify ranked order.
+- [X] T106 [P] [US2] [TEST] Vitest component test `web/components/registry/__tests__/registry-search-results-table.test.tsx` covering empty/loading/loaded/error states and the empty-state distinction (FR-031).
+- [X] T107 [P] [US2] [TEST] Playwright E2E `web/tests/e2e/registry/search.e2e.spec.ts` covering the quickstart §6 walkthrough.
+- [X] T108 [P] [US2] [TEST] axe-playwright a11y test `web/tests/a11y/registry/search.a11y.spec.ts` on dark + light themes.
 
 ### Implementation for User Story 2 — Backend search endpoint
 
-- [ ] T109 [US2] Implement `GET /api/registry/search` in `api/BusTerminal.Api/Features/Registry/Search/SearchEndpoint.cs`: validates query params; constructs OData `$filter` (entityType, environment, status, tagKeysLower, tags/value); sets `$top`/`$skip` per `research.md §13`; calls `ISearchClient.Search`; maps results to `SearchResult` DTOs; returns 503 on AI Search outage with RFC-7807 body.
-- [ ] T110 [US2] Implement request DTO `SearchRequest` and response DTO `SearchResponse` in `api/BusTerminal.Api/Features/Registry/Search/SearchRequests.cs` and `SearchResponses.cs` per `contracts/registry-api.yaml`.
+- [X] T109 [US2] Implement `GET /api/registry/search` in `api/BusTerminal.Api/Features/Registry/Search/SearchEndpoint.cs`: validates query params; constructs OData `$filter` (entityType, environment, status, tagKeysLower, tags/value); sets `$top`/`$skip` per `research.md §13`; calls `ISearchClient.Search`; maps results to `SearchResult` DTOs; returns 503 on AI Search outage with RFC-7807 body.
+- [X] T110 [US2] Implement request DTO `SearchRequest` and response DTO `SearchResponse` in `api/BusTerminal.Api/Features/Registry/Search/SearchRequests.cs` and `SearchResponses.cs` per `contracts/registry-api.yaml`.
 
 ### Implementation for User Story 2 — Frontend search route
 
-- [ ] T111 [P] [US2] Author `web/app/(authenticated)/registry/search/page.tsx` — RSC entrypoint that reads search params and delegates to a Client Component for the interactive search box.
-- [ ] T112 [P] [US2] Author `web/components/registry/registry-search-input.tsx` — `cmdk`-based global search bar with debounced typeahead via TanStack Query.
-- [ ] T113 [P] [US2] Author `web/components/registry/registry-search-results-table.tsx` — TanStack Table rendering paginated results; row click navigates to detail page; columns: name, entity type, environment, parent namespace, owner, score.
-- [ ] T114 [P] [US2] Author `web/components/registry/registry-search-filters.tsx` — chip-style filters for entity type, environment, status, tag key, tag value; URL-synced.
-- [ ] T115 [US2] Mount the search input as a global app-shell affordance (`web/components/app-shell/` integration) so search is reachable from any page.
+- [X] T111 [P] [US2] Author `web/app/(authenticated)/registry/search/page.tsx` — RSC entrypoint that reads search params and delegates to a Client Component for the interactive search box.
+- [X] T112 [P] [US2] Author `web/components/registry/registry-search-input.tsx` — `cmdk`-based global search bar with debounced typeahead via TanStack Query.
+- [X] T113 [P] [US2] Author `web/components/registry/registry-search-results-table.tsx` — TanStack Table rendering paginated results; row click navigates to detail page; columns: name, entity type, environment, parent namespace, owner, score.
+- [X] T114 [P] [US2] Author `web/components/registry/registry-search-filters.tsx` — chip-style filters for entity type, environment, status, tag key, tag value; URL-synced.
+- [X] T115 [US2] Mount the search input as a global app-shell affordance (`web/components/app-shell/` integration) so search is reachable from any page.
 
 **Checkpoint**: User Story 2 layered onto Story 1. Operators can search the registry; filters narrow; sub-1s p95; search outage gracefully degrades.
 

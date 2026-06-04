@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/design-system/cn";
+import { RegistryGlobalSearchTrigger } from "@/components/registry/registry-global-search-trigger";
 
 export interface NavigationHeaderProps {
   readonly userMenu?: React.ReactNode;
@@ -33,6 +34,7 @@ export function NavigationHeader({ userMenu, className }: NavigationHeaderProps)
         BusTerminal
       </span>
       <span className="ms-auto" />
+      <RegistryGlobalSearchTrigger placement="header" />
       <Button
         intent="ghost"
         size="icon"

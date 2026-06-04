@@ -17,6 +17,7 @@ public sealed class RegistryContractFactory : WebApplicationFactory<Program>
 {
     public InMemoryRegistryEntityStore EntityStore { get; } = new();
     public InMemoryAuditEventStore AuditStore { get; } = new();
+    public FakeSearchClient SearchClient { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -52,7 +53,7 @@ public sealed class RegistryContractFactory : WebApplicationFactory<Program>
             services.RemoveAll<CosmosClient>();
             services.AddSingleton(_ => CreateNullCosmosClient());
             services.RemoveAll<ISearchClient>();
-            services.AddSingleton<ISearchClient, NullSearchClient>();
+            services.AddSingleton<ISearchClient>(SearchClient);
         });
     }
 
@@ -81,16 +82,4 @@ public sealed class RegistryContractFactory : WebApplicationFactory<Program>
         }
     }
 
-    private sealed class NullSearchClient : ISearchClient
-    {
-        public Task<RegistrySearchResults> SearchAsync(RegistrySearchRequest request, CancellationToken cancellationToken)
-            => Task.FromResult(new RegistrySearchResults(Array.Empty<RegistrySearchHit>(), 0));
-
-        public Task<IReadOnlyList<RegistrySuggestion>> SuggestAsync(
-            string partialText,
-            int top,
-            string? environmentFilter,
-            CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<RegistrySuggestion>>(Array.Empty<RegistrySuggestion>());
-    }
 }
