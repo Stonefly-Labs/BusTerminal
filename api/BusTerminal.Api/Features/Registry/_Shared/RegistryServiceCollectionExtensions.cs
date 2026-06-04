@@ -39,8 +39,15 @@ public static class RegistryServiceCollectionExtensions
 
         // Per-entity-type FluentValidators (T074) live in
         // Features/Registry/{Namespaces,Queues,Topics,Subscriptions,Rules}.
-        // Auto-scan picks them up.
+        // Auto-scan picks them up; explicit concrete registrations below let
+        // RegistryValidatorDispatcher inject them by type.
         services.AddValidatorsFromAssemblyContaining<RegistryDtoMapping>();
+        services.AddSingleton<Namespaces.NamespaceValidator>();
+        services.AddSingleton<Queues.QueueValidator>();
+        services.AddSingleton<Topics.TopicValidator>();
+        services.AddSingleton<Subscriptions.SubscriptionValidator>();
+        services.AddSingleton<Rules.RuleValidator>();
+        services.AddSingleton<RegistryValidatorDispatcher>();
 
         // Helpers used by the endpoint layer. ConcurrencyConflictMapper and
         // RegistryDtoMapping are stateless and register as singletons.

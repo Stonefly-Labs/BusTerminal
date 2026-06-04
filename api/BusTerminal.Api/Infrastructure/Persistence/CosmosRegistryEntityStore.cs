@@ -304,6 +304,25 @@ public sealed partial class CosmosRegistryEntityStore : IRegistryEntityStore
         return entity.EntityType == expectedParentType ? entity : null;
     }
 
+    public async Task<RegistryEntity?> FindByIdAsync(Guid id, CancellationToken cancellationToken)
+    {
+        // Cross-partition single-document lookup. Bounded: each id is globally
+        // unique so the result is at most one row. Used by GET/PUT/DELETE
+        // endpoints when the caller omits `environment` from the query string.
+        var definition = new QueryDefinition(
+            "SELECT TOP 1 * FROM c WHERE c.id = @id AND (NOT IS_DEFINED(c._isTombstone) OR c._isTombstone = false)")
+            .WithParameter("@id", id.ToString("D"));
+
+        using var iterator = _container.GetItemQueryIterator<RegistryEntityDocument>(definition);
+        while (iterator.HasMoreResults)
+        {
+            var page = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
+            var doc = page.FirstOrDefault();
+            if (doc is not null) return doc.ToEntity();
+        }
+        return null;
+    }
+
     public async Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken cancellationToken)
     {
         // Cross-partition DISTINCT. Bounded result size — tenants configure a

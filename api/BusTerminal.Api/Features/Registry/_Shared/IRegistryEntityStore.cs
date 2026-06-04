@@ -75,4 +75,13 @@ public interface IRegistryEntityStore
     // tenant; FR-035 Assumptions).
     Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(
         CancellationToken cancellationToken);
+
+    // Cross-partition point-style lookup by id. Used by the GET / PUT / DELETE
+    // endpoints when the caller does not supply an `environment` query
+    // parameter — the registry-api.yaml contract treats env as optional on
+    // single-entity routes. Returns null on miss OR when the document is a
+    // tombstone (the same exclusion rule as GetAsync).
+    Task<RegistryEntity?> FindByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken);
 }

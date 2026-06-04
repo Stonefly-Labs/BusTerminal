@@ -3,10 +3,9 @@ using Microsoft.AspNetCore.Routing;
 
 namespace BusTerminal.Api.Features.Registry.Shared;
 
-// Spec 006 / T040 / FR-037. Shared MapGroup pattern for every registry
-// endpoint. Adds the auth wall + the trace-context response surface; the per-
-// route mapping (T080) layers in the actual handlers. Authorization policy is
-// AuthN-only (no role policy) per the Complexity Tracking deviation in plan.md.
+// Spec 006 / T040 + T080 / FR-037. Shared MapGroup pattern for every registry
+// endpoint. Adds the auth wall (AuthN-only, no role policy per the Complexity
+// Tracking deviation) + the per-route handler mappings.
 public static class RegistryEndpointsBuilder
 {
     public const string GroupPrefix = "/api/registry";
@@ -20,8 +19,18 @@ public static class RegistryEndpointsBuilder
             .RequireAuthorization() // FR-037 — authentication-only; no role policy.
             .WithTags("Registry");
 
-        // Per-route mapping is added in T080 (Phase 3 US1) once the endpoint
-        // handlers exist. This shared method is the single attachment point.
+        // T103c — distinct environments list. Declared BEFORE the catch-all
+        // routes so the `environments` literal isn't shadowed by `{id:guid}`.
+        group.MapEnvironmentsEndpoint();
+
+        // US1 CRUD surface (T075–T079, T081).
+        group.MapCreateRegistryEntity();
+        group.MapListRegistryEntities();
+        group.MapGetRegistryEntity();
+        group.MapUpdateRegistryEntity();
+        group.MapDeleteRegistryEntity();
+        group.MapStatusChangeEndpoint();
+
         return group;
     }
 }

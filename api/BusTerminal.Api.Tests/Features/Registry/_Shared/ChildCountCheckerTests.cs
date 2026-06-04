@@ -74,5 +74,6 @@ public class ChildCountCheckerTests
         public Task<RegistryEntity?> FindByParentAndNameAsync(Guid? parentId, RegistryEntityType entityType, string name, string environment, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<RegistryEntity?> FindParentAsync(Guid parentId, RegistryEntityType expectedParentType, string environment, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<RegistryEntity?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 }

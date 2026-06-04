@@ -36,7 +36,7 @@ builder.Services.AddBusTerminalGraphClient();
 builder.Services.AddCosmosCanonicalStore(builder.Configuration);
 
 // Spec 006 — registry slice. Persistence + audit + search + helpers.
-// Endpoint mapping (`MapRegistryEndpoints`) is added in T080 (Phase 3 US1).
+// US1 endpoints wired via `app.MapRegistryEndpoints()` below.
 builder.Services.AddRegistryFeature(builder.Configuration);
 
 builder.Services.AddOpenApi();
@@ -58,6 +58,7 @@ app.UseAuthorization();
 app.MapBusTerminalHealthEndpoints();
 app.MapWhoAmIEndpoint();
 app.MapRoleProbeEndpoints();
+app.MapRegistryEndpoints();
 
 try
 {
