@@ -8,6 +8,11 @@ namespace BusTerminal.Api.Infrastructure.Configuration;
 public static class KeyVaultExtensions
 {
     public const string KeyVaultUriEnvironmentVariable = "AZURE_KEY_VAULT_URI";
+    // Same UAMI client id env var the runtime DI pipeline reads (see
+    // CosmosClientFactory / AzureAiSearchClient / GraphClient). Threading it
+    // here keeps every workload Azure call targeting the same identity in
+    // production.
+    public const string AzureClientIdEnvironmentVariable = "AZURE_CLIENT_ID";
 
     // FR-019 remediation message for local developers whose `az login` has lapsed
     // or who never signed in. The tenant id is the BusTerminal dev tenant.
@@ -34,7 +39,8 @@ public static class KeyVaultExtensions
                 $"{KeyVaultUriEnvironmentVariable} is set to '{vaultUri}' which is not a valid absolute URI.");
         }
 
-        var credential = credentialFactory.CreateCredential();
+        var userAssignedClientId = Environment.GetEnvironmentVariable(AzureClientIdEnvironmentVariable);
+        var credential = credentialFactory.CreateCredential(userAssignedClientId);
 
         if (environment.IsDevelopment())
         {
