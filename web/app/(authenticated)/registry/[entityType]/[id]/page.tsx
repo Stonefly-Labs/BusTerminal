@@ -10,8 +10,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 
+import { RegistryAuditPanel } from "@/components/registry/registry-audit-panel";
 import { RegistryDetailShell } from "@/components/registry/registry-detail-shell";
 import { RegistryEmptyState } from "@/components/registry/registry-empty-state";
+import { RegistryRelationshipsPanel } from "@/components/registry/registry-relationships-panel";
 import { RegistryUnauthorizedState } from "@/components/registry/registry-unauthorized-state";
 import { getEntity, RegistryApiError } from "@/lib/registry/api";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
@@ -66,5 +68,12 @@ export default function RegistryDetailPage() {
     );
   }
 
-  return <RegistryDetailShell entity={detailQuery.data.entity} />;
+  const entity = detailQuery.data.entity;
+  return (
+    <RegistryDetailShell
+      entity={entity}
+      relationshipsSlot={<RegistryRelationshipsPanel entity={entity} />}
+      auditSlot={<RegistryAuditPanel entityId={entity.id} />}
+    />
+  );
 }

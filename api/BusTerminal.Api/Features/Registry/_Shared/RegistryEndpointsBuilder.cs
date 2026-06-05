@@ -1,3 +1,4 @@
+using BusTerminal.Api.Features.Registry.Audit;
 using BusTerminal.Api.Features.Registry.Search;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -34,6 +35,9 @@ public static class RegistryEndpointsBuilder
         group.MapUpdateRegistryEntity();
         group.MapDeleteRegistryEntity();
         group.MapStatusChangeEndpoint();
+
+        // US3 audit read-only surface (T121).
+        group.MapAuditEndpoint();
 
         return group;
     }

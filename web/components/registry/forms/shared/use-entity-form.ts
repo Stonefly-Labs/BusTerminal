@@ -89,6 +89,11 @@ export function useEntityForm({
       if (mode === "create") {
         const result = await createEntity(payload as RegistryEntityCreateRequest, apiOptions);
         await queryClient.invalidateQueries({ queryKey: registryQueryKeys.entities.all });
+        // T125 / FR-033 — the new entity's Created audit event should be visible
+        // immediately on its detail page (quickstart §7 expectation).
+        await queryClient.invalidateQueries({
+          queryKey: registryQueryKeys.audit.forEntity(result.entity.id),
+        });
         setState("saved");
         setSuccessMessage(`${entityType} '${result.entity.name}' created.`);
         onSaved?.(result.entity);
@@ -116,6 +121,11 @@ export function useEntityForm({
         }
         await queryClient.invalidateQueries({ queryKey: registryQueryKeys.entities.detail(id) });
         await queryClient.invalidateQueries({ queryKey: registryQueryKeys.entities.all });
+        // T125 / FR-033 — the audit panel must reflect the new Updated /
+        // StatusChanged event without a manual refresh (quickstart §7).
+        await queryClient.invalidateQueries({
+          queryKey: registryQueryKeys.audit.forEntity(id),
+        });
         setState("saved");
         setSuccessMessage(`${entityType} '${result.entity.name}' updated.`);
         onSaved?.(result.entity);
