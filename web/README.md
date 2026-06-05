@@ -1,36 +1,26 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BusTerminal — Web App
 
-## Getting Started
+The BusTerminal frontend. Next.js 16 (App Router), TypeScript strict, Tailwind v4, shadcn/ui (project-owned).
 
-First, run the development server:
+## Registry walkthrough
+
+For an operator-level walkthrough of the **Service Bus registry** (manual registration, browse, search, edit, conflict resolution, delete, relationships, audit) — including local-dev and dev-deploy steps — read:
+
+- [`specs/006-service-bus-registry-core/quickstart.md`](../specs/006-service-bus-registry-core/quickstart.md)
+
+The registry routes live under `app/(authenticated)/registry/`. The shared registry data layer is at `lib/registry/`. The registry components are at `components/registry/`.
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Auth signs in to the **real** BusTerminal dev tenant via MSAL (no mock provider). Run `az login` once against the dev tenant; the backend `DefaultAzureCredential` chain picks up your Azure CLI credential for Azure-SDK calls.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project standards
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The frontend follows the standards in [`speckit-artifacts/tech-stack.md`](../speckit-artifacts/tech-stack.md) §2 (Frontend), §3 (Accessibility), §4 (Frontend Observability). Deviations require an ADR.

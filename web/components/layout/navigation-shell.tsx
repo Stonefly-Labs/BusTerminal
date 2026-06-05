@@ -1,6 +1,7 @@
 "use client";
 
 import type { Route } from "next";
+import { Database, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -21,10 +22,19 @@ interface NavEntry {
   readonly href: Route;
   readonly label: string;
   readonly operationClass: OperationClass;
+  readonly icon?: LucideIcon;
+  readonly matchPrefix?: boolean;
 }
 
 const NAV_ENTRIES: readonly NavEntry[] = [
   { href: "/platform-status" as Route, label: "Platform status", operationClass: "Read" },
+  {
+    href: "/registry" as Route,
+    label: "Registry",
+    operationClass: "Read",
+    icon: Database,
+    matchPrefix: true,
+  },
 ];
 
 function NavigationSidebar() {
@@ -46,7 +56,10 @@ function NavigationSidebar() {
       ) : (
         <nav className="mt-2 flex flex-col gap-1" data-testid="primary-navigation">
           {visibleEntries.map((entry) => {
-            const active = pathname === entry.href;
+            const active = entry.matchPrefix
+              ? pathname === entry.href || pathname.startsWith(`${entry.href}/`)
+              : pathname === entry.href;
+            const Icon = entry.icon;
             return (
               <Link
                 key={entry.href}
@@ -54,13 +67,14 @@ function NavigationSidebar() {
                 aria-current={active ? "page" : undefined}
                 data-testid={`nav-${entry.href.replace(/^\//, "")}`}
                 className={cn(
-                  "rounded px-2 py-1 text-sm transition-colors",
+                  "flex items-center gap-2 rounded px-2 py-1 text-sm transition-colors",
                   active
                     ? "bg-accent-primary/10 text-foreground-default"
                     : "text-foreground-muted hover:text-foreground-default",
                 )}
               >
-                {entry.label}
+                {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
+                <span>{entry.label}</span>
               </Link>
             );
           })}

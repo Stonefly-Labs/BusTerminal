@@ -1,7 +1,7 @@
 # BusTerminal Tech Stack Reference
 
-**Status**: Draft v1.0
-**Last Updated**: 2026-05-14
+**Status**: Draft v1.1
+**Last Updated**: 2026-06-04
 **Authority**: Derived from the [BusTerminal Constitution v1.0.0](../.specify/memory/constitution.md). Deviations require an Architectural Decision Record (ADR).
 **Companion artifacts**: [`busterminal-constitution.md`](./busterminal-constitution.md), [`001-brand-system-and-design-foundation.md`](./001-brand-system-and-design-foundation.md)
 
@@ -21,6 +21,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Architecture | **Vertical Slice Architecture preferred** | Horizontal layering is discouraged. |
 | Dependency Injection | **Built-in .NET DI container** | Third-party containers only with documented justification. |
 | API contracts | **OpenAPI** | Generated and maintained for every public API surface (Constitution Principle II — API-First). |
+| HTTP request validation | **FluentValidation 11.10.x** | Boundary validation on API endpoints (HTTP request DTOs). Complements the spec-004 `ValidationEngine` (canonical-domain validation at write time). Invoked manually from Minimal-API handlers — `AddFluentValidationAutoValidation` is MVC-only. Introduced by spec 006. |
 | State | **Stateless services where practical** | |
 
 **Cross-cutting rules**
@@ -46,6 +47,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Data tables | **TanStack Table** | All product tables route through the foundation's table primitives — no raw or per-feature tables. |
 | Forms | **React Hook Form** | Default form engine for all product forms. |
 | Validation | **Zod** | Default schema/validation library. |
+| Server state / data fetching | **TanStack Query 5.x** | Used for interactive surfaces (search-box debounced typeahead, create/edit form mutations with conflict UX, audit-panel client-side refresh). RSC + `fetch` on the server remains the default for read-only routes. Devtools is dev-only. Introduced by spec 006. |
 | Charts | **Recharts** | Standard charts (line, bar, area, donut, small trends). Topology/graph visualization libraries are deferred to a dedicated future decision. |
 | Animation | **Framer Motion** | Used sparingly; motion must clarify state, not provide theatre. Respect `prefers-reduced-motion`. |
 | Theme management | **next-themes** (or lightweight equivalent) | Dark and light themes as first-class peers. Dark is the primary operational experience. |
@@ -94,7 +96,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 
 | Area | Standard | Notes |
 |---|---|---|
-| Metadata storage | **Azure Cosmos DB** | Denormalization is acceptable where beneficial. |
+| Metadata storage | **Azure Cosmos DB** | Denormalization is acceptable where beneficial. The Cosmos **change feed** (latest-version mode) is the supported event source for indexing/projection pipelines; **lease containers must be IaC-provisioned** under managed-identity auth (the change-feed trigger cannot create lease containers when running under MI because container creation is a management-plane operation). |
 | Search / discovery | **Azure AI Search** | Searchability is a first-class concern. |
 | Schema evolution | Backward-compatible migrations preferred | Breaking schema changes require an ADR. |
 | Partitioning | Must preserve future scalability | |
@@ -110,7 +112,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Image registry | **Azure Container Registry** | |
 | Secrets | **Azure Key Vault** | Secrets must never be committed to source. Managed identity preferred over secret-based auth (Constitution Principle IV). |
 | Background jobs | **Azure Container Apps Jobs** | |
-| Event-driven processing | **Containerized Azure Functions** on the Container Apps Environment | Use the **newest native Azure Functions for Container Apps hosting**. |
+| Event-driven processing | **Containerized Azure Functions** on the Container Apps Environment | Use the **newest native Azure Functions for Container Apps hosting** — the **v2 native model**: a single `Microsoft.App/containerApps` resource with `kind = "functionapp"`. The legacy **v1 model** (the `Microsoft.Web/sites` proxy with a hidden backing container app) is **prohibited for new workloads**; existing v1 workloads must migrate per [`learn.microsoft.com/azure/container-apps/migrate-functions`](https://learn.microsoft.com/azure/container-apps/migrate-functions). |
 | Observability backbone | **Azure Monitor** + **Application Insights** + **OpenTelemetry for Azure Monitor** | All Azure services must route diagnostic logs to the solution's Log Analytics Workspace. |
 | Infrastructure-as-Code | **OpenTofu** (required) | **Bicep is prohibited** unless approved by ADR-recorded exception. |
 | IaC modules | **Azure Verified Modules (AVM) preferred** | Versions pinned explicitly. Deviations documented in spec or ADR. Exceptions allowed when AVM lacks coverage, blocks secure networking, or introduces unreasonable complexity. |
