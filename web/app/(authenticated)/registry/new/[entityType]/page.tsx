@@ -27,6 +27,7 @@ export default function RegistryNewEntityPage() {
     const candidates: RegistryEntityType[] = ["Namespace", "Queue", "Topic", "Subscription", "Rule"];
     return candidates.find((t) => t.toLowerCase() === rawType.toLowerCase()) ?? null;
   }, [rawType]);
+  const id = useMemo(() => globalThis.crypto.randomUUID(), []);
 
   if (!entityType) {
     return (
@@ -39,7 +40,6 @@ export default function RegistryNewEntityPage() {
   }
 
   const defaultEnvironment = searchParams.get("environment") ?? undefined;
-  const id = useMemo(() => globalThis.crypto.randomUUID(), []);
   const onSaved = (e: { id: string; entityType: RegistryEntityType }) => {
     router.push(`/registry/${e.entityType}/${e.id}` as Route);
   };

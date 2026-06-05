@@ -32,12 +32,14 @@ export function RegistrySearchInput({
   id,
 }: RegistrySearchInputProps) {
   const [local, setLocal] = useState(value);
+  const [lastSyncedValue, setLastSyncedValue] = useState(value);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Keep the local mirror in sync when the parent resets (URL nav, etc.).
-  useEffect(() => {
+  // Mirror parent resets (URL nav, etc.) using React's in-render setState pattern.
+  if (value !== lastSyncedValue) {
+    setLastSyncedValue(value);
     setLocal(value);
-  }, [value]);
+  }
 
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
