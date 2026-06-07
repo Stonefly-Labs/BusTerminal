@@ -252,6 +252,11 @@ procedure and confirm the suite returns to green after rotation.
   At least four exist: Reader, Operator, Admin, zero-role. Each maps to a
   specific test identity in the dev tenant and a specific set of application
   role assignments. The persona name is the only handle a test author uses.
+  *(Naming conventions: this spec uses Title-case for readability; the
+  canonical machine form — used in code, IaC, schemas, and KV secret names
+  — is the lowercase enum literal `reader | operator | admin | none`,
+  defined in
+  [`contracts/persona-config.schema.json`](./contracts/persona-config.schema.json).)*
 - **Test Identity**: A synthetic, dev-tenant-only user account used by exactly
   one persona. Owns no real-person data. Subject to a documented rotation
   procedure.
