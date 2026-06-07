@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal/specs/007-playwright-auth-fixture/persona-config.schema.json",
+  "title": "PersonaConfig",
+  "description": "Static configuration that resolves a Playwright Persona to the runtime data needed to acquire its session. One entry per persona, encoded in web/tests/auth/personas.ts.",
+  "type": "object",
+  "required": ["persona", "upnEnvVar", "passwordEnvVar", "keyVaultSecretName", "expectedRoleAssignments", "storageStatePath"],
+  "additionalProperties": false,
+  "properties": {
+    "persona": {
+      "type": "string",
+      "enum": ["reader", "operator", "admin", "none"],
+      "description": "The persona this config applies to."
+    },
+    "upnEnvVar": {
+      "type": "string",
+      "pattern": "^E2E_TEST_USER_(READER|OPERATOR|ADMIN|NONE)_UPN$",
+      "description": "Name of the environment variable that carries the test user's UPN at globalSetup time. Set by CI (sourced from IaC outputs) and by the local quickstart."
+    },
+    "passwordEnvVar": {
+      "type": "string",
+      "pattern": "^E2E_TEST_USER_(READER|OPERATOR|ADMIN|NONE)_PASSWORD$",
+      "description": "Name of the environment variable that carries the test user's password at globalSetup time. Set by CI (sourced from Key Vault via az keyvault secret show) and by the local quickstart (sourced via az keyvault secret show)."
+    },
+    "keyVaultSecretName": {
+      "type": "string",
+      "pattern": "^e2e-test-user-(reader|operator|admin|none)-password$",
+      "description": "Canonical Key Vault secret name carrying this persona's password. See contracts/keyvault-secret-naming.md."
+    },
+    "expectedRoleAssignments": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "BusTerminal.Reader",
+          "BusTerminal.Developer",
+          "BusTerminal.Operator",
+          "BusTerminal.Admin"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "The set of BusTerminal.* roles this persona must carry on its access token after sign-in. Asserted by globalSetup against the token's roles claim. Empty array for the 'none' persona."
+    },
+    "storageStatePath": {
+      "type": "string",
+      "pattern": "^web/tests/\\.auth/(reader|operator|admin|none)\\.json$",
+      "description": "Filesystem path (project-relative) of the persona's persisted Playwright storageState. The fixture loads this file; globalSetup writes it."
+    }
+  },
+  "examples": [
+    {
+      "persona": "reader",
+      "upnEnvVar": "E2E_TEST_USER_READER_UPN",
+      "passwordEnvVar": "E2E_TEST_USER_READER_PASSWORD",
+      "keyVaultSecretName": "e2e-test-user-reader-password",
+      "expectedRoleAssignments": ["BusTerminal.Reader"],
+      "storageStatePath": "web/tests/.auth/reader.json"
+    },
+    {
+      "persona": "none",
+      "upnEnvVar": "E2E_TEST_USER_NONE_UPN",
+      "passwordEnvVar": "E2E_TEST_USER_NONE_PASSWORD",
+      "keyVaultSecretName": "e2e-test-user-none-password",
+      "expectedRoleAssignments": [],
+      "storageStatePath": "web/tests/.auth/none.json"
+    }
+  ]
+}
