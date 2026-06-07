@@ -7,7 +7,7 @@ source of truth in
 and is read by this module via `jsondecode(file(...))`.
 
 Implementation uses the `azapi` provider (`azapi_resource` with type
-`Microsoft.Search/searchServices/indexes@2024-07-01`) because `azurerm` v4
+`Microsoft.Search/searchServices/indexes@2025-05-01`) because `azurerm` v4
 does not expose index resources and the AVM for AI Search only covers the
 service. The provider's bundled schema does not yet include data-plane
 search resources, so `schema_validation_enabled = false` is set on the
