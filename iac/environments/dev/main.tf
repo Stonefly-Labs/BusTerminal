@@ -643,7 +643,7 @@ module "cosmos_registry_store" {
 module "ai_search_registry_index" {
   source = "../../modules/ai-search-index"
 
-  ai_search_id = module.ai_search.id
+  search_service_name = module.ai_search.name
 }
 
 module "indexer_container_app" {

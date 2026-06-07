@@ -1,8 +1,7 @@
-# Spec 006 / Phase 1 T009 — variable surface (scaffold). Full schema lands in
-# Phase 2 T014.
+# Spec 006 / T014 — variable surface.
 
-variable "ai_search_id" {
-  description = "Resource id of the AI Search service from spec 005."
+variable "search_service_name" {
+  description = "Name of the AI Search service from spec 005. Used to construct the data-plane hostname (`{name}.search.windows.net`) that azapi_data_plane_resource targets."
   type        = string
 }
 
