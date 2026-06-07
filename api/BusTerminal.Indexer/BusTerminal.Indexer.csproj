@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AzureFunctionsVersion>v4</AzureFunctionsVersion>
+    <OutputType>Exe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>BusTerminal.Indexer</RootNamespace>
+    <!-- Match the BusTerminal.Api opt-out (research §6 / spec 004): Microsoft.Azure.Cosmos
+         3.x emits a build-time check requiring Newtonsoft.Json; we keep System.Text.Json
+         as the canonical serializer. -->
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Spec 006 / Phase 1 T001 — Functions isolated worker v2 SDK for the
+         containerized Functions-on-Container-Apps (kind=functionapp) hosting model
+         documented in research §4. Package versions pinned at scaffold time;
+         T044 (Phase 2) wires DI + OTel against this set. -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.0.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.5" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.CosmosDB" Version="4.13.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" Version="2.0.0" />
+    <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.22.0" />
+
+    <!-- Spec 006 / Phase 1 T004 — search adapter (Phase 2 T036 uses the same package
+         from the API project). -->
+    <PackageReference Include="Azure.Search.Documents" Version="11.6.0" />
+
+    <!-- Shared with BusTerminal.Api — managed identity via DefaultAzureCredential. -->
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+
+    <!-- Cosmos SDK is pulled in to register a shared CosmosClient via the
+         spec-004 CosmosClientFactory pattern (T044). -->
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BusTerminal.Indexer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="host.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="local.settings.json.example">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

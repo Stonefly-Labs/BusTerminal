@@ -157,7 +157,10 @@ public sealed class GraphClientTests
     [Fact]
     public void Ctor_RejectsNullCredentialFactory()
     {
-        var act = () => new GraphClient((BusTerminal.Api.Infrastructure.Credentials.IAzureCredentialFactory)null!);
+        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+        var act = () => new GraphClient(
+            (BusTerminal.Api.Infrastructure.Credentials.IAzureCredentialFactory)null!,
+            configuration);
 
         act.Should().Throw<ArgumentNullException>();
     }

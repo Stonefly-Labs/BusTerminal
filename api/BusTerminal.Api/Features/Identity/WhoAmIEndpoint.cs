@@ -40,10 +40,28 @@ public static class WhoAmIEndpoint
                     .OrderBy(s => s, StringComparer.Ordinal)
                     .ToArray());
 
-        var activity = Activity.Current;
-        var traceId = activity?.TraceId.ToHexString() ?? string.Empty;
-        var spanId = activity?.SpanId.ToHexString() ?? string.Empty;
         var receivedTraceparent = context.Request.Headers["traceparent"].ToString();
+        var activity = Activity.Current;
+        string traceId;
+        string spanId;
+        if (activity is not null)
+        {
+            traceId = activity.TraceId.ToHexString();
+            spanId = activity.SpanId.ToHexString();
+        }
+        else if (!string.IsNullOrEmpty(receivedTraceparent)
+            && ActivityContext.TryParse(receivedTraceparent, null, out var parentCtx))
+        {
+            // Fallback when no ActivityListener is registered (e.g. tests without
+            // OpenTelemetry exporter wired up): echo the inbound W3C trace context.
+            traceId = parentCtx.TraceId.ToHexString();
+            spanId = parentCtx.SpanId.ToHexString();
+        }
+        else
+        {
+            traceId = string.Empty;
+            spanId = string.Empty;
+        }
         var correlation = new Correlation(
             TraceId: traceId,
             SpanId: spanId,

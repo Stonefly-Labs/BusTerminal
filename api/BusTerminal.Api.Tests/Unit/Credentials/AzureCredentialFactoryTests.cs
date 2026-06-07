@@ -9,11 +9,15 @@ namespace BusTerminal.Api.Tests.Unit.Credentials;
 
 /// <summary>
 /// Verifies the single credential-acquisition path used everywhere Azure
-/// services are reached (FR-018). The factory must produce a
-/// <see cref="DefaultAzureCredential"/> in every environment so that local
-/// developer credentials and deployed Managed Identity resolve through the
-/// same chain; in non-Development environments a <c>userAssignedClientId</c>
-/// must short-circuit the chain to the requested MI.
+/// services are reached (FR-018).
+///
+/// Behaviour matrix:
+///   * Development → DefaultAzureCredential (full chain, az/VSCode reachable).
+///   * Non-Development + userAssignedClientId set → ManagedIdentityCredential
+///     pinned to that client id (skips the chain probe; production is on
+///     Container Apps where the workload UAMI is the only credible source).
+///   * Non-Development + no userAssignedClientId → DefaultAzureCredential
+///     fallback so missing-plumbing doesn't take the service down.
 /// </summary>
 public sealed class AzureCredentialFactoryTests
 {
@@ -28,9 +32,12 @@ public sealed class AzureCredentialFactoryTests
     }
 
     [Fact]
-    public void CreateCredential_InProduction_WithClientId_ReturnsDefaultAzureCredential()
+    public void CreateCredential_InDevelopment_IgnoresClientId()
     {
-        var factory = new AzureCredentialFactory(HostEnv(Environments.Production));
+        // Even if a client id is passed in Development we must not force a
+        // ManagedIdentity-only path; the developer's az/VSCode credential
+        // has to remain reachable.
+        var factory = new AzureCredentialFactory(HostEnv(Environments.Development));
 
         var credential = factory.CreateCredential("11111111-2222-3333-4444-555555555555");
 
@@ -38,64 +45,42 @@ public sealed class AzureCredentialFactoryTests
     }
 
     [Fact]
-    public void BuildOptions_InDevelopment_ReturnsNull()
+    public void CreateCredential_InProduction_WithClientId_ReturnsManagedIdentityCredential()
     {
-        var options = AzureCredentialFactory.BuildOptions(
-            HostEnv(Environments.Development),
-            userAssignedClientId: null);
+        // Production short-circuit per the audit (Fix #3) — skips the
+        // DefaultAzureCredential chain probe by going straight to IMDS with
+        // the explicit UAMI client id.
+        var factory = new AzureCredentialFactory(HostEnv(Environments.Production));
 
-        options.Should().BeNull(
-            "Development resolves the developer's identity from the full DefaultAzureCredential chain — no ManagedIdentity short-circuit");
+        var credential = factory.CreateCredential("11111111-2222-3333-4444-555555555555");
+
+        credential.Should().BeOfType<ManagedIdentityCredential>();
     }
 
     [Fact]
-    public void BuildOptions_InDevelopment_IgnoresClientId()
+    public void CreateCredential_InProduction_WithoutClientId_ReturnsDefaultAzureCredential()
     {
-        // Even if a client id is passed in Development we must not force a
-        // ManagedIdentity-only chain; the developer's az/VSCode credential
-        // has to remain reachable.
-        var options = AzureCredentialFactory.BuildOptions(
-            HostEnv(Environments.Development),
-            userAssignedClientId: "11111111-2222-3333-4444-555555555555");
+        // No UAMI client id wired — fall through to the chain so the service
+        // can still boot. The deployment pipeline is responsible for setting
+        // AZURE_CLIENT_ID; missing plumbing surfaces in logs as a chain probe
+        // rather than a hard crash.
+        var factory = new AzureCredentialFactory(HostEnv(Environments.Production));
 
-        options.Should().BeNull();
-    }
+        var credential = factory.CreateCredential();
 
-    [Fact]
-    public void BuildOptions_InProduction_WithClientId_SetsManagedIdentityClientId()
-    {
-        const string ClientId = "11111111-2222-3333-4444-555555555555";
-
-        var options = AzureCredentialFactory.BuildOptions(
-            HostEnv(Environments.Production),
-            ClientId);
-
-        options.Should().NotBeNull();
-        options!.ManagedIdentityClientId.Should().Be(ClientId);
-    }
-
-    [Fact]
-    public void BuildOptions_InProduction_WithoutClientId_LeavesManagedIdentityClientIdUnset()
-    {
-        var options = AzureCredentialFactory.BuildOptions(
-            HostEnv(Environments.Production),
-            userAssignedClientId: null);
-
-        options.Should().NotBeNull();
-        options!.ManagedIdentityClientId.Should().BeNull();
+        credential.Should().BeOfType<DefaultAzureCredential>();
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    public void BuildOptions_InProduction_WhitespaceClientId_IsTreatedAsAbsent(string clientId)
+    public void CreateCredential_InProduction_WhitespaceClientId_FallsBackToDefault(string clientId)
     {
-        var options = AzureCredentialFactory.BuildOptions(
-            HostEnv(Environments.Production),
-            clientId);
+        var factory = new AzureCredentialFactory(HostEnv(Environments.Production));
 
-        options.Should().NotBeNull();
-        options!.ManagedIdentityClientId.Should().BeNull();
+        var credential = factory.CreateCredential(clientId);
+
+        credential.Should().BeOfType<DefaultAzureCredential>();
     }
 
     private static IHostEnvironment HostEnv(string environmentName) =>

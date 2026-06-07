@@ -57,7 +57,8 @@ public sealed class GraphResolveSelfTests
             "(your own `az ad signed-in-user show --query id -o tsv` works)");
 
         var factory = new AzureCredentialFactory(HostEnv(Environments.Development));
-        var graphClient = new GraphClient(factory);
+        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build();
+        var graphClient = new GraphClient(factory, configuration);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var result = await graphClient.ResolveUserAsync(oid!, cts.Token);

@@ -1,6 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ThemeProvider } from "next-themes";
+
+// The registry global-search trigger (mounted in NavigationHeader from T115)
+// calls `useRouter` from next/navigation, which needs the App Router context.
+// Stub it here so the NavigationShell tests stay focused on the shell itself.
+vi.mock("next/navigation", async () => {
+  const actual = await vi.importActual<typeof import("next/navigation")>("next/navigation");
+  return {
+    ...actual,
+    useRouter: () => ({
+      push: vi.fn(),
+      replace: vi.fn(),
+      back: vi.fn(),
+      forward: vi.fn(),
+      refresh: vi.fn(),
+      prefetch: vi.fn(),
+    }),
+  };
+});
 
 import { NavigationShell } from "@/components/layout/navigation-shell";
 import { THEME_STORAGE_KEY } from "@/lib/theme-provider-constants";
