@@ -8,9 +8,10 @@
  *      actor, timestamp, and change summary.
  *   4. Clicking an Updated/StatusChanged event reveals the field-diff popover.
  *
- * Requires a running backend (mock-auth dev mode is fine). Skipped in CI
- * until the dev environment exposes the registry endpoints; matches the
- * pattern set by the existing create-browse + search E2E specs.
+ * Requires a running backend (mock-auth dev mode is fine).
+ *
+ * Status: `test.fixme` pending the MSAL E2E auth fixture promised by T093
+ * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
 import { test, expect } from "@playwright/test";
@@ -19,7 +20,7 @@ const ENV = "dev";
 const STAMP = Date.now().toString(36);
 
 test.describe("registry — relationships + audit drilldown", () => {
-  test("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
+  test.fixme("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
     const nsName = `audit-ns-${STAMP}`;
     const topicName = `audit-topic-${STAMP}`;
     const subName = `audit-sub-${STAMP}`;

@@ -4,12 +4,15 @@
  * filter, expect narrowed results.
  *
  * Requires a backend with seeded data. CI uses the dev environment.
+ *
+ * Status: `test.fixme` pending the MSAL E2E auth fixture promised by T093
+ * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
 import { test, expect } from "@playwright/test";
 
 test.describe("registry — search", () => {
-  test("typing a query renders results within the SC-002 budget", async ({ page }) => {
+  test.fixme("typing a query renders results within the SC-002 budget", async ({ page }) => {
     await page.goto("/registry/search");
     await page.getByLabel("Search registry").fill("orders");
     // The debounced input + TanStack Query path must resolve quickly under
@@ -26,7 +29,7 @@ test.describe("registry — search", () => {
       .toBeGreaterThan(0);
   });
 
-  test("the 503 state renders the search-unavailable empty state", async ({ page }) => {
+  test.fixme("the 503 state renders the search-unavailable empty state", async ({ page }) => {
     await page.route("**/api/registry/search**", async (route) => {
       await route.fulfill({
         status: 503,

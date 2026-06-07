@@ -6,12 +6,15 @@
  *
  * Requires a running backend. Conflict simulation needs two contexts to
  * race the same ETag, so this test runs `test.describe.serial`.
+ *
+ * Status: `test.fixme` pending the MSAL E2E auth fixture promised by T093
+ * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
 import { test, expect } from "@playwright/test";
 
 test.describe.serial("registry — edit + conflict", () => {
-  test("force-overwrite path completes successfully", async ({ page, context }) => {
+  test.fixme("force-overwrite path completes successfully", async ({ page, context }) => {
     await page.goto("/registry");
     // Smoke: page renders the layout.
     await expect(page.getByText(/Service Bus Registry/i)).toBeVisible();
