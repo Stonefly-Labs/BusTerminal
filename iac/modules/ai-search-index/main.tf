@@ -12,16 +12,14 @@
 # SearchDocumentMapper, the API's SearchClient queries, and this module all
 # reference the same field set. Drift would surface in T060/T061 (web-side
 # contract test + backend FluentValidation parity test).
+#
+# Author annotations for the contract live in `search-index.md` adjacent
+# to the JSON, not as `$comment` properties on the JSON itself — the
+# data-plane API rejects unrecognized property names with HTTP 400.
 
 locals {
-  index_definition_raw = jsondecode(file(var.index_definition_path))
-  index_name           = local.index_definition_raw.name
-
-  # Strip the leading `$comment` (a JSON-Schema-style hint not consumed by
-  # the Azure REST API) before submitting.
-  index_body = {
-    for k, v in local.index_definition_raw : k => v if k != "$comment"
-  }
+  index_body = jsondecode(file(var.index_definition_path))
+  index_name = local.index_body.name
 }
 
 resource "azapi_data_plane_resource" "registry_index" {

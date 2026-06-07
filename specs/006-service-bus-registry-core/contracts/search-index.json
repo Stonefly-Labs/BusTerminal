@@ -1,5 +1,4 @@
 {
-  "$comment": "Source of truth for the Azure AI Search index `registry-entities-v1`. Read by iac/modules/ai-search-index via jsondecode(file(...)) and applied through azapi_resource. Read by api/BusTerminal.Indexer/Indexing/SearchDocumentMapper.cs to ensure the projection shape matches. Driven by specs/006-service-bus-registry-core/data-model.md §6.",
   "name": "registry-entities-v1",
   "fields": [
     { "name": "id",                  "type": "Edm.String",         "key": true,  "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
@@ -20,12 +19,12 @@
         { "name": "value", "type": "Edm.String", "searchable": true,  "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true, "analyzer": "en.microsoft" }
       ]
     },
-    { "name": "tagKeysLower",        "type": "Collection(Edm.String)",   "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": false, "$comment": "Lowercase-projected key set; supports case-insensitive key-only filter (FR-023 + research §9)." },
-    { "name": "metadataFlat",        "type": "Collection(Edm.String)",   "searchable": true,  "filterable": false, "sortable": false, "facetable": false, "retrievable": false, "analyzer": "en.microsoft", "$comment": "Flattened key=value strings from `metadata`; discoverable via FR-022 full-text search." },
+    { "name": "tagKeysLower",        "type": "Collection(Edm.String)",   "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": false },
+    { "name": "metadataFlat",        "type": "Collection(Edm.String)",   "searchable": true,  "filterable": false, "sortable": false, "facetable": false, "retrievable": false, "analyzer": "en.microsoft" },
     { "name": "parentId",            "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": false, "retrievable": true },
     { "name": "updatedAtUtc",        "type": "Edm.DateTimeOffset", "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
     { "name": "createdAtUtc",        "type": "Edm.DateTimeOffset", "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
-    { "name": "brokerKind",          "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true, "$comment": "Reserved for future multi-broker support (Principle VI). Always 'AzureServiceBus' in this slice." }
+    { "name": "brokerKind",          "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true }
   ],
   "suggesters": [],
   "scoringProfiles": [],
