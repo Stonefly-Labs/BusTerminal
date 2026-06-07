@@ -27,7 +27,7 @@ See [`research.md` §5](../../../specs/006-service-bus-registry-core/research.md
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_search_service_name"></a> [search\_service\_name](#input\_search\_service\_name) | Name of the AI Search service from spec 005. Used to construct the data-plane hostname (`{name}.search.windows.net`) that azapi_data_plane_resource targets. | `string` | n/a | yes |
+| <a name="input_search_service_name"></a> [search\_service\_name](#input\_search\_service\_name) | Name of the AI Search service from spec 005. Used to construct the data-plane hostname (`{name}.search.windows.net`) that azapi\_data\_plane\_resource targets. | `string` | n/a | yes |
 | <a name="input_index_definition_path"></a> [index\_definition\_path](#input\_index\_definition\_path) | Path to the JSON file containing the search index definition. Defaults to the spec-006 contract. | `string` | `"../../../specs/006-service-bus-registry-core/contracts/search-index.json"` | no |
 
 ## Outputs
