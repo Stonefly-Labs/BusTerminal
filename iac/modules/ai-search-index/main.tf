@@ -20,7 +20,7 @@ locals {
 }
 
 resource "azapi_resource" "registry_index" {
-  type      = "Microsoft.Search/searchServices/indexes@2024-07-01"
+  type      = "Microsoft.Search/searchServices/indexes@2025-05-01"
   parent_id = var.ai_search_id
   name      = local.index_name
 
