@@ -2,10 +2,10 @@
 
 output "index_name" {
   description = "Name of the registry search index. Bound to AiSearchOptions.IndexName."
-  value       = azapi_resource.registry_index.name
+  value       = azapi_data_plane_resource.registry_index.name
 }
 
 output "index_id" {
-  description = "Full azapi-managed resource id of the index."
-  value       = azapi_resource.registry_index.id
+  description = "azapi-managed data-plane resource id of the index."
+  value       = azapi_data_plane_resource.registry_index.id
 }
