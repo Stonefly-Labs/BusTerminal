@@ -12,7 +12,9 @@
  * the result in. The hook layer lives in the page/form components.
  */
 
+import { resolveMockRolesHeaderValue } from "@/lib/api-client";
 import { httpFetch, type HttpFetchOptions } from "@/lib/http/client";
+import { E2E_MOCK_ROLES_HEADER } from "@/tests/auth/personas";
 import {
   auditEventSchema,
   conflictResponseSchema,
@@ -90,6 +92,12 @@ function buildHeaders(options: RegistryApiOptions, init?: HeadersInit): Headers 
   headers.set("accept", "application/json");
   if (options.accessToken) {
     headers.set("authorization", `Bearer ${options.accessToken}`);
+  }
+  // Spec 007 — mock-auth E2E personas. The shared helper returns null
+  // outside mock mode, so this is a no-op for real-token callers.
+  const mockRoles = resolveMockRolesHeaderValue();
+  if (mockRoles !== null) {
+    headers.set(E2E_MOCK_ROLES_HEADER, mockRoles);
   }
   return headers;
 }
