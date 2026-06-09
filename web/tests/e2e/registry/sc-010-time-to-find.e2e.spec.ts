@@ -11,46 +11,48 @@
  * production runs surface the metric in App Insights.
  *
  * Requires a populated registry. The dev environment seeds one as part of
- * the deploy; locally, run quickstart §5 first.
- *
- * Status: `test.fixme` pending the MSAL E2E auth fixture promised by T093
- * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
+ * the deploy; locally, run quickstart §5 first. The precondition is probed
+ * via the Playwright `request` fixture (not in-page fetch) so an empty or
+ * unreachable registry skips the test cleanly instead of timing out.
  */
 
-import { type Page } from "@playwright/test";
+import { type APIRequestContext } from "@playwright/test";
 
 import { test, expect } from "@/tests/fixtures/auth";
+import { E2E_MOCK_ROLES_HEADER, PERSONA_CONFIGS } from "@/tests/auth/personas";
 
 const SC010_BUDGET_MS = 30_000;
 const TYPEAHEAD_SLACK_MS = 5_000;
+const PRECONDITION_TIMEOUT_MS = 5_000;
 
-async function getFirstSeededName(page: Page): Promise<string | null> {
-  // Hit the registry list endpoint to discover at least one entity name we
-  // can search for. Falls back to scraping the explorer tree.
-  const fromApi = await page.evaluate(async () => {
-    try {
-      const res = await fetch("/api/registry?top=1");
-      if (!res.ok) return null;
-      const body = (await res.json()) as { items?: Array<{ name?: string }> };
-      const first = body.items?.[0]?.name;
-      return typeof first === "string" && first.length >= 3 ? first : null;
-    } catch {
-      return null;
-    }
-  });
-  if (fromApi) return fromApi;
+const API_BASE_URL =
+  process.env.PLAYWRIGHT_API_BASE_URL ??
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  "http://localhost:8080";
 
-  // Fallback: any tree-node text content.
-  const treeText = await page
-    .locator('[data-testid="registry-tree-node"]')
-    .first()
-    .textContent()
-    .catch(() => null);
-  if (treeText && treeText.trim().length >= 3) {
-    const first = treeText.trim().split(/\s+/)[0];
-    return first ?? null;
+async function getFirstSeededName(
+  request: APIRequestContext,
+): Promise<string | null> {
+  // Hit the registry list endpoint directly via APIRequestContext (not
+  // page.evaluate) so the discovery step has a hard timeout and can never
+  // itself blow the test budget. Mock-auth in CI requires the X-Mock-Roles
+  // header — the SPA's api-client adds it for in-browser calls; here we add
+  // it explicitly because the request context bypasses the SPA.
+  const readerRoles = PERSONA_CONFIGS.reader.expectedRoleAssignments.join(",");
+  try {
+    const base = API_BASE_URL.replace(/\/$/, "");
+    const res = await request.get(`${base}/api/registry?top=1`, {
+      headers: { [E2E_MOCK_ROLES_HEADER]: readerRoles },
+      failOnStatusCode: false,
+      timeout: PRECONDITION_TIMEOUT_MS,
+    });
+    if (!res.ok()) return null;
+    const body = (await res.json()) as { items?: Array<{ name?: string }> };
+    const first = body.items?.[0]?.name;
+    return typeof first === "string" && first.length >= 3 ? first : null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 test.describe("registry — SC-010 time-to-find", () => {
@@ -62,24 +64,20 @@ test.describe("registry — SC-010 time-to-find", () => {
 
   test("operator reaches a known entity from an arbitrary page in under 30s", async ({
     page,
+    request,
   }) => {
-    // Start on an arbitrary authenticated route — not /registry itself — so
-    // the path "open search from anywhere → land on detail" is exercised.
-    await page.goto("/platform-status", { waitUntil: "domcontentloaded" });
-
-    // The global search trigger lives in the NavigationHeader and is
-    // keyboard-shortcut-bound to Cmd/Ctrl+K. Discover a seed name first so
-    // we know what to type.
-    await page.goto("/registry", { waitUntil: "domcontentloaded" });
-    await page.waitForSelector('[data-testid="registry-layout"]');
-    const seedName = await getFirstSeededName(page);
+    // Discover a seed name via the API before touching the UI, so the
+    // precondition either succeeds quickly or skips the test without
+    // costing UI-render time.
+    const seedName = await getFirstSeededName(request);
     test.skip(
       seedName === null,
       "No entities present in the target environment — populate per quickstart §5 first.",
     );
-    const partial = (seedName as string).slice(0, Math.min(4, seedName!.length));
+    const partial = seedName!.slice(0, Math.min(4, seedName!.length));
 
-    // Re-anchor on an arbitrary page so the search path is "from anywhere".
+    // Anchor on an arbitrary authenticated route — not /registry itself —
+    // so the path "open search from anywhere → land on detail" is exercised.
     await page.goto("/platform-status", { waitUntil: "domcontentloaded" });
 
     // Open the global search dialog via the keyboard shortcut.

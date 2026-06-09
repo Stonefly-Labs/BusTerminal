@@ -326,8 +326,8 @@ The operative task list. See [research.md](./research.md) §R11 for rationale. T
 
 ## Open follow-ups (out of scope for Phase A)
 
-These are not auth-fixture issues; they are pre-existing project bugs that the fixture's success exposes. Tracked here so a future spec can pick them up:
+These are not auth-fixture issues; they are pre-existing project bugs that the fixture's success exposed.
 
-1. **Cosmos SDK Newtonsoft.Json 10.0.0.0 binding resolution** — backend throws `FileNotFoundException` when `CosmosClient` is constructed during a registry POST. Affects 3 specs (create-browse, relationships-audit, anything that hits Cosmos). Likely an `app.config` binding-redirect or transitive-package issue in `BusTerminal.Api.csproj`.
-2. **`registry/sc-010-time-to-find.e2e.spec.ts` data seeding** — the spec discovers a seed entity via `fetch("/api/registry?top=1")`; without seeded data it times out. Either gate the spec on a "registry seeded" precondition or have the spec self-seed via the operator persona.
-3. **`tests/e2e/rtl-smoke.spec.ts` dialog visibility** — two pre-existing failures unrelated to spec 007; investigate separately.
+1. ~~**Cosmos SDK Newtonsoft.Json 10.0.0.0 binding resolution**~~ — **Resolved 2026-06-08.** Per Microsoft guidance, Cosmos SDK 3.x uses Newtonsoft.Json at runtime for system types even when documents use STJ. Removed the `AzureCosmosDisableNewtonsoftJsonCheck` build-flag opt-out and added an explicit `Newtonsoft.Json` 13.0.4 reference to `BusTerminal.Api.csproj`, `BusTerminal.Indexer.csproj`, and `LoadFixtures.csproj`.
+2. ~~**`registry/sc-010-time-to-find.e2e.spec.ts` data seeding**~~ — **Resolved 2026-06-08.** Self-seed via POST was rejected (AI Search indexer is async; a fresh entity isn't immediately searchable, would change the test's nature). Replaced the in-page `fetch()` discovery with a Playwright `APIRequestContext` probe that has a 5-second hard timeout and sends `X-Mock-Roles: BusTerminal.Reader` directly, so the precondition either succeeds quickly or skips cleanly instead of timing out the whole test.
+3. ~~**`tests/e2e/rtl-smoke.spec.ts` dialog visibility**~~ — **Resolved 2026-06-08.** Root cause: under parallel-worker load against `next dev`, client chunks finish loading after `domcontentloaded`, leaving a window where the Details button is painted but its onClick is not yet attached. Switched the navigation `waitUntil` from `domcontentloaded` to `networkidle` so hydration is complete before the click. All 6 cases (chromium/firefox/webkit × dark/light) pass.
