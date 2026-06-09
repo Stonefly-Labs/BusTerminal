@@ -305,6 +305,11 @@ output "frontend_image_in_use" {
   value       = var.frontend_image
 }
 
+output "indexer_image_in_use" {
+  description = "Indexer container image currently applied to state. Counterpart to backend_image_in_use; reads as the MCR placeholder until CD is wired to build and push the indexer."
+  value       = var.indexer_image
+}
+
 # -----------------------------------------------------------------------------
 # Spec 006 — Service Bus registry slice (T017). Additive only; defined per
 # `specs/006-service-bus-registry-core/contracts/outputs-contract.md`.

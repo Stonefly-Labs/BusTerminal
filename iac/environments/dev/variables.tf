@@ -46,6 +46,12 @@ variable "backend_image" {
   type        = string
 }
 
+variable "indexer_image" {
+  description = "Fully qualified indexer container image (e.g., `<acr>.azurecr.io/busterminal/indexer:<sha>`). Defaults to a public placeholder until the CD pipeline is wired to build and push the indexer image (tracked in #50). The placeholder lets the Container App provision cleanly so the rest of the slice can deploy."
+  type        = string
+  default     = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+}
+
 variable "frontend_min_replicas" {
   description = "Minimum replica count for the frontend Container App."
   type        = number
