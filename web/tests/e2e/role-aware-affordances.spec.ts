@@ -23,10 +23,15 @@
  * `role-permission-matrix.ts` contract.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@/tests/fixtures/auth";
 
 test.describe("US1: role-aware affordances", () => {
-  test.fixme("Reader-only user sees no Operator/Admin nav entries and disabled MutateDomain buttons", async ({ page }) => {
+  // Spec 007 — Reader persona is exactly the role surface this test
+  // asserts against (no Operator/Admin nav entries, MutateDomain
+  // affordances rendered disabled).
+  test.use({ persona: "reader" });
+
+  test("Reader-only user sees no Operator/Admin nav entries and disabled MutateDomain buttons", async ({ page }) => {
     await page.goto("/platform-status");
 
     // Navigation: when no MutateDomain entries exist, none should be visible.

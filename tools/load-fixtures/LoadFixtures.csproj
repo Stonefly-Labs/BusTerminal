@@ -8,10 +8,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>BusTerminal.Tools.LoadFixtures</RootNamespace>
     <AssemblyName>busterminal-load-fixtures</AssemblyName>
-    <!-- See BusTerminal.Api.csproj for rationale. Same opt-out required here because the
-         Cosmos build-time check fires for every project that transitively references the
-         Cosmos package. -->
-    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,16 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Microsoft.Azure.Cosmos 3.x still hits a Newtonsoft.Json code path at
-         runtime (legacy LINQ + query-text helpers) even with
-         AzureCosmosDisableNewtonsoftJsonCheck=true suppressing the build
-         warning. The test project picks it up transitively through xunit, so
-         the integration tests succeed; the CLI does not, so it fails on first
-         call with "Could not load file or assembly 'Newtonsoft.Json'." Pin it
-         explicitly here so the CLI's bin output carries the assembly. The
-         canonical model still uses System.Text.Json end-to-end — this is a
-         transitive runtime crutch, not a serializer choice. -->
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- See BusTerminal.Api.csproj — Cosmos SDK 3.x needs Newtonsoft.Json at runtime
+         for system types even when documents serialize via STJ. Pinned here so the CLI's
+         bin output carries the assembly (the API ProjectReference does not flow it). -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 </Project>

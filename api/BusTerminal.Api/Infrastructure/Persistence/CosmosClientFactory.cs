@@ -9,9 +9,10 @@ namespace BusTerminal.Api.Infrastructure.Persistence;
 // emulator key only when Endpoint host is `localhost` (research §2).
 //
 // The serializer is injected via CosmosClientOptions.Serializer so persistence
-// reads/writes use the same STJ options that the export/import serializer uses.
-// Newtonsoft.Json is intentionally NOT pulled in
-// (`AzureCosmosDisableNewtonsoftJsonCheck` in the csproj documents the trade-off).
+// reads/writes for *documents* use the same STJ options that the export/import
+// serializer uses. Newtonsoft.Json is still referenced (see csproj) because the
+// Cosmos SDK 3.x uses it internally for system types regardless of the user
+// serializer choice.
 public sealed class CosmosClientFactory
 {
     private readonly CosmosOptions _options;

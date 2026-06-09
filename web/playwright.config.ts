@@ -8,6 +8,10 @@ import { defineConfig, devices } from "@playwright/test";
  *   SC-010 horizontal-overflow assertion and the SC-019 Web Vitals
  *   probe. T145 extends the viewport matrix (mobile / 1366 / 1920 /
  *   3840) for cross-browser smoke.
+ * - Auth: handled by `web/tests/fixtures/auth.ts` — per-context
+ *   `addInitScript` writes the persona into sessionStorage; the SPA's
+ *   mock PCA (active when `NEXT_PUBLIC_AUTH_MODE=mock`) synthesises a
+ *   signed-in session. No globalSetup, no IdP round-trip. See spec 007.
  */
 const LAPTOP_VIEWPORT = { width: 1366, height: 768 } as const;
 

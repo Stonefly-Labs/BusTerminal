@@ -27,12 +27,19 @@
  * `web/app/(authenticated)/layout.tsx` which has component-level coverage.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@/tests/fixtures/auth";
 
 const NO_ACCESS_BUDGET_MS = 2_000;
 
 test.describe("SC-008: no-role users land on /no-access within 2s", () => {
-  test.fixme("authenticated zero-role user sees the no-access page within 2s", async ({ page }) => {
+  // Spec 007 — `none` persona: authenticated but zero BusTerminal roles.
+  // Under mock-auth the api-client sends `X-Mock-Roles: ""` and the
+  // backend mock handler synthesises a principal with no role claims;
+  // the (authenticated) layout reads `effectiveRoles` from /whoami and
+  // pushes the user to /no-access.
+  test.use({ persona: "none" });
+
+  test("authenticated zero-role user sees the no-access page within 2s", async ({ page }) => {
     // Pre-condition: the test user is a real Entra account in the dev tenant
     // with NO BusTerminal app-role assignment. Sign-in flow is wired by the
     // MSAL fixture (T093). After sign-in, MSAL redirects back to the SPA;
@@ -43,12 +50,13 @@ test.describe("SC-008: no-role users land on /no-access within 2s", () => {
     // commit, *before* awaiting the no-access page's rendered DOM. This is
     // the start of the SC-008 budget.
     const postRedirectTs = await new Promise<number>((resolve) => {
-      const off = page.on("framenavigated", (frame) => {
+      const listener = (frame: typeof page.mainFrame extends () => infer F ? F : never) => {
         if (frame === page.mainFrame() && /\/no-access(\/|$|\?)/.test(frame.url())) {
           resolve(Date.now());
-          page.off("framenavigated", off as never);
+          page.off("framenavigated", listener);
         }
-      });
+      };
+      page.on("framenavigated", listener);
       void page.goto("/");
     });
 

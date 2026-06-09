@@ -76,10 +76,15 @@ test.describe("RTL smoke (T111 / SC-011)", () => {
       page,
     }) => {
       await seedDirectionAndTheme(page, theme);
-      await page.goto("/showcase", { waitUntil: "domcontentloaded" });
-      // Wait for hydration — the Refresh button's onClick attaches
-      // post-hydration, so its presence signals the React tree is
-      // interactive and subsequent clicks fire their handlers.
+      // `networkidle` (not just `domcontentloaded`) — under parallel-worker
+      // load against `next dev`, client chunks finish loading after DCL, so
+      // returning at DCL can land in a window where the Details button is
+      // painted but its onClick is not yet attached. The click then fires
+      // into a dead handler and the Sheet never opens. networkidle waits
+      // for chunk fetches to settle so hydration is complete by the time
+      // we click.
+      await page.goto("/showcase", { waitUntil: "networkidle" });
+      // Sanity: Refresh button visible means React tree is interactive.
       await page.getByRole("button", { name: "Refresh" }).waitFor({ state: "visible" });
 
       // 1) No viewport-level horizontal overflow.

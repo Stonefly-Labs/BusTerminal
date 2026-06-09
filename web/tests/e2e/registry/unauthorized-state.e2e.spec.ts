@@ -8,10 +8,15 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 test.describe("registry — unauthorized state", () => {
-  test.fixme("renders the re-auth CTA when an API call returns 401", async ({ page }) => {
+  // Spec 007 — the page is rendered in a Reader-authenticated context;
+  // the 401 is forced via route interception below. This exercises the
+  // app's "valid session at the SPA, denied at the API" failure mode.
+  test.use({ persona: "reader" });
+
+  test("renders the re-auth CTA when an API call returns 401", async ({ page }) => {
     await page.route("**/api/registry/**", async (route) => {
       await route.fulfill({
         status: 401,

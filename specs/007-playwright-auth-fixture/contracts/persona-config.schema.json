@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal/specs/007-playwright-auth-fixture/persona-config.schema.json",
+  "title": "PersonaConfig",
+  "description": "Static configuration that resolves a Playwright Persona to the synthetic identity surfaced under mock-auth mode. One entry per persona, encoded in web/tests/auth/personas.ts. Mock auth replaced the original spec-007 real-Entra approach (see research §R11 — pivot rationale).",
+  "type": "object",
+  "required": ["persona", "mockAccount", "expectedRoleAssignments", "storageStatePath"],
+  "additionalProperties": false,
+  "properties": {
+    "persona": {
+      "type": "string",
+      "enum": ["reader", "operator", "admin", "none"],
+      "description": "The persona this config applies to."
+    },
+    "mockAccount": {
+      "type": "object",
+      "description": "Synthetic identity surfaced under mock-auth mode. Populates the mock MSAL AccountInfo and the backend mock principal claims. None of these values resolve against any real directory — they exist to give the SPA something to render and to make log correlation deterministic.",
+      "required": ["oid", "upn", "displayName"],
+      "additionalProperties": false,
+      "properties": {
+        "oid": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "Stable per-persona GUID. NOT a real Entra object ID. Hardcoded so trace correlation across runs is deterministic."
+        },
+        "upn": {
+          "type": "string",
+          "pattern": "^e2e-(reader|operator|admin|none)@mock\\.busterminal\\.dev$",
+          "description": "Synthetic UPN. Domain segment `mock.busterminal.dev` is reserved and never resolved — makes the synthetic origin obvious in logs."
+        },
+        "displayName": {
+          "type": "string",
+          "pattern": "^E2E (Reader|Operator|Admin|No-Role)$",
+          "description": "Human-friendly display name surfaced in the user menu and the no-access page."
+        }
+      }
+    },
+    "expectedRoleAssignments": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "BusTerminal.Reader",
+          "BusTerminal.Developer",
+          "BusTerminal.Operator",
+          "BusTerminal.Admin"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "The set of BusTerminal.* roles the persona's mock principal carries. The frontend api-client serialises this list into the `X-Mock-Roles` request header; the backend `MockAuthenticationHandler` translates it into ClaimsPrincipal Role claims. Empty array for the `none` persona (authenticated but role-empty)."
+    },
+    "storageStatePath": {
+      "type": "string",
+      "pattern": "^tests/\\.auth/(reader|operator|admin|none)\\.json$",
+      "description": "Filesystem path of the persona's persisted Playwright storageState, RELATIVE TO THE WEB PACKAGE ROOT (web/). Kept as a future hook for any spec that wants to opt into a captured storageState (none do today under mock auth). The mock-auth fixture does not write this file; it relies on `addInitScript` per-context instead."
+    }
+  },
+  "examples": [
+    {
+      "persona": "reader",
+      "mockAccount": {
+        "oid": "11111111-1111-1111-1111-111111111101",
+        "upn": "e2e-reader@mock.busterminal.dev",
+        "displayName": "E2E Reader"
+      },
+      "expectedRoleAssignments": ["BusTerminal.Reader"],
+      "storageStatePath": "tests/.auth/reader.json"
+    },
+    {
+      "persona": "none",
+      "mockAccount": {
+        "oid": "11111111-1111-1111-1111-111111111104",
+        "upn": "e2e-none@mock.busterminal.dev",
+        "displayName": "E2E No-Role"
+      },
+      "expectedRoleAssignments": [],
+      "storageStatePath": "tests/.auth/none.json"
+    }
+  ]
+}
