@@ -72,8 +72,12 @@ function buildUrl(path: string): string {
  * without a SPA restart. Returns `null` when not in mock mode, when no
  * persona is seeded, or when running server-side (the api-client is
  * client-only in practice; the guard is defensive).
+ *
+ * Exported because `lib/registry/api.ts` has its own thin fetch wrapper
+ * (it predates this client) and must attach the same header for the
+ * spec-007 fixture to authenticate registry CRUD calls.
  */
-function resolveMockRolesHeaderValue(): string | null {
+export function resolveMockRolesHeaderValue(): string | null {
   if (process.env.NEXT_PUBLIC_AUTH_MODE !== MOCK_AUTH_MODE) {
     return null;
   }
