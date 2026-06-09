@@ -657,10 +657,11 @@ module "indexer_container_app" {
   workload_uami_client_id = module.workload_identity.client_id
 
   # Spec 006 / quickstart §3 — the indexer image is built from
-  # `api/BusTerminal.Indexer/Dockerfile` and pushed to the env ACR by the CD
-  # pipeline. The placeholder tag below tracks the next deploy; the CD
-  # pipeline overrides it via tfvars in the CD apply step.
-  container_image       = "${module.container_registry.login_server}/busterminal/indexer:placeholder"
+  # `api/BusTerminal.Indexer/Dockerfile`. CD is not yet wired to build and
+  # push it (scope spillover from spec 006 — tracked in #50), so
+  # var.indexer_image defaults to a public placeholder. Once #50 lands, CD
+  # will pass the freshly-built tag via -var indexer_image=... on rollout.
+  container_image       = var.indexer_image
   registry_login_server = module.container_registry.login_server
 
   cosmos_account_endpoint        = module.cosmos_account.account_endpoint
