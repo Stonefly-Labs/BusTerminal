@@ -62,9 +62,15 @@ jobs:
       - name: Build & test Storybook (a11y + interactions)
         run: pnpm -C web test:storybook:ci
 
-      # Backend is needed for the platform-status E2E (the page does a server-
-      # side `/whoami` round-trip). Mock auth is active so no real Entra tenant
-      # is contacted; the .NET mock handler synthesizes the dev user.
+      # Backend is needed for the platform-status E2E + the previously-
+      # fixme'd registry specs (spec 007). Mock auth is active on both the
+      # backend (`AzureAd__TenantId=development` engages
+      # `MockAuthenticationHandler`) and the frontend
+      # (`NEXT_PUBLIC_AUTH_MODE=mock` engages `buildMockPca`). The
+      # registry specs need persistence; the Cosmos emulator from
+      # docker-compose.yml provides it. The emulator's readiness probe
+      # binds port 8080 so the backend listens on 8090 via
+      # `BUSTERMINAL_API_PORT`.
       - name: Setup .NET 10 (for E2E backend)
         uses: actions/setup-dotnet@v5
         with:
@@ -73,13 +79,35 @@ jobs:
       - name: Build backend (Release)
         run: dotnet build api/BusTerminal.slnx --configuration Release
 
-      - name: Start backend in background (mock auth)
+      - name: Start Cosmos emulator (for registry persistence)
+        run: |
+          set -euo pipefail
+          docker compose up -d cosmos-emulator
+          echo "Cosmos emulator container launched; waiting for /ready probe…"
+
+      - name: Wait for Cosmos emulator readiness
+        run: |
+          set -euo pipefail
+          for i in {1..120}; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/ready || true)
+            if [ "$code" = "200" ]; then
+              echo "Cosmos emulator ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Cosmos emulator did not become ready within 120s"
+          docker compose logs cosmos-emulator | tail -n 200 || true
+          exit 1
+
+      - name: Start backend in background (mock auth + Cosmos emulator)
         env:
+          BUSTERMINAL_API_PORT: 8090
           ASPNETCORE_ENVIRONMENT: Development
-          ASPNETCORE_URLS: http://localhost:8080
           AzureAd__TenantId: development
           AzureAd__ClientId: 00000000-0000-0000-0000-000000000001
           AzureAd__Audience: api://00000000-0000-0000-0000-000000000001
+          Cosmos__Endpoint: https://localhost:8081
         run: |
           dotnet run --project api/BusTerminal.Api --configuration Release --no-build > /tmp/api.log 2>&1 &
           echo "API_PID=$!" >> "$GITHUB_ENV"
@@ -88,7 +116,7 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..60}; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/healthz/ready || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8090/healthz/ready || true)
             if [ "$code" = "200" ]; then
               echo "Backend ready after ${i}s"
               exit 0
@@ -99,9 +127,12 @@ jobs:
           cat /tmp/api.log || true
           exit 1
 
-      - name: Playwright E2E
+      - name: Playwright E2E (mock auth)
         env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:8080
+          NEXT_PUBLIC_AUTH_MODE: mock
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8090
+          PLAYWRIGHT_API_BASE_URL: http://localhost:8090
+          BUSTERMINAL_DEV_API_TARGET: http://localhost:8090
         run: pnpm -C web test:e2e
 
       - name: Stop backend
@@ -110,6 +141,12 @@ jobs:
           if [ -n "${API_PID:-}" ]; then kill "$API_PID" 2>/dev/null || true; fi
           echo "Backend log tail:"
           tail -n 50 /tmp/api.log 2>/dev/null || true
+
+      - name: Stop Cosmos emulator
+        if: always()
+        run: |
+          docker compose logs cosmos-emulator | tail -n 100 || true
+          docker compose down cosmos-emulator || true
 
       - name: Bundle analyzer build
         run: pnpm -C web analyze

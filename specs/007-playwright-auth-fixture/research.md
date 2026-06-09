@@ -182,3 +182,59 @@ Documented here so future contributors don't mistake gaps for omissions:
 - **Add `developer` persona** if and when a `DeveloperTooling`-gated UI surface ships an E2E spec. Tracked as documented v1.1 extension in R3.
 - **AAD groups for role mediation** if persona count grows beyond five or if the same role grants need reuse outside test contexts. Tracked in R4 alternatives.
 - **Direct-to-API auth helper for runner-side calls** if/when tests start needing API-driven arrange/teardown that isn't worth driving through the page. Out of scope here per FR-017.
+
+---
+
+## R11 — Pivot to client-side mock auth (2026-06-08)
+
+R1–R10 above describe the original real-Entra design. That design was implemented end-to-end:
+
+- The `iac/modules/e2e-test-identities` OpenTofu module shipped with the contracted shape (versions/variables/main/outputs/README), wired into `iac/environments/dev/main.tf`, and `tofu apply`'d against the dev tenant. Result: four Entra users (`e2e-{reader,operator,admin,none}-chdev01@chrishouse00outlook442.onmicrosoft.com`), four KV secrets in `kv-bt-dev-chdev01`, three `azuread_app_role_assignment` records, four per-secret `Key Vault Secrets User` RBAC bindings on the workload MI.
+- The Playwright scripted-sign-in driver (`sign-in.ts`) and globalSetup (`global-setup.ts`) were written and the playwright config wired. globalSetup correctly drove a browser through `login.microsoftonline.com`, filled the persona UPN + password from KV, and reached the post-auth redirect.
+
+**Decision.** Abandon the real-Entra approach and replace it with a client-side mock that mirrors the existing backend `MockAuthenticationHandler`. Rationale:
+
+1. **Tenant policy could not be satisfied within budget.** The dev tenant has the Authentication Methods **Registration Campaign** in its default "Microsoft managed" state, which forces every newly-created user (including synthetic ones) onto a "Set up Microsoft Authenticator" interstitial during sign-in. The interstitial has no skip path under default policy, and a scripted Playwright browser cannot complete it. Three resolutions exist:
+   - **Disable Security Defaults AND set the Registration Campaign to "Disabled"** — removes MFA enforcement for every user in the tenant, including humans. The project owner explicitly rejected this trade for a tenant they share with their personal Microsoft Account.
+   - **Use Conditional Access to exempt the four synthetic users** — requires Entra ID **P1 or higher**. The project owner does not currently have that licence.
+   - **Pre-register an authentication method on each synthetic user via Graph (TAP, FIDO2, or phone)** — works in principle but requires either an admin-issued TAP (a feature usually paired with P1) or phone-method writes (require user consent in default policy). Tried briefly and abandoned as another setup surface in a path already fighting policy.
+
+2. **The deployed SPA's app reg was misconfigured for MSAL anyway.** `bt-dev-web` had `spa.redirectUris: []` (a clean slate) and `web.redirectUris` carrying the long-removed NextAuth callback URLs (`/api/auth/callback/microsoft-entra-id`). The real-Entra path required adding `http://localhost:3000` and the dev FQDN under `spa.redirectUris` via Graph PATCH — easy but visible drift outside Tofu state.
+
+3. **`web/lib/auth/msal-config.ts` had a latent pre-existing bug.** It read MSAL config via `process.env[name]` (dynamic key access), which Next.js does not inline at build time. The result was that the SPA had been instantiating MSAL with `clientId = "00000000-0000-0000-0000-000000000000"` and `authority = ".../common"` since spec 003 merged — invisible because every workflow that exercised the SPA also ran the backend in mock-auth mode, which accepts any token. Discovered while debugging the real-Entra path. Fixed independently (static-literal accesses) and the fix is kept — the SPA needs to read its env vars correctly regardless of which auth mode the suite runs under.
+
+**The replacement design** is documented in [plan.md](./plan.md) and [data-model.md](./data-model.md). Key shape changes from R1–R10:
+
+- `PersonaConfig` drops `upnEnvVar`, `passwordEnvVar`, `keyVaultSecretName`; adds `mockAccount: { oid, upn, displayName }`.
+- `web/lib/auth/msal-mock.ts` (new) returns a real `PublicClientApplication` whose key methods are overridden to return synthetic state from `sessionStorage["bt.e2e.persona"]`. Selected via `NEXT_PUBLIC_AUTH_MODE=mock` with a build-time guard against production.
+- `lib/api-client.ts` adds `X-Mock-Roles: BusTerminal.<role>,...` on every request in mock mode. The backend's existing `MockAuthenticationHandler` (`MockRolesHeader = "X-Mock-Roles"`) already reads this header.
+- `web/tests/fixtures/auth.ts` overrides the `context` fixture (not `storageState`) to `addInitScript` the persona into sessionStorage before any app script runs.
+- `web/tests/auth/{sign-in.ts, global-setup.ts}` deleted; `playwright.config.ts`'s `globalSetup` field removed.
+- No IaC. No KV secrets. No CI federation extension. The CI workflow gains `NEXT_PUBLIC_AUTH_MODE: mock` and a Cosmos emulator startup step (mirroring the existing `backend-integration` job).
+
+**What R11 trades away:**
+
+- The suite no longer exercises real MSAL flows. An `@azure/msal-browser` upgrade that breaks redirect handling will not be caught by E2E — only by the component-level `role-aware-button.test.tsx` matrix tests and (eventually) by human exploratory testing in the deployed dev env.
+- App-registration drift (redirect URIs, role-claim shape, allowed grant types) will not be caught by E2E either. Same mitigation — component tests + manual exploration.
+
+**What R11 buys:**
+
+- Zero tenant interaction. The suite runs locally and in CI with no Azure access whatsoever.
+- Zero credentials at rest, in transit, or in CI variables.
+- Zero MFA / CA / Security Defaults friction. Adding a fifth persona is a one-line addition to `PERSONA_CONFIGS`.
+- The suite stops being held hostage by a tenant the project owner shares with their personal MSA and can't lock down further without a P1 licence.
+
+If a future spec deems the lost real-MSAL coverage worth restoring, the original R1–R10 design is still implementable in a fresh tenant (Microsoft 365 Developer Program offers one free) where the project owner has admin authority to configure policies.
+
+---
+
+## Rolled-back artifacts (2026-06-08)
+
+For the audit trail:
+
+- `tofu destroy -target=module.e2e_test_identities -target=azurerm_role_assignment.ci_reads_e2e_secrets` — 19 resources destroyed, all four Entra users + KV secrets + RBAC bindings gone.
+- `iac/environments/dev/{main.tf, outputs.tf, README.md}` reverted to baseline.
+- `iac/modules/e2e-test-identities/` directory deleted.
+- `scripts/e2e-test-identities/` directory deleted.
+- `bt-dev-web` app reg `spa.redirectUris` reset to `[]` via Graph PATCH. `web.redirectUris` untouched (those were already there from the NextAuth era; not in spec 007 scope to change).
+- Tenant Security Defaults state: untouched (left as the project owner has it).

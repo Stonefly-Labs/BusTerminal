@@ -17,7 +17,9 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
+
+import { test, expect } from "@/tests/fixtures/auth";
 
 const SC010_BUDGET_MS = 30_000;
 const TYPEAHEAD_SLACK_MS = 5_000;
@@ -52,7 +54,13 @@ async function getFirstSeededName(page: Page): Promise<string | null> {
 }
 
 test.describe("registry — SC-010 time-to-find", () => {
-  test.fixme("operator reaches a known entity from an arbitrary page in under 30s", async ({
+  // Spec 007 — search + navigate is a Reader-class operation, so the
+  // Reader persona is sufficient. The spec's name says "operator" for
+  // colloquial reasons (a human operating the platform), not because the
+  // BusTerminal.Operator role is required.
+  test.use({ persona: "reader" });
+
+  test("operator reaches a known entity from an arbitrary page in under 30s", async ({
     page,
   }) => {
     // Start on an arbitrary authenticated route — not /registry itself — so

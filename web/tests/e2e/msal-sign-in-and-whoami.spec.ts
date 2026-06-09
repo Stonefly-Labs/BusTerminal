@@ -28,7 +28,7 @@
  *    `/whoami` round-trip (under fixme) asserts it on the real call.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@/tests/fixtures/auth";
 
 const API_BASE_URL =
   process.env.PLAYWRIGHT_API_BASE_URL ??
@@ -42,26 +42,45 @@ function joinApi(path: string): string {
 }
 
 test.describe("MSAL sign-in + /whoami", () => {
-  test.fixme(
+  // Spec 007 — the sign-in-cycle case below runs as the Reader persona.
+  // The malformed-bearer 401 case further down is intentionally persona-less
+  // (it doesn't go through the seeded MSAL session) and continues to work
+  // by way of the unauthenticated `request` fixture.
+  test.use({ persona: "reader" });
+
+  test(
     "sign-in → /platform-status (whoami) → effective roles rendered → sign-out",
-    async ({ page }) => {
+    async ({ page, baseURL }) => {
       // Capture deployed-env HTTPS posture for the *frontend* base URL.
       // When PLAYWRIGHT_BASE_URL is non-localhost (i.e. running against a
-      // deployed env), the URL must be https. Localhost is exempt.
-      const baseUrl = page.url();
-      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(baseUrl);
-      if (!isLocalhost) {
+      // deployed env), the URL must be https. Localhost is exempt. We
+      // read from the test's resolved `baseURL` (from playwright.config)
+      // rather than `page.url()` because the page hasn't navigated yet
+      // and `page.url()` would return `about:blank`.
+      const configuredBase = baseURL ?? "";
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(configuredBase);
+      if (configuredBase && !isLocalhost) {
         expect(
-          baseUrl.startsWith("https://"),
-          `Deployed env must serve over HTTPS — saw ${baseUrl}`,
+          configuredBase.startsWith("https://"),
+          `Deployed env must serve over HTTPS — saw ${configuredBase}`,
         ).toBe(true);
       }
 
-      // Sign in. The MSAL fixture either:
-      //   (a) pre-seeds sessionStorage with a synthetic active account and
-      //       stubs `acquireTokenSilent` to return a token whose `roles`
-      //       claim includes `BusTerminal.Developer`, or
-      //   (b) drives the real MSAL redirect against a dev-tenant test user.
+      // Under mock-auth (spec 007 pivot) the fixture pre-seeds
+      // sessionStorage with the persona name; the SPA's mock PCA
+      // synthesises a signed-in `AccountInfo` and the api-client adds
+      // `X-Mock-Roles` to outbound requests. No real MSAL redirect runs.
+      //
+      // Set up the /whoami request capture BEFORE navigation so the
+      // observer is in place when the (authenticated) layout fires its
+      // useEffect-driven fetch. `waitForRequest` returns a Promise that
+      // resolves on the first match — racy if the request fires before
+      // the call.
+      const whoamiRequestPromise = page.waitForRequest(
+        (req) => req.url().endsWith("/whoami"),
+        { timeout: 30_000 },
+      );
+
       await page.goto("/");
 
       // After sign-in, the SPA routes to /platform-status (the (authenticated)
@@ -81,20 +100,17 @@ test.describe("MSAL sign-in + /whoami", () => {
 
       // Assert the /whoami request carried a W3C `traceparent` header
       // (constitution: mandatory propagation on every UI-originated HTTP call).
-      // The fixture sets up a routing interceptor before the page navigates;
-      // the assertion below reads what was observed.
-      const whoamiRequest = await page.waitForRequest(
-        (req) => req.url().endsWith("/whoami"),
-        { timeout: 10_000 },
-      );
+      const whoamiRequest = await whoamiRequestPromise;
       const traceparent = whoamiRequest.headers()["traceparent"];
       expect(traceparent, "/whoami must carry a W3C traceparent header").toMatch(
         /^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/,
       );
 
-      // Sign out: the global header has a sign-out control; afterwards the
-      // app returns to `/signin` (unauthenticated).
-      const signOut = page.getByTestId("primary-nav-sign-out");
+      // Sign out: open the user menu, click the sign-out item, expect the
+      // app to navigate back to /signin (unauthenticated).
+      const userMenuTrigger = page.getByRole("button", { name: /account menu/i });
+      await userMenuTrigger.click();
+      const signOut = page.getByTestId("user-menu-sign-out");
       await signOut.click();
       await page.waitForURL(/\/signin/, { timeout: 15_000 });
     },
@@ -103,6 +119,9 @@ test.describe("MSAL sign-in + /whoami", () => {
   test("malformed bearer token to /whoami returns 401 with WWW-Authenticate: Bearer", async ({
     request,
   }) => {
+    // Spec 007 — persona-less probe. The request fixture is unauthenticated
+    // regardless of the file-scope test.use({ persona }) because we send the
+    // bogus Authorization header explicitly below.
     // Negative test — does not need any auth fixture. Confirms the inherited
     // (002) Microsoft.Identity.Web validation pipeline is still active after
     // the T028 rewrites.

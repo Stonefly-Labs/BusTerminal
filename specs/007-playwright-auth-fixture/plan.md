@@ -1,23 +1,45 @@
 # Implementation Plan: Playwright MSAL Auth Fixture for E2E Tests
 
-**Branch**: `007-playwright-auth-fixture` | **Date**: 2026-06-07 | **Spec**: [spec.md](./spec.md)
+**Branch**: `007-playwright-auth-fixture` | **Date**: 2026-06-07 (pivoted 2026-06-08) | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `/specs/007-playwright-auth-fixture/spec.md`
 
-## Summary
+> **2026-06-08 PIVOT NOTICE.** The original real-Entra approach below was implemented end-to-end and then abandoned because of tenant-policy friction. The active approach is the client-side mock-auth shim described in the next subsection. The original-approach prose is preserved for historical context.
 
-Deliver a Playwright auth fixture and the supporting Entra-tenant, Key Vault, and CI plumbing that lets every `test.fixme`-suspended authenticated E2E spec (twelve cases across eleven files) run non-interactively on every pull request.
+## Summary (current — mock-auth approach)
 
-**Approach** (derived from `/speckit-clarify` decisions, validated in [research.md](./research.md)):
+Deliver a Playwright auth fixture that lets every `test.fixme`-suspended authenticated E2E spec (twelve cases across eleven files) run non-interactively, without ever touching a real identity provider. The mechanism mirrors the existing backend `MockAuthenticationHandler`:
 
-- **Acquisition flow**: Playwright `globalSetup` performs a one-time scripted browser sign-in per persona against the real Microsoft sign-in surface, then persists the resulting browser `storageState` (cookies + localStorage + sessionStorage — Playwright ≥ 1.41 captures sessionStorage, which is required because `@azure/msal-browser` is configured with `cacheLocation: "sessionStorage"`).
-- **Personas**: four for v1 — `reader`, `operator`, `admin`, `none` (zero-role). The role catalog has a fifth (`Developer`); a `developer` persona is a documented v1.1 extension, not in current scope.
-- **Provisioning**: a new `iac/modules/e2e-test-identities` OpenTofu module declares the test users via `azuread_user`, assigns the role grants via `azuread_app_role_assignment`, and writes each user's initial password to Key Vault as a secret. Subsequent rotations are handled by a documented out-of-band script (Tofu manages identity lifecycle; passwords are not re-applied by `tofu apply`).
-- **CI credentials**: existing GitHub Actions OIDC federation (already used for `iac-apply-dev`, `cd-dev`) is extended with a federated credential scoped to the CI workflow; the workflow uses `azure/login@v2` to acquire a short-lived Entra token, then pulls the persona passwords from Key Vault into ephemeral env vars for `globalSetup` only.
-- **Scope discipline**: fixture covers browser session only. Backend API calls follow the in-page MSAL flow. CI backend runs with **real** Entra token validation against the same dev tenant (replacing the current mock auth handler in `ci.yml:67`) and uses in-memory persistence so the suite has no Cosmos dependency.
-- **Token renewal**: the in-page MSAL instance handles silent refresh during a run; the fixture re-acquires only when a persisted storageState becomes unusable between runs.
+- **Frontend mock PCA.** A `buildMockPca()` factory (`web/lib/auth/msal-mock.ts`) instantiates a real `PublicClientApplication`, then overrides `getAllAccounts`, `getActiveAccount`, `acquireTokenSilent`, `acquireTokenRedirect`, `loginRedirect`, `logoutRedirect` to return synthetic state derived from `sessionStorage["bt.e2e.persona"]`. Selected via `NEXT_PUBLIC_AUTH_MODE === "mock"` env switch with a build-time guard against shipping to production.
+- **Persona-aware API calls.** `lib/api-client.ts` reads the active persona and adds `X-Mock-Roles: BusTerminal.<role>,...` on every outbound request when in mock mode. The backend's existing `MockAuthenticationHandler` (`api/BusTerminal.Api/Infrastructure/Authentication/MockAuthenticationHandler.cs`) already reads that header and synthesises a `ClaimsPrincipal` with the matching roles — **no backend change**.
+- **Playwright fixture.** `web/tests/fixtures/auth.ts` overrides the `context` fixture to `addInitScript` the persona name into sessionStorage before any application script runs. No `globalSetup`, no `storageState` capture, no IdP round-trip.
+- **Personas:** four — `reader`, `operator`, `admin`, `none`. Each carries a synthetic `mockAccount` (stable GUID OID + recognisable `e2e-<persona>@mock.busterminal.dev` UPN) and the `expectedRoleAssignments` claim set. Adding a fifth persona is one entry in `PERSONA_CONFIGS`.
+- **Local persistence:** registry specs run against the Cosmos emulator (already wired into `docker-compose.yml`). The backend is started with `Cosmos__Endpoint=https://localhost:8081`. The emulator's port 8080 (readiness probe) conflicts with the backend's default listen port, so the backend now honours an optional `BUSTERMINAL_API_PORT` env var.
 
-## Technical Context
+## Summary (original — real Entra approach, abandoned 2026-06-08)
+
+The text below is the original plan as written 2026-06-07. It was implemented end-to-end (IaC module applied, four Entra users + four KV secrets created in the dev tenant, scripted sign-in driver written) and then fully rolled back when the tenant's Combined Registration Campaign forced MFA enrolment on the synthetic users (research §R10 had anticipated this; the user did not have Entra ID P1 to exempt them via Conditional Access). Read it as historical context, not as the operative plan.
+
+> Original approach (derived from `/speckit-clarify` decisions 2026-06-07):
+>
+> - **Acquisition flow**: Playwright `globalSetup` performs a one-time scripted browser sign-in per persona against the real Microsoft sign-in surface, then persists the resulting browser `storageState` (cookies + localStorage + sessionStorage — Playwright ≥ 1.41 captures sessionStorage, which is required because `@azure/msal-browser` is configured with `cacheLocation: "sessionStorage"`).
+> - **Personas**: four for v1 — `reader`, `operator`, `admin`, `none` (zero-role). The role catalog has a fifth (`Developer`); a `developer` persona is a documented v1.1 extension, not in current scope.
+> - **Provisioning**: a new `iac/modules/e2e-test-identities` OpenTofu module declares the test users via `azuread_user`, assigns the role grants via `azuread_app_role_assignment`, and writes each user's initial password to Key Vault as a secret. Subsequent rotations are handled by a documented out-of-band script (Tofu manages identity lifecycle; passwords are not re-applied by `tofu apply`).
+> - **CI credentials**: existing GitHub Actions OIDC federation (already used for `iac-apply-dev`, `cd-dev`) is extended with a federated credential scoped to the CI workflow; the workflow uses `azure/login@v2` to acquire a short-lived Entra token, then pulls the persona passwords from Key Vault into ephemeral env vars for `globalSetup` only.
+> - **Scope discipline**: fixture covers browser session only. Backend API calls follow the in-page MSAL flow. CI backend runs with **real** Entra token validation against the same dev tenant (replacing the current mock auth handler in `ci.yml:67`) and uses in-memory persistence so the suite has no Cosmos dependency.
+> - **Token renewal**: the in-page MSAL instance handles silent refresh during a run; the fixture re-acquires only when a persisted storageState becomes unusable between runs.
+
+## Technical Context (current — mock-auth approach)
+
+**Language/Version**: TypeScript (strict), Node.js (per `.nvmrc`). No HCL, no shell scripts — the mock approach has no IaC and no rotation surface.
+
+**Primary Dependencies**: `@playwright/test ^1.60`, `@azure/msal-browser ^4` / `@azure/msal-react ^3` — all already installed, no version bumps.
+
+**Storage**: None. No `storageState` capture, no Key Vault, no IaC state. The active persona lives in `sessionStorage["bt.e2e.persona"]` for the duration of a Playwright context; the fixture writes it via `addInitScript`.
+
+**Cosmos**: registry-touching specs use the existing Cosmos emulator from `docker-compose.yml`. Locally the operator runs `docker compose up -d cosmos-emulator` then starts the backend with `Cosmos__Endpoint=https://localhost:8081`. CI brings up the emulator alongside the backend (see `.github/workflows/ci.yml` `frontend` job after spec-007 P8).
+
+## Technical Context (original — real Entra approach, abandoned)
 
 **Language/Version**: TypeScript (strict), Node.js (per `.nvmrc`); HCL (OpenTofu ≥ pinned `.terraform-version`); shell (bash for the rotation script, PowerShell wrappers already exist for speckit scripts).
 

@@ -7,12 +7,18 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 test.describe("registry — delete blocked by children", () => {
-  test.fixme("renders the HasChildren modal", async ({ page }) => {
+  // Spec 007 — delete is a `MutateDomain` operation; `operator` is the
+  // minimal persona authorised.
+  test.use({ persona: "operator" });
+
+  test("renders the HasChildren modal", async ({ page }) => {
     await page.goto("/registry");
-    await expect(page.getByText(/Service Bus Registry/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Service Bus Registry", exact: true }),
+    ).toBeVisible();
     // The block-with-children logic is unit-tested at the API level
     // (DeleteEntityEndpointTests.Delete_WithChildren_Returns409_HasChildrenResponse)
     // and at the UI level via the delete-confirmation component.

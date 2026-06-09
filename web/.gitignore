@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright auth fixture (spec 007) — per-persona MSAL storageState. Captured
+# at globalSetup time, sensitive (carries refresh material), must NEVER be
+# committed.
+tests/.auth/

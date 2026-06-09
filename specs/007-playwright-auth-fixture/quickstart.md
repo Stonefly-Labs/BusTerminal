@@ -1,13 +1,13 @@
-# Quickstart: Running E2E Auth Tests Locally & Rotating Test-User Credentials
+# Quickstart: Running E2E Auth Tests Locally
 
-**Feature**: 007-playwright-auth-fixture
-**Audience**: Contributors who need to run the authenticated E2E suite on their workstation; operators who need to rotate test-user credentials.
+**Feature**: 007-playwright-auth-fixture (post-2026-06-08 pivot to mock auth — see research §R11)
+**Audience**: Contributors who need to run the authenticated E2E suite on their workstation.
+
+The suite now runs **without any Azure access**: no `az login`, no Key Vault, no Entra tenant. Auth is mocked client-side; the backend's existing `MockAuthenticationHandler` reads an `X-Mock-Roles` header and synthesises the request principal. Cosmos persistence runs against the local emulator from `docker-compose.yml`.
 
 ---
 
-## Part A — Running E2E auth tests locally (first time, clean checkout)
-
-**Target**: SC-003 — under 15 minutes from a clean checkout to a passing authenticated E2E run.
+## Part A — Running locally (first time, clean checkout)
 
 ### Prerequisites
 
@@ -15,149 +15,111 @@
 |---|---|---|
 | Node.js | per `.nvmrc` | yes |
 | pnpm | per `package.json` packageManager | yes |
-| Azure CLI (`az`) | ≥ 2.60 | yes |
-| OpenTofu | per `iac/.terraform-version` | yes (only needed if you'll also touch IaC) |
-| Access to the BusTerminal dev Entra tenant | yes — your individual account must be a member | yes (any active contributor already has this) |
-| `Key Vault Secrets User` RBAC on the four `e2e-test-user-*-password` secrets | yes — included in the dev-contributor role bundle | yes |
-| Backend running locally (real Entra-validated mode, in-memory persistence) OR pointed at deployed dev API | yes | optional — local backend is the supported path |
+| .NET SDK | 10.0.x | yes |
+| Docker (or compatible) | recent | yes (for the Cosmos emulator) |
+
+No Azure CLI required. No tenant access required. No credentials anywhere.
 
 ### Steps
 
-1. **Sign in to Azure CLI against the BusTerminal dev tenant.**
-   ```bash
-   az login --tenant <busterminal-dev-tenant-id>
-   az account set --subscription <busterminal-dev-subscription-id>
-   ```
-   Tenant and subscription IDs are documented in the dev environment's `iac/environments/dev/README.md`.
+1. **Install dependencies.**
 
-2. **Install dependencies.**
    ```bash
    pnpm -C web install --frozen-lockfile
    pnpm -C web exec playwright install --with-deps
    ```
 
-3. **Set the persona env vars from Key Vault** (UPNs + passwords). The simplest approach is a one-liner per persona; future improvement: a `pnpm run e2e:env` script wrapping this. For now:
+2. **Bring up the Cosmos emulator** (one-time per machine; container persists).
+
    ```bash
-   export KV_NAME=<dev-kv-name>   # see iac/environments/dev/README.md
-   for P in reader operator admin none; do
-     UPN=$(az ad user list --filter "startswith(userPrincipalName,'e2e-${P}-')" --query '[0].userPrincipalName' -o tsv)
-     PWD=$(az keyvault secret show --vault-name "$KV_NAME" --name "e2e-test-user-${P}-password" --query value -o tsv)
-     export "E2E_TEST_USER_$(echo $P | tr a-z A-Z)_UPN=$UPN"
-     export "E2E_TEST_USER_$(echo $P | tr a-z A-Z)_PASSWORD=$PWD"
-   done
+   docker compose up -d cosmos-emulator
    ```
 
-4. **Start the backend with real-Entra config and in-memory persistence** (in a separate terminal):
+   Wait for healthy state:
+
    ```bash
+   docker compose ps cosmos-emulator   # expect: STATUS … (healthy)
+   ```
+
+3. **Start the backend** in mock-auth mode pointed at the emulator. The emulator's readiness probe binds port 8080, so override the API port with `BUSTERMINAL_API_PORT`:
+
+   ```bash
+   BUSTERMINAL_API_PORT=8090 \
    ASPNETCORE_ENVIRONMENT=Development \
-   ASPNETCORE_URLS=http://localhost:8080 \
-   AzureAd__TenantId=<dev-tenant-id> \
-   AzureAd__ClientId=<dev-api-client-id> \
-   AzureAd__Audience=api://<dev-api-client-id> \
-   REGISTRY_PERSISTENCE=InMemory \
+   AzureAd__TenantId=development \
+   AzureAd__ClientId=00000000-0000-0000-0000-000000000001 \
+   AzureAd__Audience=api://00000000-0000-0000-0000-000000000001 \
+   Cosmos__Endpoint=https://localhost:8081 \
    dotnet run --project api/BusTerminal.Api
    ```
-   Wait for the `Now listening on: http://localhost:8080` line.
 
-5. **Run the E2E suite** (frontend dev server auto-starts via `playwright.config.ts` `webServer`):
+   Wait for `Now listening on: http://[::]:8090`. Probe with `curl http://localhost:8090/healthz/ready` → `200`.
+
+4. **Create `web/.env.local`** with the mock-mode env vars (gitignored):
+
    ```bash
+   cat > web/.env.local <<'EOF'
+   NEXT_PUBLIC_AUTH_MODE=mock
+   NEXT_PUBLIC_API_BASE_URL=http://localhost:8090
+   EOF
+   ```
+
+5. **Run the E2E suite.** Playwright's `webServer` block auto-starts the Next.js dev server.
+
+   ```bash
+   PLAYWRIGHT_API_BASE_URL=http://localhost:8090 \
    pnpm -C web test:e2e
    ```
-   - First run: globalSetup performs four scripted sign-ins (~15–25 s per persona on a warm tenant). You'll see one Chromium window per persona briefly.
-   - Subsequent runs: globalSetup detects valid cached storageState files under `web/tests/.auth/` and skips sign-in. Suite starts in seconds.
 
-6. **Run a single previously-fixme'd spec to verify**:
+   Or run a single previously-fixme'd spec to validate:
+
    ```bash
-   pnpm -C web exec playwright test tests/e2e/registry/create-browse.e2e.spec.ts
+   PLAYWRIGHT_API_BASE_URL=http://localhost:8090 \
+   pnpm -C web exec playwright test tests/e2e/role-aware-affordances.spec.ts
    ```
-   Expected: the spec runs end-to-end and reports pass/fail based on its own assertions — no `test.fixme` skip.
 
-### Expected first-time wall time
+### Authoring a persona-annotated spec
 
-- Install + browser download: ~5 min on a cold cache (mostly Playwright browser binaries).
-- KV / Entra env-var pull: < 30 s.
-- First globalSetup (four personas serially): ~60–90 s.
-- One spec run: < 30 s.
+```ts
+import { test, expect } from "@/tests/fixtures/auth";
 
-**Total: well under SC-003's 15-minute budget on a clean checkout.**
+test.use({ persona: "operator" });  // 'reader' | 'operator' | 'admin' | 'none'
+
+test("operator can create a namespace", async ({ page }) => {
+  await page.goto("/registry/new/Namespace");
+  // …
+});
+```
+
+The fixture writes the persona into `sessionStorage["bt.e2e.persona"]` via `addInitScript` before any page script runs. The mock PCA reads it and synthesises a signed-in `AccountInfo`; the api-client adds `X-Mock-Roles: BusTerminal.Operator` to every outbound request; the backend mock handler reads the header and emits matching role claims.
+
+Omit `test.use({ persona })` to run unauthenticated (used by specs that exercise the pre-auth UX or assert 401 responses on malformed bearer tokens).
 
 ### Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `globalSetup: persona <X>: AAD sign-in form not found` | Microsoft sign-in UI changed (rare cosmetic change) | File an issue tagged `auth-fixture/upstream-drift`; in the meantime, see `web/tests/auth/sign-in.ts` for the selectors and update if you can reproduce locally. |
-| `globalSetup: persona <X>: token roles claim mismatch (expected [...], got [...])` | IaC drift — the persona's role grant was changed in the tenant | Re-run `tofu apply` on the dev composition or, if the role-grant change was deliberate, update `PersonaConfig.expectedRoleAssignments`. |
-| `globalSetup: persona <X>: storageState wrote zero sessionStorage entries` | Playwright version regressed sessionStorage capture, or MSAL cacheLocation changed | Confirm `web/lib/auth/msal-config.ts` still sets `cacheLocation: "sessionStorage"` and Playwright is ≥ 1.41. File an issue if both check out. |
-| `az keyvault secret show` returns 403 | Your account lacks the `Key Vault Secrets User` RBAC role on the dev KV | Ask a dev-environment owner to add you to the contributor role assignment. |
-| Tests run but every authenticated nav redirects to sign-in | storageState file's `origin` doesn't match `baseURL` | Delete `web/tests/.auth/<persona>.json` and re-run; globalSetup will recapture against the current `baseURL`. |
+| `Failed to bind to address http://[::]:8080` when starting the backend | Cosmos emulator's readiness probe already owns 8080 | Set `BUSTERMINAL_API_PORT=8090` (or any other free port) and update the frontend's `NEXT_PUBLIC_API_BASE_URL` to match |
+| Playwright reports the page stuck on "Redirecting…" | `NEXT_PUBLIC_AUTH_MODE` is not set on the Next.js process | Confirm `web/.env.local` has `NEXT_PUBLIC_AUTH_MODE=mock`; restart the dev server (kill any running `next dev` and let Playwright re-spawn) |
+| Backend returns 401 / "WWW-Authenticate: Bearer" | `AzureAd__TenantId` is not the `"development"` sentinel; real Microsoft.Identity.Web validation is engaged | Re-export `AzureAd__TenantId=development` and restart the backend |
+| Browser console: CORS error from `http://localhost:3000` → `http://localhost:8090` | Backend was started without `ASPNETCORE_ENVIRONMENT=Development`, so the dev-only CORS middleware is off | Restart the backend with `ASPNETCORE_ENVIRONMENT=Development` |
+| Registry POST returns 404 from `http://localhost:3000/api/registry` | Next.js rewrites didn't pick up `BUSTERMINAL_DEV_API_TARGET` / `NEXT_PUBLIC_API_BASE_URL`; restart needed | Stop `next dev`, ensure the env var is set, restart Playwright (or `pnpm -C web dev`) |
 
 ---
 
-## Part B — Rotating a test-user password
+## Part B — What is no longer required
 
-**When to rotate**:
-
-- Routine cadence (recommended: every 90 days; not enforced).
-- Suspected exposure (a contributor's `~/.zsh_history` leaked, a CI log accidentally captured a password, etc.).
-- Account compromise notification from the Entra tenant.
-
-**Target**: SC-006 — under 30 minutes from start to next CI run passing.
-
-### Steps
-
-1. **Sign in to Azure CLI** against the dev tenant with an identity that has `Key Vault Secrets Officer` on the four `e2e-test-user-*-password` secrets AND `User Administrator` (or equivalent) on the dev tenant (needed for `az ad user password reset`).
-
-2. **Run the rotation script**:
-   ```bash
-   ./scripts/e2e-test-identities/rotate-password.sh <persona>
-   ```
-   where `<persona>` is one of `reader`, `operator`, `admin`, `none`.
-
-   The script:
-   - Generates a high-entropy password.
-   - Calls `az ad user password reset` to set the new password on the test user.
-   - Writes the new password to the corresponding KV secret.
-   - Deletes any locally cached `web/tests/.auth/<persona>.json`.
-   - Prints a single-line confirmation.
-
-3. **Verify the rotation in CI**:
-   - Open or update any open pull request to trigger CI.
-   - The frontend E2E job's globalSetup pulls the new password from KV automatically — no workflow file changes needed.
-   - Confirm the job passes.
-
-4. **Verify locally** (optional but recommended for the operator):
-   ```bash
-   unset E2E_TEST_USER_<PERSONA>_PASSWORD
-   # Re-export the var via the Part-A step-3 loop to pick up the new value.
-   pnpm -C web test:e2e -- tests/e2e/registry/create-browse.e2e.spec.ts
-   ```
-
-### Failure modes & recovery
-
-| Scenario | Recovery |
-|---|---|
-| Script fails after `az ad user password reset` but before `az keyvault secret set` writes the new value | Re-run the script. The next attempt will generate a fresh password and overwrite both. The old KV value is broken in the meantime; the suite will fail loudly until the script completes. |
-| Script fails after KV write but before local cache invalidation | Manually `rm web/tests/.auth/<persona>.json`. CI is unaffected. |
-| Rotation collides with an in-flight CI run | The in-flight run already holds the old password in step-scoped memory. globalSetup completed; storageState was captured. The run finishes against the old password's session unaffected. The next run picks up the new password. No human intervention needed. |
-| You ran the script for the wrong persona | Re-run for the correct persona. The wrongly-rotated persona keeps working — its KV secret and Entra user agree on the new password, just with a fresh value you didn't intend. |
-
-### What the rotation script never does
-
-- It never prints the password to stdout/stderr (beyond the single-line confirmation).
-- It never writes the password to a local file.
-- It never updates Tofu state (the `azuread_user.password` and `azurerm_key_vault_secret.value` are under `lifecycle.ignore_changes` — `tofu apply` after rotation does not revert).
+The original 2026-06-07 quickstart documented a much longer setup (az login, Key Vault password pulls, real-Entra config, `tofu apply` of the test-identities module). All of that was removed when the 2026-06-08 pivot landed. For history see `research.md` §R11 and the commit that reverted `iac/modules/e2e-test-identities/`.
 
 ---
 
-## Part C — Adding a new persona (e.g., `developer`)
+## Part C — Adding a new persona (e.g. `developer`)
 
-Out of scope for v1 (see [research.md R3](./research.md#r3--persona-inventory)) but the steps are small and recorded here for the future operator:
+Lower-cost than the original real-Entra path:
 
-1. Add `'developer'` to the `Persona` literal union in `web/tests/auth/personas.ts`.
-2. Add a `PersonaConfig` entry for `developer` (UPN env var, password env var, `keyVaultSecretName: 'e2e-test-user-developer-password'`, `expectedRoleAssignments: ['BusTerminal.Developer']`, `storageStatePath: 'web/tests/.auth/developer.json'`).
-3. In `iac/modules/e2e-test-identities/`, add `developer` to the `local.personas` map and add the `BusTerminal.Developer` role object ID to the caller's `role_object_ids` input.
-4. `tofu apply` against the dev composition. This creates the user, writes the KV secret, and assigns the role.
-5. Update `contracts/persona-config.schema.json`'s enum to include `developer`.
-6. Add E2E specs that consume the new persona.
+1. Add `'developer'` to the `Persona` union in `web/tests/auth/personas.ts`.
+2. Add a `PERSONA_CONFIGS.developer` entry with a stable hardcoded GUID OID, `e2e-developer@mock.busterminal.dev` UPN, `displayName: "E2E Developer"`, and `expectedRoleAssignments: ["BusTerminal.Developer"]`.
+3. Add `'developer'` to the `enum` in `contracts/persona-config.schema.json` (in `persona`, `upn`, `displayName`, `storageStatePath`, and `expectedRoleAssignments`).
+4. The vitest schema test (`personas.config.test.ts`) picks up the new persona automatically via `PERSONA_NAMES`.
 
-No existing personas, role grants, or KV secrets are touched.
+No tenant work, no IaC, no Key Vault.

@@ -13,28 +13,26 @@
  *     with mock auth active so `/whoami` returns the synthetic principal.
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "@/tests/fixtures/auth";
 
 test.describe("US1: platform-status round-trip", () => {
-  // Inherited from 002. The "Continue as Dev User" button was provided by
-  // NextAuth's Credentials provider, which spec 003 removed (FR-003). MSAL
-  // has no no-IDP path, so the assertion against a synthetic dev-user sign-in
-  // can no longer run without a real Entra round-trip. Restored by T093 in
-  // Phase 9 polish, which lands the MSAL E2E auth fixture.
-  test.fixme("root redirects to signin, dev sign-in lands on platform-status", async ({ page }) => {
+  // Spec 007 — Reader persona pre-seeds an authenticated MSAL session,
+  // so this test exercises the "already signed-in → /platform-status"
+  // happy path. The original NextAuth-era body still asserted a redirect
+  // to `/signin` and a "Continue as Dev User" button — both pre-MSAL
+  // artifacts. Those assertions are no longer applicable; the body below
+  // documents the up-to-date Reader landing-page expectations.
+  test.use({ persona: "reader" });
+
+  test("seeded Reader lands on platform-status with identity + correlation cards", async ({ page }) => {
+    // With a seeded MSAL session, AuthGuard admits the user immediately
+    // and the (authenticated) layout routes a role-bearing principal to
+    // /platform-status.
     await page.goto("/", { waitUntil: "domcontentloaded" });
-
-    await expect(page).toHaveURL(/\/signin/);
-
-    const signInButton = page.getByRole("button", { name: /continue as dev user|sign in with microsoft entra id/i });
-    await expect(signInButton).toBeVisible();
-    await signInButton.click();
-
     await page.waitForURL(/\/platform-status/, { timeout: 30_000 });
 
     const identityCard = page.getByTestId("identity-card");
     await expect(identityCard).toBeVisible();
-    await expect(identityCard).toContainText(/dev user/i);
 
     const correlationCard = page.getByTestId("correlation-card");
     await expect(correlationCard).toBeVisible();

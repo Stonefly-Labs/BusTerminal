@@ -14,13 +14,18 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 const ENV = "dev";
 const STAMP = Date.now().toString(36);
 
 test.describe("registry — relationships + audit drilldown", () => {
-  test.fixme("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
+  // Spec 007 — the spec creates entities (namespace → topic → subscription
+  // → rule) in addition to drilling, so `operator` is the minimal persona
+  // that authorises the full chain.
+  test.use({ persona: "operator" });
+
+  test("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
     const nsName = `audit-ns-${STAMP}`;
     const topicName = `audit-topic-${STAMP}`;
     const subName = `audit-sub-${STAMP}`;

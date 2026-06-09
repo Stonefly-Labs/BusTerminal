@@ -2,9 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://busterminal/specs/007-playwright-auth-fixture/persona-config.schema.json",
   "title": "PersonaConfig",
-  "description": "Static configuration that resolves a Playwright Persona to the runtime data needed to acquire its session. One entry per persona, encoded in web/tests/auth/personas.ts.",
+  "description": "Static configuration that resolves a Playwright Persona to the synthetic identity surfaced under mock-auth mode. One entry per persona, encoded in web/tests/auth/personas.ts. Mock auth replaced the original spec-007 real-Entra approach (see research §R11 — pivot rationale).",
   "type": "object",
-  "required": ["persona", "upnEnvVar", "passwordEnvVar", "keyVaultSecretName", "expectedRoleAssignments", "storageStatePath"],
+  "required": ["persona", "mockAccount", "expectedRoleAssignments", "storageStatePath"],
   "additionalProperties": false,
   "properties": {
     "persona": {
@@ -12,20 +12,28 @@
       "enum": ["reader", "operator", "admin", "none"],
       "description": "The persona this config applies to."
     },
-    "upnEnvVar": {
-      "type": "string",
-      "pattern": "^E2E_TEST_USER_(READER|OPERATOR|ADMIN|NONE)_UPN$",
-      "description": "Name of the environment variable that carries the test user's UPN at globalSetup time. Set by CI (sourced from IaC outputs) and by the local quickstart."
-    },
-    "passwordEnvVar": {
-      "type": "string",
-      "pattern": "^E2E_TEST_USER_(READER|OPERATOR|ADMIN|NONE)_PASSWORD$",
-      "description": "Name of the environment variable that carries the test user's password at globalSetup time. Set by CI (sourced from Key Vault via az keyvault secret show) and by the local quickstart (sourced via az keyvault secret show)."
-    },
-    "keyVaultSecretName": {
-      "type": "string",
-      "pattern": "^e2e-test-user-(reader|operator|admin|none)-password$",
-      "description": "Canonical Key Vault secret name carrying this persona's password. See contracts/keyvault-secret-naming.md."
+    "mockAccount": {
+      "type": "object",
+      "description": "Synthetic identity surfaced under mock-auth mode. Populates the mock MSAL AccountInfo and the backend mock principal claims. None of these values resolve against any real directory — they exist to give the SPA something to render and to make log correlation deterministic.",
+      "required": ["oid", "upn", "displayName"],
+      "additionalProperties": false,
+      "properties": {
+        "oid": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          "description": "Stable per-persona GUID. NOT a real Entra object ID. Hardcoded so trace correlation across runs is deterministic."
+        },
+        "upn": {
+          "type": "string",
+          "pattern": "^e2e-(reader|operator|admin|none)@mock\\.busterminal\\.dev$",
+          "description": "Synthetic UPN. Domain segment `mock.busterminal.dev` is reserved and never resolved — makes the synthetic origin obvious in logs."
+        },
+        "displayName": {
+          "type": "string",
+          "pattern": "^E2E (Reader|Operator|Admin|No-Role)$",
+          "description": "Human-friendly display name surfaced in the user menu and the no-access page."
+        }
+      }
     },
     "expectedRoleAssignments": {
       "type": "array",
@@ -39,30 +47,34 @@
         ]
       },
       "uniqueItems": true,
-      "description": "The set of BusTerminal.* roles this persona must carry on its access token after sign-in. Asserted by globalSetup against the token's roles claim. Empty array for the 'none' persona."
+      "description": "The set of BusTerminal.* roles the persona's mock principal carries. The frontend api-client serialises this list into the `X-Mock-Roles` request header; the backend `MockAuthenticationHandler` translates it into ClaimsPrincipal Role claims. Empty array for the `none` persona (authenticated but role-empty)."
     },
     "storageStatePath": {
       "type": "string",
-      "pattern": "^web/tests/\\.auth/(reader|operator|admin|none)\\.json$",
-      "description": "Filesystem path (project-relative) of the persona's persisted Playwright storageState. The fixture loads this file; globalSetup writes it."
+      "pattern": "^tests/\\.auth/(reader|operator|admin|none)\\.json$",
+      "description": "Filesystem path of the persona's persisted Playwright storageState, RELATIVE TO THE WEB PACKAGE ROOT (web/). Kept as a future hook for any spec that wants to opt into a captured storageState (none do today under mock auth). The mock-auth fixture does not write this file; it relies on `addInitScript` per-context instead."
     }
   },
   "examples": [
     {
       "persona": "reader",
-      "upnEnvVar": "E2E_TEST_USER_READER_UPN",
-      "passwordEnvVar": "E2E_TEST_USER_READER_PASSWORD",
-      "keyVaultSecretName": "e2e-test-user-reader-password",
+      "mockAccount": {
+        "oid": "11111111-1111-1111-1111-111111111101",
+        "upn": "e2e-reader@mock.busterminal.dev",
+        "displayName": "E2E Reader"
+      },
       "expectedRoleAssignments": ["BusTerminal.Reader"],
-      "storageStatePath": "web/tests/.auth/reader.json"
+      "storageStatePath": "tests/.auth/reader.json"
     },
     {
       "persona": "none",
-      "upnEnvVar": "E2E_TEST_USER_NONE_UPN",
-      "passwordEnvVar": "E2E_TEST_USER_NONE_PASSWORD",
-      "keyVaultSecretName": "e2e-test-user-none-password",
+      "mockAccount": {
+        "oid": "11111111-1111-1111-1111-111111111104",
+        "upn": "e2e-none@mock.busterminal.dev",
+        "displayName": "E2E No-Role"
+      },
       "expectedRoleAssignments": [],
-      "storageStatePath": "web/tests/.auth/none.json"
+      "storageStatePath": "tests/.auth/none.json"
     }
   ]
 }

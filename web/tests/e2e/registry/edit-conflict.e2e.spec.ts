@@ -11,13 +11,19 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 test.describe.serial("registry — edit + conflict", () => {
-  test.fixme("force-overwrite path completes successfully", async ({ page, context }) => {
+  // Spec 007 — edit is a `MutateDomain` operation; `operator` is the
+  // minimal persona authorised.
+  test.use({ persona: "operator" });
+
+  test("force-overwrite path completes successfully", async ({ page, context }) => {
     await page.goto("/registry");
     // Smoke: page renders the layout.
-    await expect(page.getByText(/Service Bus Registry/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Service Bus Registry", exact: true }),
+    ).toBeVisible();
 
     // The actual conflict-modal flow needs seeded data; treat this as a
     // smoke test until the dev fixture exposes a deterministic editable

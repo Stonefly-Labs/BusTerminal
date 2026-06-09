@@ -9,10 +9,13 @@
  * (Phase 9 polish, spec 003) — the page sits behind `AuthGuard`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 test.describe("registry — search", () => {
-  test.fixme("typing a query renders results within the SC-002 budget", async ({ page }) => {
+  // Spec 007 — both cases exercise the search surface as a Reader.
+  test.use({ persona: "reader" });
+
+  test("typing a query renders results within the SC-002 budget", async ({ page }) => {
     await page.goto("/registry/search");
     await page.getByLabel("Search registry").fill("orders");
     // The debounced input + TanStack Query path must resolve quickly under
@@ -29,7 +32,7 @@ test.describe("registry — search", () => {
       .toBeGreaterThan(0);
   });
 
-  test.fixme("the 503 state renders the search-unavailable empty state", async ({ page }) => {
+  test("the 503 state renders the search-unavailable empty state", async ({ page }) => {
     await page.route("**/api/registry/search**", async (route) => {
       await route.fulfill({
         status: 503,

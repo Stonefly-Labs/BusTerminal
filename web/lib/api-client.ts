@@ -20,8 +20,15 @@ import { msalReady, pca } from "@/lib/auth/msal-instance";
 import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 import { httpFetch, type HttpFetchOptions } from "@/lib/http/client";
 import { generateTraceparent } from "@/lib/telemetry/trace-context";
+import {
+  E2E_MOCK_ROLES_HEADER,
+  E2E_PERSONA_SESSION_KEY,
+  isPersona,
+  PERSONA_CONFIGS,
+} from "@/tests/auth/personas";
 
 const TRACE_HEADER_NAME = "traceparent";
+const MOCK_AUTH_MODE = "mock";
 
 export type ApiResult<T> =
   | { ok: true; data: T; traceparent: string }
@@ -55,6 +62,34 @@ function buildUrl(path: string): string {
   const base = readApiBaseUrl();
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
+}
+
+/**
+ * In mock-auth mode the backend's `MockAuthenticationHandler` reads the
+ * `X-Mock-Roles` header (comma-separated `BusTerminal.*` role values) to
+ * synthesise the request principal. We resolve the active persona from
+ * sessionStorage on every call so a re-seeded persona is picked up
+ * without a SPA restart. Returns `null` when not in mock mode, when no
+ * persona is seeded, or when running server-side (the api-client is
+ * client-only in practice; the guard is defensive).
+ */
+function resolveMockRolesHeaderValue(): string | null {
+  if (process.env.NEXT_PUBLIC_AUTH_MODE !== MOCK_AUTH_MODE) {
+    return null;
+  }
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const raw = window.sessionStorage.getItem(E2E_PERSONA_SESSION_KEY);
+  if (!isPersona(raw)) {
+    return null;
+  }
+  const roles = PERSONA_CONFIGS[raw].expectedRoleAssignments;
+  // Empty role list is intentional for the `none` persona — the backend
+  // mock handler reads no header as "no roles", which is the right
+  // semantics. We still send the header (empty value) so the request
+  // path is identical across personas.
+  return roles.join(",");
 }
 
 async function acquireAccessToken(forceRefresh: boolean): Promise<string | null> {
@@ -117,6 +152,11 @@ async function performCall<T>(
   };
   if (token) {
     headers.authorization = `Bearer ${token}`;
+  }
+
+  const mockRoles = resolveMockRolesHeaderValue();
+  if (mockRoles !== null) {
+    headers[E2E_MOCK_ROLES_HEADER] = mockRoles;
   }
 
   const traceparent = headers[TRACE_HEADER_NAME] ?? generateTraceparent();

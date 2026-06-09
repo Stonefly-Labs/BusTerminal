@@ -8,6 +8,8 @@ description: "Task list for spec 007-playwright-auth-fixture"
 
 **Prerequisites**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md), [data-model.md](./data-model.md), [contracts/](./contracts/), [quickstart.md](./quickstart.md)
 
+> **2026-06-08 PIVOT.** Tasks T001–T052 below describe the original real-Entra approach (with provisioned Entra users + KV secrets + scripted MSAL sign-in). That work was implemented end-to-end, applied to the dev tenant, and then fully rolled back — see [research.md](./research.md) §R11 for why. The operative task list is the **Phase A — Mock-auth shim** section at the bottom of this file (tasks A1–A8). Leave T001–T052 in place as historical record; do not execute them.
+
 **Tests**: This feature does not introduce new test specs — the tests already exist as `test.fixme`-suspended cases in the E2E suite. The "test work" in each user story is **un-suspending existing specs and wiring them to the new fixture**. Per FR-004 and SC-001/SC-002 these adoption tasks are first-class deliverables.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and validation of each story.
@@ -265,3 +267,67 @@ Task: "Un-fixme web/tests/e2e/registry/unauthorized-state.e2e.spec.ts"
 - Commit after each task or each logical group (a story's spec-adoption batch can land as one commit)
 - Stop at any story checkpoint to validate the story independently
 - Avoid: editing the same spec file in two parallel tasks; introducing new test scaffolding (the fixme'd specs already exist and are the test surface this feature un-suspends)
+
+---
+
+# Phase A — Mock-auth shim (post-2026-06-08 pivot)
+
+The operative task list. See [research.md](./research.md) §R11 for rationale. T001–T052 above are historical.
+
+## Phase A.1 — Persona config rework
+
+- [x] **A1.a** Replace `web/tests/auth/personas.ts` content: drop `upnEnvVar` / `passwordEnvVar` / `keyVaultSecretName` fields; add `mockAccount: { oid, upn, displayName }` with stable hardcoded GUIDs per persona (`11111111-1111-1111-1111-1111111111{01-04}`). Export `E2E_PERSONA_SESSION_KEY = "bt.e2e.persona"` and `E2E_MOCK_ROLES_HEADER = "X-Mock-Roles"`.
+- [x] **A1.b** Rewrite `specs/007-playwright-auth-fixture/contracts/persona-config.schema.json`: same delta as A1.a.
+- [x] **A1.c** Rewrite `web/tests/auth/__tests__/personas.config.test.ts` Zod schema to match. Verify 11 cases pass via `pnpm -C web vitest run tests/auth`.
+
+## Phase A.2 — Frontend mock PCA
+
+- [x] **A2.a** Create `web/lib/auth/msal-mock.ts` exporting `buildMockPca(): PublicClientApplication`. Instantiate a real PCA with synthetic config (`clientId`/`tenantId` are zero-GUIDs), then override `getAllAccounts`, `getActiveAccount`, `setActiveAccount`, `acquireTokenSilent`, `acquireTokenRedirect`, `loginRedirect`, `logoutRedirect` per the design in research §R11. Export `MOCK_AUTH_MODE_FLAG = "mock"`.
+- [x] **A2.b** Edit `web/lib/auth/msal-instance.ts`: branch on `process.env.NEXT_PUBLIC_AUTH_MODE === MOCK_AUTH_MODE_FLAG`. Add a top-of-module guard that throws if mock-mode is combined with `NODE_ENV=production`. Imports must use static-literal access (a Next.js inlining requirement — same fix that's now in `msal-config.ts`).
+
+## Phase A.3 — api-client persona-header injection
+
+- [x] **A3** Edit `web/lib/api-client.ts`: add `resolveMockRolesHeaderValue()` that reads `sessionStorage[E2E_PERSONA_SESSION_KEY]` and translates to the persona's `expectedRoleAssignments.join(",")`. Returns null when not in mock mode, no persona seeded, or no window. In `performCall`, set `headers[E2E_MOCK_ROLES_HEADER] = mockRoles` when non-null.
+
+## Phase A.4 — Fixture rewrite + globalSetup retirement
+
+- [x] **A4.a** Rewrite `web/tests/fixtures/auth.ts`: drop the `storageState` override. Override the `context` fixture instead. When `persona` is set, call `context.addInitScript(...)` with the persona name + sessionStorage key. Disable the eslint `react-hooks/rules-of-hooks` rule at file scope (Playwright's `use` callback name trips the rule heuristic).
+- [x] **A4.b** Delete `web/tests/auth/sign-in.ts` and `web/tests/auth/global-setup.ts`. Remove the `globalSetup` line from `web/playwright.config.ts`.
+
+## Phase A.5 — Un-fixme the remaining 4 specs
+
+- [x] **A5.a** Edit `web/tests/e2e/no-access-experience.spec.ts`: import switch + `test.use({ persona: "none" })` + remove `test.fixme`. Also fix the pre-existing `page.on("framenavigated", listener)` → `page.off("framenavigated", off as never)` listener-type bug.
+- [x] **A5.b** Edit `web/tests/e2e/registry/create-browse.e2e.spec.ts`: import switch + `test.use({ persona: "operator" })` + remove `test.fixme`. Pin the duplicate "Service Bus Registry" heading to the panel H2 via `exact: true`.
+- [x] **A5.c** Edit `web/tests/e2e/registry/delete-blocked.e2e.spec.ts`: same as A5.b.
+- [x] **A5.d** Edit `web/tests/e2e/registry/edit-conflict.e2e.spec.ts`: same as A5.b.
+- [x] **A5.e** Edit `web/tests/e2e/registry/relationships-audit.e2e.spec.ts`: persona corrected to `operator` (spec creates entities), import switch, remove `test.fixme`.
+
+## Phase A.6 — Cosmos emulator local persistence
+
+- [x] **A6.a** Confirm `docker-compose.yml` `cosmos-emulator` service: image `mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview`, port 8081 (data plane) + 8080 (readiness probe), healthcheck on `http://localhost:8080/ready`.
+- [x] **A6.b** Add `BUSTERMINAL_API_PORT` env var to `api/BusTerminal.Api/Program.cs` so the backend can listen on a port other than 8080 (which the emulator owns). Default 8080 preserved for non-emulator workflows.
+- [x] **A6.c** Add Development-only CORS to `api/BusTerminal.Api/Program.cs` (raw middleware emitting `Access-Control-Allow-Origin: http://localhost:3000` + preflight 204 response). Required because the SPA on :3000 fetches `/whoami` from :8090 cross-origin.
+- [x] **A6.d** Add Next.js `rewrites()` in `web/next.config.ts` for `/api/registry/:path*` → backend (`BUSTERMINAL_DEV_API_TARGET` env var with fallback to `NEXT_PUBLIC_API_BASE_URL`). Required because `lib/registry/api.ts` uses same-origin relative paths.
+
+## Phase A.7 — Doc realignment
+
+- [x] **A7.a** Append "Session 2026-06-08 — Pivot to client-side mock auth" clarification block to `spec.md` listing what's superseded and why.
+- [x] **A7.b** Rewrite `plan.md` Summary, Approach, Technical Context sections to describe the mock approach; preserve the original text under historical headers.
+- [x] **A7.c** Append §R11 to `research.md` with the full pivot rationale (tenant policy, app-reg drift, latent `process.env[name]` bug discovery) and the rolled-back artifact list.
+- [x] **A7.d** Rewrite `quickstart.md`: drop az login / KV pulls; document Cosmos emulator + `BUSTERMINAL_API_PORT=8090` + `NEXT_PUBLIC_AUTH_MODE=mock` flow.
+- [x] **A7.e** Add this Phase A section to `tasks.md` and the pivot notice at the top.
+
+## Phase A.8 — CI wiring
+
+- [ ] **A8.a** Edit `.github/workflows/ci.yml` `frontend` job: add `docker compose up -d cosmos-emulator` step + readiness wait (mirror the existing `backend-integration` job's pattern).
+- [ ] **A8.b** Add `Cosmos__Endpoint: https://localhost:8081` and `BUSTERMINAL_API_PORT: 8090` to the "Start backend in background" step env. Keep `AzureAd__TenantId: development` (preserves mock auth on the backend side).
+- [ ] **A8.c** Add `NEXT_PUBLIC_AUTH_MODE: mock` and `NEXT_PUBLIC_API_BASE_URL: http://localhost:8090` and `PLAYWRIGHT_API_BASE_URL: http://localhost:8090` to the Playwright E2E step env.
+- [ ] **A8.d** Update the backend readiness probe URL from `http://localhost:8080/healthz/ready` to `http://localhost:8090/healthz/ready` to match the new port.
+
+## Open follow-ups (out of scope for Phase A)
+
+These are not auth-fixture issues; they are pre-existing project bugs that the fixture's success exposes. Tracked here so a future spec can pick them up:
+
+1. **Cosmos SDK Newtonsoft.Json 10.0.0.0 binding resolution** — backend throws `FileNotFoundException` when `CosmosClient` is constructed during a registry POST. Affects 3 specs (create-browse, relationships-audit, anything that hits Cosmos). Likely an `app.config` binding-redirect or transitive-package issue in `BusTerminal.Api.csproj`.
+2. **`registry/sc-010-time-to-find.e2e.spec.ts` data seeding** — the spec discovers a seed entity via `fetch("/api/registry?top=1")`; without seeded data it times out. Either gate the spec on a "registry seeded" precondition or have the spec self-seed via the operator persona.
+3. **`tests/e2e/rtl-smoke.spec.ts` dialog visibility** — two pre-existing failures unrelated to spec 007; investigate separately.

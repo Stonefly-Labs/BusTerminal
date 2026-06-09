@@ -12,12 +12,21 @@
  * `role-aware-affordances`, `no-access-experience`, `platform-status`.
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "@/tests/fixtures/auth";
 
 test.describe("registry — create + browse", () => {
-  test.fixme("creates a namespace and reaches the detail page", async ({ page }) => {
+  // Spec 007 — namespace creation is a `MutateDomain` operation per the
+  // role-permission matrix; `operator` is the minimal persona that
+  // authorises it.
+  test.use({ persona: "operator" });
+
+  test("creates a namespace and reaches the detail page", async ({ page }) => {
     await page.goto("/registry");
-    await page.getByRole("heading", { name: /Service Bus Registry/i }).waitFor();
+    // The registry page renders two headings whose text matches /Service Bus Registry/i
+    // (the welcome H1 and the panel H2). Pin the panel H2 explicitly via exact match.
+    await page
+      .getByRole("heading", { name: "Service Bus Registry", exact: true })
+      .waitFor();
 
     // Default to a happy path: click "New namespace".
     await page.getByRole("link", { name: /Register a namespace/i }).click();

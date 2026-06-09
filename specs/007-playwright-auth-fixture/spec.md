@@ -12,10 +12,30 @@
 
 ### Session 2026-06-07
 
-- Q: Which credential-acquisition flow should the fixture use to seed the browser session against the dev Entra tenant? → A: Browser-automation sign-in performed once per persona during Playwright global setup, with the resulting browser `storageState` persisted and reused by every test that requests that persona.
-- Q: Who provisions the four test identities and their role grants in the dev Entra tenant? → A: Managed by the project's OpenTofu modules — the four test users (or a brokering test app registration), their group/role memberships, and their application role assignments are declared as IaC and reproduced on every environment build. Test-user passwords remain in Key Vault, not in Tofu state.
-- Q: What should the fixture authenticate — only the browser session, or also direct API calls made from the test runner outside the browser? → A: Browser session only. Backend calls made by the page during the test pick up tokens via the application's normal in-app flow. Runner-side direct-to-API calls are out of scope for this fixture; tests that need them can use a separate helper.
-- Q: How should the fixture handle token expiry across a long suite run? → A: Let the in-page MSAL instance refresh silently using the refresh material in the captured `storageState` — the same behavior a real user's session would exhibit. The fixture does not intervene mid-run. It only re-runs the global-setup sign-in for a persona if that persona's `storageState` itself becomes unusable between runs (e.g., refresh-token expired or revoked).
+- Q: Which credential-acquisition flow should the fixture use to seed the browser session against the dev Entra tenant? → A: Browser-automation sign-in performed once per persona during Playwright global setup, with the resulting browser `storageState` persisted and reused by every test that requests that persona. **SUPERSEDED 2026-06-08** — see Session 2026-06-08 below.
+- Q: Who provisions the four test identities and their role grants in the dev Entra tenant? → A: Managed by the project's OpenTofu modules — the four test users (or a brokering test app registration), their group/role memberships, and their application role assignments are declared as IaC and reproduced on every environment build. Test-user passwords remain in Key Vault, not in Tofu state. **SUPERSEDED 2026-06-08** — IaC and Key Vault pieces are no longer required; see Session 2026-06-08.
+- Q: What should the fixture authenticate — only the browser session, or also direct API calls made from the test runner outside the browser? → A: Browser session only. Backend calls made by the page during the test pick up tokens via the application's normal in-app flow. Runner-side direct-to-API calls are out of scope for this fixture; tests that need them can use a separate helper. **STILL APPLIES.**
+- Q: How should the fixture handle token expiry across a long suite run? → A: Let the in-page MSAL instance refresh silently using the refresh material in the captured `storageState` — the same behavior a real user's session would exhibit. The fixture does not intervene mid-run. It only re-runs the global-setup sign-in for a persona if that persona's `storageState` itself becomes unusable between runs (e.g., refresh-token expired or revoked). **NO LONGER APPLICABLE** — mock tokens never expire; see Session 2026-06-08.
+
+### Session 2026-06-08 — Pivot to client-side mock auth
+
+The original real-Entra approach was implemented end-to-end (IaC users, Key Vault secrets, scripted MSAL sign-in, storageState capture) and applied to the dev tenant. Two issues blocked completion of T029 (the local-validation gate):
+
+1. **Tenant policy friction.** The dev tenant has Security Defaults / Combined Registration Campaign forcing MFA enrollment on every account including the synthetic ones. A scripted browser sign-in cannot satisfy the "Set up Microsoft Authenticator" interstitial. Disabling Security Defaults removes the enforcement but leaves the Registration Campaign in place; fully unblocking it requires either Entra ID P1 + a Conditional Access policy (cost the project owner does not have) or disabling tenant-wide MFA enforcement (a posture the project owner explicitly rejected).
+2. **App-registration drift.** The `bt-dev-web` app reg had been configured for the long-removed NextAuth flow (`web.redirectUris` carrying `/api/auth/callback/microsoft-entra-id`) and had **no** SPA redirect URIs registered. MSAL Authorization Code + PKCE could not redirect back. This was correctable but added still more setup surface to a path that was already fighting tenant policy.
+
+**Pivot decision.** Replace the real-MSAL path with a client-side mock that mirrors the existing backend `MockAuthenticationHandler`:
+
+- The frontend instantiates a real `PublicClientApplication` whose key methods (`getAllAccounts`, `getActiveAccount`, `acquireTokenSilent`, etc.) are overridden to return synthetic state derived from `sessionStorage["bt.e2e.persona"]`. Active only when `NEXT_PUBLIC_AUTH_MODE === "mock"`.
+- The api-client adds `X-Mock-Roles: BusTerminal.<role>,...` to every outbound request when in mock mode. The backend's existing `MockAuthenticationHandler` reads that header and synthesises a `ClaimsPrincipal` with the matching role claims — no code change needed on the backend.
+- The Playwright fixture writes the persona into sessionStorage via `addInitScript` before any app code runs in the context. No `globalSetup`, no `storageState`, no IdP round-trip.
+
+**Trade-offs:**
+
+- **Lost.** The suite no longer exercises real MSAL or real Entra. Regressions in `@azure/msal-browser` upgrades, app-reg config, or role-claim shape will not be caught. Component-level tests still exercise the real role-permission matrix.
+- **Gained.** Zero tenant interaction. Zero IaC surface. Zero credentials. Zero MFA. Suite runs locally and in CI with no Azure access at all. Adding a fifth persona is a one-line addition to `PERSONA_CONFIGS`. The trade is documented in `research.md` §R11.
+
+All IaC artifacts created under the original approach were `tofu destroy`'d and reverted. Tenant SPA redirect URIs were rolled back. The original spec language below is preserved for context — read it with the awareness that "real Entra" everywhere should be substituted with "the SPA's mock PCA, which behaves as if it were Entra."
 
 ## User Scenarios & Testing *(mandatory)*
 

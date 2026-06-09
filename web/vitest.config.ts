@@ -13,6 +13,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup-vitest.ts"],
     include: [
       "tests/unit/**/*.{test,spec}.{ts,tsx}",
+      "tests/auth/**/*.{test,spec}.{ts,tsx}",
       "components/**/*.{test,spec}.{ts,tsx}",
       "lib/**/*.{test,spec}.{ts,tsx}",
       "hooks/**/*.{test,spec}.{ts,tsx}",

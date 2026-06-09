@@ -18,6 +18,7 @@
     "test:storybook": "test-storybook",
     "test:storybook:ci": "concurrently -k -s first -n \"SB,TEST\" -c \"magenta,blue\" \"pnpm build-storybook --quiet && http-server storybook-static --port 6006 --silent\" \"wait-on tcp:127.0.0.1:6006 && pnpm test:storybook\"",
     "test:e2e": "playwright test tests/e2e",
+    "test:e2e:auth-only": "playwright test tests/e2e/msal-sign-in-and-whoami.spec.ts tests/e2e/platform-status.spec.ts tests/e2e/role-aware-affordances.spec.ts",
     "test:a11y": "playwright test tests/a11y",
     "analyze": "cross-env ANALYZE=true next build",
     "storybook": "storybook dev -p 6006",
