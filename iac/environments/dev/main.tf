@@ -677,13 +677,12 @@ module "indexer_container_app" {
   tags = local.shared_tags
 }
 
-module "indexer_diagnostics" {
-  source = "../../modules/diagnostic-settings"
-
-  name                       = "diag-${var.naming_prefix}-indexer"
-  target_resource_id         = module.indexer_container_app.container_app_id
-  log_analytics_workspace_id = module.monitoring.log_analytics_workspace_id
-}
+# Per-Container-App diagnostic settings are intentionally NOT provisioned for
+# the indexer — same constraint that removed the backend/frontend equivalents
+# in spec 005 (see comment block above the AI Search section): Azure rejects
+# `allLogs` on Container Apps (`CategoryGroup: 'allLogs' is not supported`),
+# and Q5c forbids forwarding `AllMetrics` to Log Analytics. Indexer logs reach
+# the env LAW via the Container Apps Environment's `cae-diagnostics` setting.
 
 module "app_registration_roles" {
   source = "../../modules/app-registration-roles"
