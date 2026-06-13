@@ -1,5 +1,7 @@
 using BusTerminal.Api.Infrastructure.Persistence;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -14,70 +16,78 @@ namespace BusTerminal.Api.Features.Registry.Shared;
 // IHostEnvironment, so a dev pointing at real Cosmos never gets write
 // attempts they may not be authorized for. Idempotent (`*IfNotExistsAsync`),
 // so reruns against an already-provisioned emulator are no-ops.
+//
+// Endpoint is sniffed via IConfiguration (not IOptions<CosmosOptions>.Value)
+// so integration tests that don't configure Cosmos can still boot the host
+// without tripping CosmosOptionsValidator. CosmosClient is resolved lazily
+// via IServiceProvider for the same reason — eager DI would force the
+// CosmosClientFactory ctor (which calls Options.Value) to run on every test
+// using WebApplicationFactory<Program>.
 internal sealed partial class RegistryEmulatorBootstrapper : IHostedService
 {
-    private readonly CosmosClient _client;
-    private readonly CosmosRegistryOptions _registryOptions;
-    private readonly CosmosOptions _cosmosOptions;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<RegistryEmulatorBootstrapper> _logger;
 
     public RegistryEmulatorBootstrapper(
-        CosmosClient client,
-        IOptions<CosmosRegistryOptions> registryOptions,
-        IOptions<CosmosOptions> cosmosOptions,
+        IServiceProvider serviceProvider,
+        IConfiguration configuration,
         ILogger<RegistryEmulatorBootstrapper> logger)
     {
-        _client = client;
-        _registryOptions = registryOptions.Value;
-        _cosmosOptions = cosmosOptions.Value;
+        _serviceProvider = serviceProvider;
+        _configuration = configuration;
         _logger = logger;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (!IsEmulator())
+        var endpoint = _configuration["Cosmos:Endpoint"];
+        if (!IsEmulator(endpoint))
         {
             return;
         }
 
-        LogProvisioning(_logger, _cosmosOptions.Endpoint, _registryOptions.Database);
+        var registryOptions = _serviceProvider.GetRequiredService<IOptions<CosmosRegistryOptions>>().Value;
+        var client = _serviceProvider.GetRequiredService<CosmosClient>();
 
-        var db = (await _client.CreateDatabaseIfNotExistsAsync(
-            _registryOptions.Database,
+        LogProvisioning(_logger, endpoint!, registryOptions.Database);
+
+        var db = (await client.CreateDatabaseIfNotExistsAsync(
+            registryOptions.Database,
             cancellationToken: cancellationToken).ConfigureAwait(false)).Database;
 
         // Partition keys + TTL mirror iac/modules/cosmos-registry-store/main.tf.
         // `registry-entities` uses per-item TTL (DefaultTimeToLive = -1) so the
         // tombstone-then-delete pattern (research §10) can self-expire markers.
         await db.CreateContainerIfNotExistsAsync(
-            new ContainerProperties(_registryOptions.EntitiesContainer, "/environment")
+            new ContainerProperties(registryOptions.EntitiesContainer, "/environment")
             {
                 DefaultTimeToLive = -1,
             },
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         await db.CreateContainerIfNotExistsAsync(
-            new ContainerProperties(_registryOptions.AuditContainer, "/entityId"),
+            new ContainerProperties(registryOptions.AuditContainer, "/entityId"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
         await db.CreateContainerIfNotExistsAsync(
-            new ContainerProperties(_registryOptions.LeasesContainer, "/id"),
+            new ContainerProperties(registryOptions.LeasesContainer, "/id"),
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    private bool IsEmulator()
+    private static bool IsEmulator(string? endpoint)
     {
-        if (string.IsNullOrWhiteSpace(_cosmosOptions.Endpoint))
+        if (string.IsNullOrWhiteSpace(endpoint))
         {
             return false;
         }
-        if (!Uri.TryCreate(_cosmosOptions.Endpoint, UriKind.Absolute, out var endpoint))
+        if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri))
         {
             return false;
         }
-        return string.Equals(endpoint.Host, "localhost", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(uri.Host, "localhost", StringComparison.OrdinalIgnoreCase);
     }
 
     [LoggerMessage(
