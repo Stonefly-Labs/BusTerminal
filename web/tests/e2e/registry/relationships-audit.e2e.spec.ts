@@ -25,16 +25,7 @@ test.describe("registry — relationships + audit drilldown", () => {
   // that authorises the full chain.
   test.use({ persona: "operator" });
 
-  // T119 was authored speculatively in spec 006 and unfixme'd by spec 007.
-  // Once the auth fixture unblocked it, three latent contract bugs surfaced
-  // (env list shape, ISO datetime offset, header/form label collision) — all
-  // fixed in PR #54. What remains is UI-drift in the test itself: the search
-  // result click on /registry/search, audit-panel/field-diff drilldowns, and
-  // the rule-edit flow all need rewrites against the current shipped UI. Mark
-  // fixme until a dedicated cleanup PR re-derives the interactions; the
-  // create-browse spec already exercises the namespace happy-path that the
-  // contract-bug fixes unblock.
-  test.fixme("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
+  test("topic → subscription → rule drill, with audit panel + field diff", async ({ page }) => {
     const nsName = `audit-ns-${STAMP}`;
     const topicName = `audit-topic-${STAMP}`;
     const subName = `audit-sub-${STAMP}`;
@@ -76,6 +67,10 @@ test.describe("registry — relationships + audit drilldown", () => {
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
     await expect(page).toHaveURL(/\/registry\/Topic\//);
+    // Capture the topic detail URL so step 4 can navigate back without
+    // needing /registry/search — Azure AI Search isn't available in CI
+    // (no emulator) and isn't required by the audit-drilldown contract.
+    const topicUrl = page.url();
 
     // 3. Create subscription under topic, then rule under subscription.
     await page.goto("/registry/new/Subscription");
@@ -100,24 +95,28 @@ test.describe("registry — relationships + audit drilldown", () => {
 
     // 4. Navigate to the topic detail page; the audit panel should list its
     //    create event, and the relationships panel should list the new sub.
-    //    We approach via the explorer search affordance — quickstart §7
-    //    requires the drill from the topic page itself.
-    await page.goto("/registry/search");
-    await page.getByPlaceholder(/Search/i).fill(topicName);
-    await page.getByText(topicName).first().click();
+    //    Quickstart §7 requires drilling from the topic page itself; the
+    //    way we *reach* the topic isn't part of the contract, so use the
+    //    URL captured at create-time instead of /registry/search (the
+    //    search path requires AI Search, which isn't available in CI).
+    await page.goto(topicUrl);
     await expect(page).toHaveURL(/\/registry\/Topic\//);
 
     // 5. Relationships panel — verify the subscription row, then click it.
+    // Each row renders both the short name and the FQN inside the same link,
+    // so a bare getByText match resolves to two elements; .first() pins the
+    // visible-name span and is sufficient to navigate.
     const relationships = page.getByTestId("registry-relationships-panel");
     await expect(relationships).toHaveAttribute("data-variant", "loaded");
-    await expect(relationships.getByText(subName)).toBeVisible();
-    await relationships.getByText(subName).click();
+    const subRow = relationships.getByText(subName).first();
+    await expect(subRow).toBeVisible();
+    await subRow.click();
     await expect(page).toHaveURL(/\/registry\/Subscription\//);
 
     // 6. Sub detail → click into the rule via the relationships panel.
     const subRelationships = page.getByTestId("registry-relationships-panel");
     await expect(subRelationships).toHaveAttribute("data-variant", "loaded");
-    await subRelationships.getByText(ruleName).click();
+    await subRelationships.getByText(ruleName).first().click();
     await expect(page).toHaveURL(/\/registry\/Rule\//);
 
     // 7. Rule detail → relationships panel reports leaf type, audit panel
@@ -134,15 +133,17 @@ test.describe("registry — relationships + audit drilldown", () => {
 
     // 8. Edit the rule so an Updated event lands, then assert the diff popover.
     await page.getByRole("link", { name: /^Edit$/i }).click();
+    await expect(page).toHaveURL(/\/edit$/);
     {
       const form = formOf(page);
       await form.getByLabel(/Description/i).fill("edited-for-audit-test");
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
 
-    // Form navigates back; the audit panel should reflect the new event
-    // immediately (T125 invalidation contract).
-    await page.goto(page.url().replace(/\/edit$/, ""));
+    // Form's onSaved router.push navigates back to the detail route; wait
+    // for the URL to settle before asserting on the refreshed audit panel
+    // (T125 invalidation contract).
+    await expect(page).toHaveURL(/\/registry\/Rule\/[^/]+$/);
     const auditAfterEdit = page.getByTestId("registry-audit-panel");
     await expect(auditAfterEdit).toHaveAttribute("data-variant", "loaded");
     const newest = auditAfterEdit.getByTestId("registry-audit-event").first();
