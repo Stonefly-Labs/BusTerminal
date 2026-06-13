@@ -45,6 +45,23 @@ test.describe("registry — relationships + audit drilldown", () => {
       await formOf(page).getByRole("combobox", { name: parentTypeLabel }).click();
       await page.getByRole("option", { name: parentName, exact: true }).click();
     };
+    // Reliable "we're on the detail page and it's done settling" check.
+    // The env-switcher *may* fire a router.replace to append ?environment=<env>
+    // after its environments query resolves — but only when an env is
+    // discoverable (localStorage or the API list). In CI fresh state that
+    // append is unpredictable, so we can't match it in the URL. Instead:
+    //   1. URL is the bare detail path (no /edit, no need to assert query).
+    //   2. The entity's heading rendered (proves data + router.push landed).
+    //   3. networkidle to absorb any pending router.replace before the next
+    //      navigation — that's the trigger of webkit's "interrupted by another
+    //      navigation" race.
+    const waitForDetail = async (entityType: string, name: string) => {
+      await expect(page).toHaveURL(
+        new RegExp(`/registry/${entityType}/[^/?]+(?:[?#]|$)`),
+      );
+      await expect(headingOf(name)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+    };
 
     // 1. Create namespace.
     await page.goto("/registry/new/Namespace");
@@ -54,11 +71,7 @@ test.describe("registry — relationships + audit drilldown", () => {
       await form.getByLabel(/Environment/, { exact: false }).fill(ENV);
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
-    // Wait for the detail page's env-context useEffect to append ?environment=,
-    // not just the bare /Namespace/{id}. Otherwise the next goto races with
-    // that async router.replace and webkit interrupts it. Same pattern below.
-    await expect(page).toHaveURL(/\/registry\/Namespace\/[^/?]+\?environment=/);
-    await expect(headingOf(nsName)).toBeVisible();
+    await waitForDetail("Namespace", nsName);
 
     // 2. Create child topic under that namespace.
     await page.goto("/registry/new/Topic");
@@ -69,7 +82,7 @@ test.describe("registry — relationships + audit drilldown", () => {
       await pickParent("Parent Namespace", nsName);
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
-    await expect(page).toHaveURL(/\/registry\/Topic\/[^/?]+\?environment=/);
+    await waitForDetail("Topic", topicName);
     // Capture the topic detail URL so step 4 can navigate back without
     // needing /registry/search — Azure AI Search isn't available in CI
     // (no emulator) and isn't required by the audit-drilldown contract.
@@ -84,7 +97,7 @@ test.describe("registry — relationships + audit drilldown", () => {
       await pickParent("Parent Topic", topicName);
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
-    await expect(page).toHaveURL(/\/registry\/Subscription\/[^/?]+\?environment=/);
+    await waitForDetail("Subscription", subName);
 
     await page.goto("/registry/new/Rule");
     {
@@ -94,7 +107,7 @@ test.describe("registry — relationships + audit drilldown", () => {
       await pickParent("Parent Subscription", subName);
       await form.getByRole("button", { name: /^Save$/ }).click();
     }
-    await expect(page).toHaveURL(/\/registry\/Rule\/[^/?]+\?environment=/);
+    await waitForDetail("Rule", ruleName);
 
     // 4. Navigate to the topic detail page; the audit panel should list its
     //    create event, and the relationships panel should list the new sub.
@@ -103,7 +116,7 @@ test.describe("registry — relationships + audit drilldown", () => {
     //    URL captured at create-time instead of /registry/search (the
     //    search path requires AI Search, which isn't available in CI).
     await page.goto(topicUrl);
-    await expect(page).toHaveURL(/\/registry\/Topic\/[^/?]+\?environment=/);
+    await waitForDetail("Topic", topicName);
 
     // 5. Relationships panel — verify the subscription row, then click it.
     // Each row renders both the short name and the FQN inside the same link,
@@ -114,13 +127,13 @@ test.describe("registry — relationships + audit drilldown", () => {
     const subRow = relationships.getByText(subName).first();
     await expect(subRow).toBeVisible();
     await subRow.click();
-    await expect(page).toHaveURL(/\/registry\/Subscription\/[^/?]+\?environment=/);
+    await waitForDetail("Subscription", subName);
 
     // 6. Sub detail → click into the rule via the relationships panel.
     const subRelationships = page.getByTestId("registry-relationships-panel");
     await expect(subRelationships).toHaveAttribute("data-variant", "loaded");
     await subRelationships.getByText(ruleName).first().click();
-    await expect(page).toHaveURL(/\/registry\/Rule\/[^/?]+\?environment=/);
+    await waitForDetail("Rule", ruleName);
 
     // 7. Rule detail → relationships panel reports leaf type, audit panel
     //    shows the Created event with actor+timestamp+summary.
@@ -146,7 +159,7 @@ test.describe("registry — relationships + audit drilldown", () => {
     // Form's onSaved router.push navigates back to the detail route; wait
     // for the URL to settle before asserting on the refreshed audit panel
     // (T125 invalidation contract).
-    await expect(page).toHaveURL(/\/registry\/Rule\/[^/?]+(?:\?|$)/);
+    await waitForDetail("Rule", ruleName);
     const auditAfterEdit = page.getByTestId("registry-audit-panel");
     await expect(auditAfterEdit).toHaveAttribute("data-variant", "loaded");
     const newest = auditAfterEdit.getByTestId("registry-audit-event").first();
