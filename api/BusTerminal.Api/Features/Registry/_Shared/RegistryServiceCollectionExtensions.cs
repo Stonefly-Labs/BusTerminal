@@ -72,6 +72,10 @@ public static class RegistryServiceCollectionExtensions
         // registry slice's wiring self-contained.
         services.TryAddSingleton(TimeProvider.System);
 
+        // Emulator schema bootstrap. No-op against real Cosmos (gated on
+        // endpoint host == "localhost"); fills the gap IaC owns in Azure.
+        services.AddHostedService<RegistryEmulatorBootstrapper>();
+
         return services;
     }
 }
