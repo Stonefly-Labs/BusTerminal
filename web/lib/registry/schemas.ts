@@ -58,8 +58,10 @@ export const registryEntitySchema = z.object({
   owner: z.string().max(512).nullable().optional(),
   environment: z.string().min(1).max(64),
   status: registryEntityStatusSchema,
-  createdAtUtc: z.string().datetime(),
-  updatedAtUtc: z.string().datetime(),
+  // `offset: true` accepts the `+00:00` form C# DateTimeOffset emits in
+  // addition to bare `Z`. Both are valid ISO 8601 UTC.
+  createdAtUtc: z.string().datetime({ offset: true }),
+  updatedAtUtc: z.string().datetime({ offset: true }),
   source: registrySourceSchema,
   azureResourceId: z.string().max(2048).nullable().optional(),
   namespaceName: z.string().max(260).nullable().optional(),
@@ -157,7 +159,7 @@ export const auditEventSchema = z.object({
   entityType: registryEntityTypeSchema,
   environment: z.string().min(1),
   eventType: auditEventTypeSchema,
-  timestamp: z.string().datetime(),
+  timestamp: z.string().datetime({ offset: true }),
   actor: auditActorSchema,
   changeSummary: z.string().max(1000),
   fieldChanges: z.array(auditFieldChangeSchema).nullable().optional(),

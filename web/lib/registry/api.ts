@@ -303,8 +303,8 @@ export async function listEnvironments(
   if (!response.ok) {
     throw new RegistryApiError(`GET ${url} → ${response.status}`, response.status);
   }
-  const json = (await readJsonOrThrow(response)) as string[] | undefined;
-  return json ?? [];
+  const json = (await readJsonOrThrow(response)) as { items?: readonly string[] } | undefined;
+  return json?.items ?? [];
 }
 
 // Allow callers to compose with extra fetch options when needed (e.g. an

@@ -33,12 +33,17 @@ test.describe("registry — create + browse", () => {
     await expect(page).toHaveURL(/\/registry\/new\/Namespace/);
 
     const uniqueName = `orders-${Date.now().toString(36)}`;
-    await page.getByLabel(/Name/, { exact: false }).fill(uniqueName);
-    await page.getByLabel(/Environment/, { exact: false }).fill("dev");
-    await page.getByRole("button", { name: /^Save$/ }).click();
+    // Scope to the form — the global header also exposes an "Environment"
+    // switcher, so an unscoped getByLabel(/Environment/) matches both.
+    const form = page.getByTestId("entity-form-shell");
+    await form.getByLabel(/Name/, { exact: false }).fill(uniqueName);
+    await form.getByLabel(/Environment/, { exact: false }).fill("dev");
+    await form.getByRole("button", { name: /^Save$/ }).click();
 
     // After save, the page navigates to the detail route.
     await expect(page).toHaveURL(/\/registry\/Namespace\//);
-    await expect(page.getByText(uniqueName)).toBeVisible();
+    // The name appears in several places on the detail page (heading, tree,
+    // audit summary). Pin the heading to keep the assertion strict-mode-safe.
+    await expect(page.getByRole("heading", { name: uniqueName, exact: true })).toBeVisible();
   });
 });
