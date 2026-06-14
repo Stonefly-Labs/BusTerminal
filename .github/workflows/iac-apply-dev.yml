@@ -61,6 +61,7 @@ jobs:
       # only manages infrastructure, not app rollouts (cd-dev.yml does that).
       TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
       TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+      TF_VAR_indexer_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
     outputs:
       requires_manual_approval: ${{ steps.policy_gate.outputs.requires_manual_approval }}
     steps:
@@ -104,17 +105,21 @@ jobs:
           set -euo pipefail
           BACKEND="$TF_VAR_backend_image"
           FRONTEND="$TF_VAR_frontend_image"
+          INDEXER="$TF_VAR_indexer_image"
           if tofu state list 2>/dev/null | grep -q .; then
             JSON=$(tofu output -json 2>/dev/null || true)
             if echo "$JSON" | jq empty >/dev/null 2>&1; then
               REUSE_BACKEND=$(echo "$JSON" | jq -r '.backend_image_in_use.value // empty')
               REUSE_FRONTEND=$(echo "$JSON" | jq -r '.frontend_image_in_use.value // empty')
+              REUSE_INDEXER=$(echo "$JSON" | jq -r '.indexer_image_in_use.value // empty')
               [ -n "$REUSE_BACKEND" ] && BACKEND="$REUSE_BACKEND"
               [ -n "$REUSE_FRONTEND" ] && FRONTEND="$REUSE_FRONTEND"
+              [ -n "$REUSE_INDEXER" ] && INDEXER="$REUSE_INDEXER"
             fi
           fi
           echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
           echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+          echo "indexer=$INDEXER" >> "$GITHUB_OUTPUT"
 
       - name: tofu plan
         id: plan
@@ -124,6 +129,7 @@ jobs:
           tofu plan -no-color -input=false -lock-timeout=300s \
             -var "backend_image=${{ steps.live_images.outputs.backend }}" \
             -var "frontend_image=${{ steps.live_images.outputs.frontend }}" \
+            -var "indexer_image=${{ steps.live_images.outputs.indexer }}" \
             -out=tfplan > plan.out 2>&1
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           tail -c 60000 plan.out > plan.tail

@@ -306,7 +306,7 @@ output "frontend_image_in_use" {
 }
 
 output "indexer_image_in_use" {
-  description = "Indexer container image currently applied to state. Counterpart to backend_image_in_use; reads as the MCR placeholder until CD is wired to build and push the indexer."
+  description = "Indexer container image currently applied to state. Counterpart to backend_image_in_use."
   value       = var.indexer_image
 }
 

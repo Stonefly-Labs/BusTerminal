@@ -47,7 +47,7 @@ variable "backend_image" {
 }
 
 variable "indexer_image" {
-  description = "Fully qualified indexer container image (e.g., `<acr>.azurecr.io/busterminal/indexer:<sha>`). Defaults to a public placeholder until the CD pipeline is wired to build and push the indexer image (tracked in #50). The placeholder lets the Container App provision cleanly so the rest of the slice can deploy."
+  description = "Fully qualified indexer container image (e.g., `<acr>.azurecr.io/busterminal/indexer:<sha>`). Supplied by the CD pipeline per deploy. The MCR placeholder default lets the Container App provision cleanly on first-ever apply before CD has built and pushed the real image."
   type        = string
   default     = "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
 }

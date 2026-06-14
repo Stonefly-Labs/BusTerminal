@@ -657,10 +657,10 @@ module "indexer_container_app" {
   workload_uami_client_id = module.workload_identity.client_id
 
   # Spec 006 / quickstart §3 — the indexer image is built from
-  # `api/BusTerminal.Indexer/Dockerfile`. CD is not yet wired to build and
-  # push it (scope spillover from spec 006 — tracked in #50), so
-  # var.indexer_image defaults to a public placeholder. Once #50 lands, CD
-  # will pass the freshly-built tag via -var indexer_image=... on rollout.
+  # `api/BusTerminal.Indexer/Dockerfile`. CD (`cd-dev.yml`) passes the
+  # freshly-built tag via `-var indexer_image=...` on rollout;
+  # `iac-apply-dev.yml` reuses the live tag via the
+  # `indexer_image_in_use` output, same pattern as backend/frontend.
   container_image       = var.indexer_image
   registry_login_server = module.container_registry.login_server
 
