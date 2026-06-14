@@ -367,7 +367,10 @@ module "frontend_app" {
   env_vars = {
     NODE_ENV                       = "production"
     PORT                           = tostring(local.frontend_target_port)
-    NEXT_PUBLIC_API_BASE_URL       = "https://${module.backend_app.fqdn_url}"
+    # `module.backend_app.fqdn_url` already includes the `https://` scheme
+    # (see module's outputs.tf — it returns the workload's HTTPS URL, not the
+    # bare hostname). Don't re-prefix.
+    NEXT_PUBLIC_API_BASE_URL       = module.backend_app.fqdn_url
     NEXT_PUBLIC_AZURE_AD_TENANT_ID = var.entra_tenant_id
     NEXT_PUBLIC_AZURE_AD_CLIENT_ID = var.entra_web_client_id
     NEXT_PUBLIC_API_SCOPE          = "api://${var.entra_api_client_id}/.default"
