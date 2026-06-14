@@ -1,0 +1,733 @@
+openapi: 3.1.0
+info:
+  title: BusTerminal — Namespace Onboarding API
+  version: "1.0.0"
+  description: |
+    Spec 008 — guided onboarding, inventory, details, lifecycle, validation, and workload-identity endpoints
+    for Azure Service Bus namespaces. Authorization: read endpoints require any authenticated tenant user;
+    write/lifecycle/validation/identity endpoints require the `namespace-administrator` Entra App Role.
+  contact:
+    name: BusTerminal Engineering
+servers:
+  - url: https://{host}/api
+    variables:
+      host:
+        default: localhost:5001
+        description: API host (env-specific)
+
+tags:
+  - name: Onboarding
+  - name: Inventory
+  - name: Details
+  - name: Metadata
+  - name: Ownership
+  - name: Lifecycle
+  - name: Validation
+  - name: Identity
+
+paths:
+  /namespaces:
+    get:
+      tags: [Inventory]
+      summary: List onboarded namespaces (paginated, filtered, sorted)
+      description: Returns onboarded namespaces (`source = Onboarded`). Archived hidden by default — pass `includeArchived=true` to surface them.
+      parameters:
+        - $ref: "#/components/parameters/Environment"
+        - $ref: "#/components/parameters/LifecycleStatusFilter"
+        - $ref: "#/components/parameters/ValidationStatusFilter"
+        - $ref: "#/components/parameters/TagFilter"
+        - $ref: "#/components/parameters/Search"
+        - $ref: "#/components/parameters/Sort"
+        - $ref: "#/components/parameters/PageSize"
+        - $ref: "#/components/parameters/ContinuationToken"
+        - name: includeArchived
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryListResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Onboarding]
+      summary: Onboard a namespace (step-5 register)
+      description: |
+        Persists the OnboardedNamespace document, audit event, and link to the prerequisite ValidationRun.
+        Requires `namespace-administrator` role. Hard-blocks when the referenced ValidationRun's
+        `aggregateStatus` is `Unhealthy` (per FR-023a).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OnboardingRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { schema: { type: string } }
+            Location: { schema: { type: string, format: uri } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardedNamespace" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409":
+          description: Already onboarded, or referenced ValidationRun is Unhealthy / stale.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /namespaces/{id}:
+    get:
+      tags: [Details]
+      summary: Get full details of an onboarded namespace
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardedNamespaceDetails" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /namespaces/{id}/metadata:
+    put:
+      tags: [Metadata]
+      summary: Update mutable metadata fields
+      description: |
+        Updates display name, description, environment, business metadata, tags, notes.
+        Azure-identifier fields (azureResourceId, subscriptionId/Name, resourceGroup, tenantId, region) are read-only.
+        Optimistic-concurrency via If-Match; conflicts surface the spec-006 conflict response.
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { $ref: "#/components/parameters/IfMatch" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateMetadataRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardedNamespace" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /namespaces/{id}/ownership:
+    put:
+      tags: [Ownership]
+      summary: Replace the ownership block (primary + secondaries + stewards + support)
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { $ref: "#/components/parameters/IfMatch" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateOwnershipRequest" }
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardedNamespace" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /namespaces/{id}/lifecycle:
+    post:
+      tags: [Lifecycle]
+      summary: Transition lifecycle status (disable / enable / archive / restore)
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { $ref: "#/components/parameters/IfMatch" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LifecycleTransitionRequest" }
+      responses:
+        "200":
+          description: Transition applied
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OnboardedNamespace" }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "412": { $ref: "#/components/responses/PreconditionFailed" }
+
+  /namespaces/{id}/validation-runs:
+    get:
+      tags: [Validation]
+      summary: List validation runs for a namespace (time-descending)
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { $ref: "#/components/parameters/PageSize" }
+        - { $ref: "#/components/parameters/ContinuationToken" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRunListResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [Validation]
+      summary: Run validation synchronously (p95 < 15s)
+      description: |
+        Used during the onboarding wizard (no `id` is meaningful yet — the wizard uses POST /namespaces/_validate
+        — see below) AND from the details page Re-run Validation action.
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "201":
+          description: ValidationRun persisted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Namespace is Archived (read-only)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  /namespaces/_validate:
+    post:
+      tags: [Validation]
+      summary: Pre-onboarding validation (no namespace document exists yet)
+      description: |
+        Step-4 of the wizard. Runs the 5 named checks against the supplied ARM resource id and returns a
+        ValidationRun that the operator subsequently references in `POST /namespaces` step-5 register.
+        ValidationRun is persisted even on failure (Unhealthy) so the operator can see the history of attempts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PreOnboardingValidationRequest" }
+      responses:
+        "201":
+          description: ValidationRun persisted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRun" }
+        "400":
+          description: ARM id malformed or cross-tenant
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemDetails" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /namespaces/{id}/validation-runs/{runId}:
+    get:
+      tags: [Validation]
+      summary: Get a single validation run by id
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - name: runId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRun" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /namespaces/identity:
+    get:
+      tags: [Identity]
+      summary: Get the BusTerminal workload identity (UAMI) for granting Reader role
+      description: |
+        Returns the principal id of BusTerminal's workload UAMI plus the URL of the operator runbook.
+        Used by the wizard step 1 to surface a copy-pasteable `az role assignment create` command.
+        Authenticated-only (no `namespace-administrator` role required) so any authenticated user can preview
+        the prerequisite before requesting administrator access.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkloadIdentity" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /namespaces/_picker:
+    get:
+      tags: [Ownership]
+      summary: Search Entra users and groups for the ownership picker
+      description: |
+        Proxies Microsoft Graph using the BusTerminal workload identity. Returns up to 25 results, ordered
+        display-name ascending. Authenticated-only.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 256 }
+        - name: includeGroups
+          in: query
+          schema: { type: boolean, default: true }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrincipalPickerResponse" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+components:
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Environment:
+      name: environment
+      in: query
+      schema: { type: string }
+    LifecycleStatusFilter:
+      name: lifecycleStatus
+      in: query
+      schema:
+        type: array
+        items: { $ref: "#/components/schemas/LifecycleStatus" }
+      style: form
+      explode: true
+    ValidationStatusFilter:
+      name: validationStatus
+      in: query
+      schema:
+        type: array
+        items: { $ref: "#/components/schemas/ValidationStatus" }
+      style: form
+      explode: true
+    TagFilter:
+      name: tag
+      in: query
+      description: "Filter by tag: `key`, `=value`, or `key=value` (case-insensitive key match)."
+      schema: { type: string }
+    Search:
+      name: q
+      in: query
+      schema: { type: string, maxLength: 256 }
+    Sort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [displayName_asc, displayName_desc, environment_asc, environment_desc, lastValidatedAt_desc, lastValidatedAt_asc]
+        default: lastValidatedAt_desc
+    PageSize:
+      name: pageSize
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+    ContinuationToken:
+      name: continuationToken
+      in: query
+      schema: { type: string }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Forbidden:
+      description: Authenticated but missing `namespace-administrator` role
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    NotFound:
+      description: Namespace not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    Conflict:
+      description: Concurrent-edit conflict (spec-006 conflict response reused)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ConflictResponse" }
+    PreconditionFailed:
+      description: If-Match header missing or stale
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ProblemDetails" }
+
+  schemas:
+
+    OnboardedNamespace:
+      type: object
+      required:
+        - id
+        - entityType
+        - source
+        - name
+        - displayName
+        - environment
+        - status
+        - azureResourceId
+        - subscriptionId
+        - resourceGroup
+        - tenantId
+        - region
+        - lifecycleStatus
+        - validationStatus
+        - lastValidationRunId
+        - lastValidatedAtUtc
+        - ownership
+        - onboardingActor
+        - createdAtUtc
+        - updatedAtUtc
+      properties:
+        id: { type: string, format: uuid }
+        entityType: { type: string, enum: [Namespace] }
+        source: { type: string, enum: [Manual, Onboarded] }
+        name: { type: string }
+        fullyQualifiedName: { type: string }
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        environment: { type: string }
+        status: { type: string, enum: [Active, Deprecated] }
+        azureResourceId: { type: string }
+        subscriptionId: { type: string, format: uuid }
+        subscriptionName: { type: string, nullable: true }
+        resourceGroup: { type: string }
+        tenantId: { type: string, format: uuid }
+        region: { type: string }
+        businessUnit: { type: string, maxLength: 200, nullable: true }
+        productOrApplication: { type: string, maxLength: 200, nullable: true }
+        costCenter: { type: string, maxLength: 100, nullable: true }
+        notes: { type: string, maxLength: 4000, nullable: true }
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/Tag" }
+        lifecycleStatus: { $ref: "#/components/schemas/LifecycleStatus" }
+        validationStatus: { $ref: "#/components/schemas/ValidationStatus" }
+        lastValidationRunId: { type: string, format: uuid, nullable: true }
+        lastValidatedAtUtc: { type: string, format: date-time, nullable: true }
+        ownership: { $ref: "#/components/schemas/OwnershipBlock" }
+        onboardingActor: { $ref: "#/components/schemas/OnboardingActor" }
+        createdAtUtc: { type: string, format: date-time }
+        updatedAtUtc: { type: string, format: date-time }
+
+    OnboardedNamespaceDetails:
+      allOf:
+        - $ref: "#/components/schemas/OnboardedNamespace"
+        - type: object
+          properties:
+            latestValidationRun: { $ref: "#/components/schemas/ValidationRun" }
+            recentAuditEvents:
+              type: array
+              items: { $ref: "#/components/schemas/NamespaceAuditEvent" }
+
+    OnboardingRequest:
+      type: object
+      required: [azureResourceId, displayName, environment, ownership, validationRunId]
+      properties:
+        azureResourceId: { type: string }
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        environment: { type: string }
+        businessUnit: { type: string, maxLength: 200, nullable: true }
+        productOrApplication: { type: string, maxLength: 200, nullable: true }
+        costCenter: { type: string, maxLength: 100, nullable: true }
+        notes: { type: string, maxLength: 4000, nullable: true }
+        tags:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/Tag" }
+        ownership: { $ref: "#/components/schemas/OwnershipBlock" }
+        validationRunId: { type: string, format: uuid }
+
+    UpdateMetadataRequest:
+      type: object
+      required: [displayName, environment]
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 4000, nullable: true }
+        environment: { type: string }
+        businessUnit: { type: string, maxLength: 200, nullable: true }
+        productOrApplication: { type: string, maxLength: 200, nullable: true }
+        costCenter: { type: string, maxLength: 100, nullable: true }
+        notes: { type: string, maxLength: 4000, nullable: true }
+        tags:
+          type: array
+          maxItems: 50
+          items: { $ref: "#/components/schemas/Tag" }
+
+    UpdateOwnershipRequest:
+      type: object
+      required: [ownership]
+      properties:
+        ownership: { $ref: "#/components/schemas/OwnershipBlock" }
+
+    LifecycleTransitionRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [disable, enable, archive, restore] }
+        reason: { type: string, minLength: 1, maxLength: 1000 }
+      description: "`reason` required when action ∈ {disable, archive, restore}."
+
+    PreOnboardingValidationRequest:
+      type: object
+      required: [azureResourceId]
+      properties:
+        azureResourceId: { type: string }
+
+    OwnershipBlock:
+      type: object
+      required: [primaryOwner]
+      properties:
+        primaryOwner: { $ref: "#/components/schemas/OwnershipAssignment" }
+        secondaryOwners:
+          type: array
+          items: { $ref: "#/components/schemas/OwnershipAssignment" }
+        technicalStewards:
+          type: array
+          items: { $ref: "#/components/schemas/OwnershipAssignment" }
+        supportContacts:
+          type: array
+          items: { $ref: "#/components/schemas/OwnershipAssignment" }
+
+    OwnershipAssignment:
+      type: object
+      required: [role, principalType, objectId, displayNameSnapshot, assignedAtUtc, assignedBy]
+      properties:
+        role: { type: string, enum: [PrimaryOwner, SecondaryOwner, TechnicalSteward, SupportContact] }
+        principalType: { type: string, enum: [User, Group] }
+        objectId: { type: string, format: uuid }
+        displayNameSnapshot: { type: string, minLength: 1, maxLength: 256 }
+        assignedAtUtc: { type: string, format: date-time }
+        assignedBy: { type: string, format: uuid }
+
+    OnboardingActor:
+      type: object
+      required: [objectId, displayNameSnapshot, onboardedAtUtc]
+      properties:
+        objectId: { type: string, format: uuid }
+        displayNameSnapshot: { type: string, maxLength: 256 }
+        onboardedAtUtc: { type: string, format: date-time }
+
+    Tag:
+      type: object
+      required: [key, value]
+      properties:
+        key: { type: string, minLength: 1, maxLength: 256 }
+        value: { type: string, maxLength: 1024 }
+
+    LifecycleStatus:
+      type: string
+      enum: [PendingValidation, Active, Disabled, Archived]
+      description: "`PendingValidation` is transient-only — never appears on persisted documents."
+
+    ValidationStatus:
+      type: string
+      enum: [Healthy, Degraded, Unhealthy]
+
+    ValidationRun:
+      type: object
+      required: [id, namespaceId, executedAtUtc, executedBy, azureResourceIdAtRun, aggregateStatus, checkResults, totalDurationMs]
+      properties:
+        id: { type: string, format: uuid }
+        namespaceId: { type: string, format: uuid }
+        executedAtUtc: { type: string, format: date-time }
+        executedBy: { type: string, format: uuid }
+        executedByDisplayNameSnapshot: { type: string }
+        azureResourceIdAtRun: { type: string }
+        aggregateStatus: { $ref: "#/components/schemas/ValidationStatus" }
+        checkResults:
+          type: array
+          minItems: 5
+          maxItems: 5
+          items: { $ref: "#/components/schemas/ValidationCheckResult" }
+        armResourceSnapshot:
+          type: object
+          nullable: true
+          properties:
+            region: { type: string }
+            resourceGroup: { type: string }
+            subscriptionId: { type: string, format: uuid }
+            capturedAtUtc: { type: string, format: date-time }
+        driftDetected: { type: boolean }
+        driftFields:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string, enum: [region, resourceGroup, subscriptionId] }
+              persistedValue: { type: string }
+              observedValue: { type: string }
+        totalDurationMs: { type: integer, minimum: 0 }
+
+    ValidationCheckResult:
+      type: object
+      required: [name, outcome, reason, reasonCategory, durationMs]
+      properties:
+        name:
+          type: string
+          enum: [Existence, Accessibility, RequiredPermissions, IdentityAuthorization, ApiReachability]
+        outcome: { type: string, enum: [Pass, Fail, Skipped] }
+        reason: { type: string }
+        reasonCategory:
+          type: string
+          enum: [Ok, Timeout, Unauthorized, NotFound, Throttled, CrossTenant, Unknown]
+        durationMs: { type: integer, minimum: 0 }
+        correlationRequestId: { type: string, nullable: true }
+
+    NamespaceAuditEvent:
+      type: object
+      required: [id, entityId, entityType, environment, eventType, timestamp, actor, changeSummary]
+      properties:
+        id: { type: string, format: uuid }
+        entityId: { type: string, format: uuid }
+        entityType: { type: string, enum: [Namespace] }
+        environment: { type: string }
+        eventType:
+          type: string
+          enum: [NamespaceOnboarded, NamespaceMetadataUpdated, NamespaceOwnershipUpdated, NamespaceLifecycleTransitioned, NamespaceValidationExecuted]
+        timestamp: { type: string, format: date-time }
+        actor:
+          type: object
+          properties:
+            principalId: { type: string, format: uuid }
+            displayName: { type: string }
+        changeSummary: { type: string }
+        lifecycleReason: { type: string, nullable: true, maxLength: 1000 }
+        fieldChanges:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              before: {}
+              after: {}
+        wasForceOverwrite: { type: boolean, default: false }
+        correlationId: { type: string, nullable: true }
+
+    InventoryListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OnboardedNamespace" }
+        continuationToken: { type: string, nullable: true }
+
+    ValidationRunListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ValidationRun" }
+        continuationToken: { type: string, nullable: true }
+
+    WorkloadIdentity:
+      type: object
+      required: [principalId, runbookUrl]
+      properties:
+        principalId: { type: string, format: uuid }
+        clientId: { type: string, format: uuid }
+        runbookUrl: { type: string, format: uri }
+        sampleGrantCommand:
+          type: string
+          description: "Copy-pasteable `az role assignment create` template; `{azureResourceId}` left as a placeholder for the wizard to substitute."
+
+    PrincipalPickerResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          maxItems: 25
+          items:
+            type: object
+            properties:
+              objectId: { type: string, format: uuid }
+              principalType: { type: string, enum: [User, Group] }
+              displayName: { type: string }
+              userPrincipalName: { type: string, nullable: true }
+              mail: { type: string, nullable: true }
+
+    ProblemDetails:
+      type: object
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        code: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    ConflictResponse:
+      description: |
+        Re-uses the spec-006 conflict response (`specs/006-service-bus-registry-core/contracts/conflict-response.schema.json`).
+        Documented here as a forward-reference; runtime shape is identical.
+      type: object
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string, enum: [ConcurrencyConflict] }
+        entityId: { type: string, format: uuid }
+        currentVersion: { type: string }
+        submittedVersion: { type: string }
+        currentEntity: { $ref: "#/components/schemas/OnboardedNamespace" }
+        changedFields:
+          type: array
+          items: { type: string }
+
+  securitySchemes:
+    EntraBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - EntraBearer: []

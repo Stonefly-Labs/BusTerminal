@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/008/ownership-assignment.json",
+  "title": "OwnershipAssignment",
+  "description": "Structured Entra-backed ownership reference. Composed into OwnershipBlock; never persisted as a standalone document.",
+  "$defs": {
+    "OwnershipAssignment": {
+      "type": "object",
+      "required": ["role", "principalType", "objectId", "displayNameSnapshot", "assignedAtUtc", "assignedBy"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["PrimaryOwner", "SecondaryOwner", "TechnicalSteward", "SupportContact"],
+          "description": "MUST match the containing OwnershipBlock slot."
+        },
+        "principalType": {
+          "type": "string",
+          "enum": ["User", "Group"]
+        },
+        "objectId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Entra principal objectId."
+        },
+        "displayNameSnapshot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Display name at assignment time; fallback for unresolvable principals."
+        },
+        "assignedAtUtc": { "type": "string", "format": "date-time" },
+        "assignedBy": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Entra objectId of the administrator who created this assignment."
+        }
+      },
+      "additionalProperties": false
+    },
+    "OwnershipBlock": {
+      "type": "object",
+      "required": ["primaryOwner"],
+      "properties": {
+        "primaryOwner": { "$ref": "#/$defs/OwnershipAssignment" },
+        "secondaryOwners": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OwnershipAssignment" }
+        },
+        "technicalStewards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OwnershipAssignment" }
+        },
+        "supportContacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/OwnershipAssignment" }
+        }
+      },
+      "additionalProperties": false,
+      "description": "Structured ownership composition. primaryOwner is required; all other roles default to empty arrays."
+    }
+  },
+  "$ref": "#/$defs/OwnershipAssignment"
+}

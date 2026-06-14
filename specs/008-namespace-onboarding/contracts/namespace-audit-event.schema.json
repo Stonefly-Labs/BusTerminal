@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/008/namespace-audit-event.json",
+  "title": "NamespaceAuditEvent",
+  "description": "Append-only audit event for namespace lifecycle, metadata, ownership, and validation actions. Persisted in the spec-006 registry-audit container (PK /entityId). Extends the spec-006 AuditEvent shape with new eventType values and a nullable lifecycleReason field.",
+  "type": "object",
+  "required": ["id", "entityId", "entityType", "environment", "eventType", "timestamp", "actor", "changeSummary"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "entityId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Foreign key into OnboardedNamespace.id. Partition key path."
+    },
+    "entityType": { "type": "string", "const": "Namespace" },
+    "environment": { "type": "string" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "NamespaceOnboarded",
+        "NamespaceMetadataUpdated",
+        "NamespaceOwnershipUpdated",
+        "NamespaceLifecycleTransitioned",
+        "NamespaceValidationExecuted"
+      ],
+      "description": "Spec-008 event types. The spec-006 audit-event schema additionally permits Created/Updated/Deleted/StatusChanged for Manual-source namespaces; those are NOT emitted for Onboarded namespaces."
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "actor": {
+      "type": "object",
+      "required": ["principalId", "displayName"],
+      "properties": {
+        "principalId": { "type": "string", "format": "uuid" },
+        "displayName": { "type": "string", "maxLength": 256 }
+      },
+      "additionalProperties": false
+    },
+    "changeSummary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000,
+      "description": "Single human-readable sentence describing the action."
+    },
+    "lifecycleReason": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Populated only on NamespaceLifecycleTransitioned events. Operator-supplied free-form."
+    },
+    "fieldChanges": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["field"],
+        "properties": {
+          "field": { "type": "string" },
+          "before": {},
+          "after": {}
+        },
+        "additionalProperties": false
+      },
+      "description": "Populated on NamespaceMetadataUpdated and NamespaceOwnershipUpdated."
+    },
+    "wasForceOverwrite": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when the operator explicitly chose Force-overwrite in a concurrency conflict (spec 006 FR-020 pattern reused)."
+    },
+    "correlationId": { "type": ["string", "null"] },
+    "_etag": { "type": "string" },
+    "_ts": { "type": "integer" }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "eventType": { "const": "NamespaceLifecycleTransitioned" } } },
+      "then": { "required": ["lifecycleReason"] }
+    }
+  ]
+}
