@@ -1,6 +1,7 @@
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Health;
 using BusTerminal.Api.Features.Identity;
+using BusTerminal.Api.Features.Namespaces.Shared;
 using BusTerminal.Api.Features.Registry.Shared;
 using BusTerminal.Api.Features.RoleProbes;
 using BusTerminal.Api.Infrastructure.Authentication;
@@ -46,6 +47,12 @@ builder.Services.AddCosmosCanonicalStore(builder.Configuration);
 // Spec 006 — registry slice. Persistence + audit + search + helpers.
 // US1 endpoints wired via `app.MapRegistryEndpoints()` below.
 builder.Services.AddRegistryFeature(builder.Configuration);
+
+// Spec 008 — namespace onboarding slice. ARM probe + Graph picker +
+// workload identity provider + ValidationRun store + validators + the
+// CanAdministerNamespaces policy. Endpoints attach to the group via
+// `app.MapNamespaceEndpoints()` below.
+builder.Services.AddNamespaceOnboardingFeature(builder.Configuration);
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();
@@ -109,6 +116,7 @@ app.MapBusTerminalHealthEndpoints();
 app.MapWhoAmIEndpoint();
 app.MapRoleProbeEndpoints();
 app.MapRegistryEndpoints();
+app.MapNamespaceEndpoints();
 
 try
 {

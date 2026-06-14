@@ -15,6 +15,9 @@ public enum PlatformRole
 
     [Description(PlatformRoleClaims.Developer)]
     Developer,
+
+    [Description(PlatformRoleClaims.NamespaceAdministrator)]
+    NamespaceAdministrator,
 }
 
 public static class PlatformRoleClaims
@@ -23,6 +26,7 @@ public static class PlatformRoleClaims
     public const string Operator = "BusTerminal.Operator";
     public const string Reader = "BusTerminal.Reader";
     public const string Developer = "BusTerminal.Developer";
+    public const string NamespaceAdministrator = "BusTerminal.NamespaceAdministrator";
 }
 
 public static class PlatformRoleExtensions
@@ -33,6 +37,7 @@ public static class PlatformRoleExtensions
         PlatformRole.Operator => PlatformRoleClaims.Operator,
         PlatformRole.Reader => PlatformRoleClaims.Reader,
         PlatformRole.Developer => PlatformRoleClaims.Developer,
+        PlatformRole.NamespaceAdministrator => PlatformRoleClaims.NamespaceAdministrator,
         _ => throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown PlatformRole."),
     };
 
@@ -51,6 +56,9 @@ public static class PlatformRoleExtensions
                 return true;
             case PlatformRoleClaims.Developer:
                 role = PlatformRole.Developer;
+                return true;
+            case PlatformRoleClaims.NamespaceAdministrator:
+                role = PlatformRole.NamespaceAdministrator;
                 return true;
             default:
                 role = default;

@@ -323,6 +323,29 @@ public sealed partial class CosmosRegistryEntityStore : IRegistryEntityStore
         return null;
     }
 
+    public async Task<RegistryEntity?> FindByAzureResourceIdAsync(
+        string azureResourceId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(azureResourceId);
+
+        // Spec 008 / FR-007. Case-insensitive cross-partition lookup. Bounded
+        // by FR-007 ("an Azure namespace may only be onboarded once across
+        // all environments") — result is at most one row.
+        var definition = new QueryDefinition(
+            "SELECT TOP 1 * FROM c WHERE LOWER(c.azureResourceId) = LOWER(@armId) AND (NOT IS_DEFINED(c._isTombstone) OR c._isTombstone = false)")
+            .WithParameter("@armId", azureResourceId);
+
+        using var iterator = _container.GetItemQueryIterator<RegistryEntityDocument>(definition);
+        while (iterator.HasMoreResults)
+        {
+            var page = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
+            var doc = page.FirstOrDefault();
+            if (doc is not null) return doc.ToEntity();
+        }
+        return null;
+    }
+
     public async Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken cancellationToken)
     {
         // Cross-partition DISTINCT. Bounded result size — tenants configure a

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using BusTerminal.Api.Features.Namespaces.Shared;
 
 namespace BusTerminal.Api.Features.Registry.Shared;
 
@@ -39,6 +40,13 @@ public record RegistryEntity(
 
 // Spec 006 / data-model.md §1.1. Root of the messaging hierarchy. `ParentId`
 // is null by construction; `NamespaceName` echoes `Name` per the contract.
+//
+// Spec 008 / data-model.md §1.1 adds 15 nullable fields below the
+// constructor to support Onboarded-source documents (validation-verified,
+// Entra-backed ownership, lifecycle state, business metadata). All fields
+// stay null on legacy Manual-source records — back-compat is preserved by
+// construction. Validators enforce presence per source: Manual leaves them
+// null, Onboarded requires them.
 public sealed record RegistryNamespace : RegistryEntity
 {
     public RegistryNamespace(
@@ -76,6 +84,24 @@ public sealed record RegistryNamespace : RegistryEntity
             etag)
     {
     }
+
+    // Spec 008 / data-model.md §1.1 — Onboarded-source-only fields.
+    public string? DisplayName { get; init; }
+    public Guid? SubscriptionId { get; init; }
+    public string? SubscriptionName { get; init; }
+    public string? ResourceGroup { get; init; }
+    public Guid? TenantId { get; init; }
+    public string? Region { get; init; }
+    public string? BusinessUnit { get; init; }
+    public string? ProductOrApplication { get; init; }
+    public string? CostCenter { get; init; }
+    public string? Notes { get; init; }
+    public LifecycleStatus? LifecycleStatus { get; init; }
+    public ValidationStatus? ValidationStatus { get; init; }
+    public Guid? LastValidationRunId { get; init; }
+    public DateTimeOffset? LastValidatedAtUtc { get; init; }
+    public OwnershipBlock? Ownership { get; init; }
+    public OnboardingActor? OnboardingActor { get; init; }
 }
 
 // Spec 006 / data-model.md §1.2. Queues live under a namespace.

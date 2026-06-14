@@ -33,6 +33,14 @@ public sealed class InMemoryRegistryEntityStore : IRegistryEntityStore
         return Task.FromResult<RegistryEntity?>(null);
     }
 
+    public Task<RegistryEntity?> FindByAzureResourceIdAsync(string azureResourceId, CancellationToken cancellationToken)
+    {
+        var match = _items.Values
+            .Select(s => s.Entity)
+            .FirstOrDefault(e => string.Equals(e.AzureResourceId, azureResourceId, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(match);
+    }
+
     public Task<RegistryEntityPage> ListAsync(RegistryEntityListQuery query, CancellationToken cancellationToken)
     {
         var items = _items.Values

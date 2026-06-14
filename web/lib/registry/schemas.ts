@@ -25,7 +25,13 @@ export type RegistryEntityType = z.infer<typeof registryEntityTypeSchema>;
 export const registryEntityStatusSchema = z.enum(["Active", "Deprecated"]);
 export type RegistryEntityStatus = z.infer<typeof registryEntityStatusSchema>;
 
-export const registrySourceSchema = z.enum(["Manual"]);
+// Spec 006 + Spec 008. `Onboarded` is added as a new value so spec-006's
+// polymorphic /api/registry GETs continue to deserialize namespaces that
+// were created via the spec-008 wizard. Reads remain open across both
+// surfaces; writes against Onboarded docs return 409 from the spec-006
+// endpoints per the cross-API gate in
+// `Features/Registry/_Shared/UpdateEndpoint.cs` + `DeleteEndpoint.cs`.
+export const registrySourceSchema = z.enum(["Manual", "Onboarded"]);
 export type RegistrySource = z.infer<typeof registrySourceSchema>;
 
 // Base name pattern (FR-015 / data-model.md §3.1). Per-entity-type

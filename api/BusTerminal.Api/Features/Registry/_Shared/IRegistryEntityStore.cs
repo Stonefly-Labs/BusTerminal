@@ -84,4 +84,12 @@ public interface IRegistryEntityStore
     Task<RegistryEntity?> FindByIdAsync(
         Guid id,
         CancellationToken cancellationToken);
+
+    // Spec 008 / FR-007. Cross-partition case-insensitive lookup by ARM
+    // resource id — used by the onboarding validator's duplicate-namespace
+    // check (an ARM namespace may only be onboarded once across all
+    // environments). Returns the persisted Namespace document or null.
+    Task<RegistryEntity?> FindByAzureResourceIdAsync(
+        string azureResourceId,
+        CancellationToken cancellationToken);
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Route } from "next";
-import { Database, type LucideIcon } from "lucide-react";
+import { Database, Layers, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -33,6 +33,17 @@ const NAV_ENTRIES: readonly NavEntry[] = [
     label: "Registry",
     operationClass: "Read",
     icon: Database,
+    matchPrefix: true,
+  },
+  // Spec 008 / contracts/outputs-contract.md §3.2. Gated by `Read` so any
+  // authenticated tenant user can browse the inventory; the wizard and write
+  // actions inside the section are gated separately by the
+  // namespace-administrator role at the API layer.
+  {
+    href: "/namespaces" as Route,
+    label: "Namespaces",
+    operationClass: "Read",
+    icon: Layers,
     matchPrefix: true,
   },
 ];
