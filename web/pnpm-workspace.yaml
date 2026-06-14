@@ -4,3 +4,10 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+overrides:
+  '@nevware21/ts-utils': '>=0.13.1'
+  # GHSA-w7jw-789q-3m8p — shell-quote critical CVE in concurrents's chain.
+  shell-quote: '>=1.8.4'
+  # GHSA-gv7w-rqvm-qjhr — esbuild high CVE in Storybook's chain.
+  esbuild: '>=0.28.1'
