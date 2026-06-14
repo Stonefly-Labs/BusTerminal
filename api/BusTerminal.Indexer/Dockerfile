@@ -15,14 +15,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-COPY ["BusTerminal.Indexer.csproj", "./"]
-RUN dotnet restore "BusTerminal.Indexer.csproj"
+# Build context is `api/` (matches the backend Dockerfile + cd-dev.yml).
+# Project paths are therefore rooted at `BusTerminal.Indexer/…`. The
+# indexer has no sibling project references, but we still scope restore
+# + publish to its csproj so the image doesn't pull test-only deps.
+COPY BusTerminal.Indexer/BusTerminal.Indexer.csproj BusTerminal.Indexer/
+RUN dotnet restore BusTerminal.Indexer/BusTerminal.Indexer.csproj
 
-COPY . .
-RUN dotnet publish "BusTerminal.Indexer.csproj" \
-    -c Release \
-    -o /app/publish \
+COPY BusTerminal.Indexer/ BusTerminal.Indexer/
+RUN dotnet publish BusTerminal.Indexer/BusTerminal.Indexer.csproj \
+    --configuration Release \
     --no-restore \
+    --output /app/publish \
     /p:UseAppHost=false
 
 # ---- runtime stage ----
