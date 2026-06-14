@@ -120,6 +120,18 @@ jobs:
           echo "name=$(tofu output -raw container_registry_name)" >> "$GITHUB_OUTPUT"
           echo "login_server=$(tofu output -raw container_registry_login_server)" >> "$GITHUB_OUTPUT"
 
+      # NEXT_PUBLIC_* values are baked into the client bundle at
+      # `next build` time, so they must be set during `docker build`,
+      # not the Container App's runtime env. Read the backend FQDN
+      # from tofu state (already provisioned by apply_infra) and pull
+      # the Entra/scope identifiers from the same GitHub vars the IaC
+      # uses, so build-time and runtime end up in lockstep.
+      - name: Read frontend build-time config from state
+        id: frontend_cfg
+        working-directory: iac/environments/dev
+        run: |
+          echo "api_base_url=$(tofu output -raw backend_fqdn)" >> "$GITHUB_OUTPUT"
+
       - name: Resolve image refs
         id: images
         run: |
@@ -145,6 +157,10 @@ jobs:
           docker build \
             --tag "${{ steps.images.outputs.frontend }}" \
             --tag "${{ steps.acr.outputs.login_server }}/busterminal/web:latest" \
+            --build-arg "NEXT_PUBLIC_AZURE_AD_TENANT_ID=${{ vars.ENTRA_TENANT_ID_DEV }}" \
+            --build-arg "NEXT_PUBLIC_AZURE_AD_CLIENT_ID=${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}" \
+            --build-arg "NEXT_PUBLIC_API_BASE_URL=${{ steps.frontend_cfg.outputs.api_base_url }}" \
+            --build-arg "NEXT_PUBLIC_API_SCOPE=api://${{ vars.ENTRA_API_CLIENT_ID_DEV }}/.default" \
             --file web/Dockerfile \
             web
           docker push "${{ steps.images.outputs.frontend }}"

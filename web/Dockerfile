@@ -19,6 +19,25 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
+
+# Next.js inlines `process.env.NEXT_PUBLIC_*` reads into the client
+# bundle at `next build` time. Setting these at container runtime
+# would be a no-op for the SPA. The CD workflow passes the env-
+# specific values via `--build-arg`; we lift them to ENV here so
+# `pnpm build` (= `next build`) sees them. Default to empty so the
+# msal-config / api-client fallbacks fire cleanly when the image is
+# built locally without args (mock-auth dev path).
+ARG NEXT_PUBLIC_AZURE_AD_TENANT_ID=""
+ARG NEXT_PUBLIC_AZURE_AD_CLIENT_ID=""
+ARG NEXT_PUBLIC_API_BASE_URL=""
+ARG NEXT_PUBLIC_API_SCOPE=""
+ARG NEXT_PUBLIC_AUTH_MODE=""
+ENV NEXT_PUBLIC_AZURE_AD_TENANT_ID=$NEXT_PUBLIC_AZURE_AD_TENANT_ID \
+    NEXT_PUBLIC_AZURE_AD_CLIENT_ID=$NEXT_PUBLIC_AZURE_AD_CLIENT_ID \
+    NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL \
+    NEXT_PUBLIC_API_SCOPE=$NEXT_PUBLIC_API_SCOPE \
+    NEXT_PUBLIC_AUTH_MODE=$NEXT_PUBLIC_AUTH_MODE
+
 RUN pnpm build
 
 # --- Runtime stage ---
