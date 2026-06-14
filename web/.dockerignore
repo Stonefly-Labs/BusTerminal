@@ -1,0 +1,12 @@
+node_modules
+.next
+.next/dev
+.git
+.github
+test-results
+playwright-report
+storybook-static
+.vscode
+.idea
+*.log
+.env*.local

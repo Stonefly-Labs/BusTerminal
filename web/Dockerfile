@@ -6,7 +6,14 @@ WORKDIR /app
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# CI=true makes pnpm non-interactive — without it, `pnpm install` aborts
+# at the "Aborted removal of modules directory due to no TTY" prompt
+# during the build stage's stale-check.
+ENV CI=true
+# Node 26 unbundled corepack (https://nodejs.org/api/corepack.html — see
+# Node 25 changelog). Install it explicitly before enabling; the
+# pnpm version is still resolved from package.json#packageManager.
+RUN npm install -g corepack@latest && corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
