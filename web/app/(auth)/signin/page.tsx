@@ -1,39 +1,35 @@
 "use client";
 
+import { InteractionStatus } from "@azure/msal-browser";
+import { useIsAuthenticated, useMsal } from "@azure/msal-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { msalReady, pca } from "@/lib/auth/msal-instance";
 import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 
 function SignInRedirect() {
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") ?? "/platform-status";
+  const isAuthenticated = useIsAuthenticated();
+  const { instance, inProgress } = useMsal();
 
   useEffect(() => {
-    let cancelled = false;
-    void msalReady
-      .then(() => {
-        if (cancelled) return;
-        const accounts = pca.getAllAccounts();
-        if (accounts.length > 0) {
-          window.location.replace(callbackUrl);
-          return;
-        }
-        void pca.loginRedirect({
-          scopes: [...API_SCOPE_REQUEST.scopes],
-          redirectStartPage: callbackUrl,
-        });
+    if (inProgress !== InteractionStatus.None) return;
+    if (isAuthenticated) {
+      window.location.replace(callbackUrl);
+      return;
+    }
+    void instance
+      .loginRedirect({
+        scopes: [...API_SCOPE_REQUEST.scopes],
+        redirectStartPage: callbackUrl,
       })
       .catch(() => {
-        // Initialization failure is surfaced by MSAL on the next interactive call;
-        // the page stays on the skeleton so the user can refresh / re-attempt.
+        // Interactive errors surface via the MSAL event API; the page stays
+        // on the skeleton so the user can refresh / re-attempt.
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [callbackUrl]);
+  }, [callbackUrl, inProgress, instance, isAuthenticated]);
 
   return null;
 }
