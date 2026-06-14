@@ -30,7 +30,7 @@ jobs:
         run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
 
       - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: ${{ steps.tofu_version.outputs.version }}
 
@@ -142,7 +142,7 @@ jobs:
         run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
 
       - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
+        uses: opentofu/setup-opentofu@v2
         with:
           tofu_version: ${{ steps.tofu_version.outputs.version }}
 
