@@ -88,6 +88,7 @@ jobs:
           PLACEHOLDER="${{ steps.names.outputs.placeholder_image }}"
           CURR_BACKEND="$PLACEHOLDER"
           CURR_FRONTEND="$PLACEHOLDER"
+          CURR_INDEXER="$PLACEHOLDER"
           # Only try to reuse previously-deployed image refs when state has
           # any resources at all. On first-ever apply tofu's output commands
           # leak rendered warning text into stdout (ANSI box-drawing chars,
@@ -98,15 +99,19 @@ jobs:
             if echo "$JSON" | jq empty >/dev/null 2>&1; then
               REUSE_BACKEND=$(echo "$JSON" | jq -r '.backend_image_in_use.value // empty')
               REUSE_FRONTEND=$(echo "$JSON" | jq -r '.frontend_image_in_use.value // empty')
+              REUSE_INDEXER=$(echo "$JSON" | jq -r '.indexer_image_in_use.value // empty')
               [ -n "$REUSE_BACKEND" ] && CURR_BACKEND="$REUSE_BACKEND"
               [ -n "$REUSE_FRONTEND" ] && CURR_FRONTEND="$REUSE_FRONTEND"
+              [ -n "$REUSE_INDEXER" ] && CURR_INDEXER="$REUSE_INDEXER"
             fi
           fi
           echo "Using backend image:  $CURR_BACKEND"
           echo "Using frontend image: $CURR_FRONTEND"
+          echo "Using indexer image: $CURR_INDEXER"
           tofu apply -auto-approve \
             -var "backend_image=$CURR_BACKEND" \
-            -var "frontend_image=$CURR_FRONTEND"
+            -var "frontend_image=$CURR_FRONTEND" \
+            -var "indexer_image=$CURR_INDEXER"
 
       - name: Read ACR coordinates from state
         id: acr
@@ -120,6 +125,7 @@ jobs:
         run: |
           echo "backend=${{ steps.acr.outputs.login_server }}/busterminal/api:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
           echo "frontend=${{ steps.acr.outputs.login_server }}/busterminal/web:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          echo "indexer=${{ steps.acr.outputs.login_server }}/busterminal/indexer:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
       - name: ACR login (managed-identity)
         run: az acr login --name "${{ steps.acr.outputs.name }}"
@@ -144,12 +150,23 @@ jobs:
           docker push "${{ steps.images.outputs.frontend }}"
           docker push "${{ steps.acr.outputs.login_server }}/busterminal/web:latest"
 
+      - name: Build & push indexer image
+        run: |
+          docker build \
+            --tag "${{ steps.images.outputs.indexer }}" \
+            --tag "${{ steps.acr.outputs.login_server }}/busterminal/indexer:latest" \
+            --file api/BusTerminal.Indexer/Dockerfile \
+            api
+          docker push "${{ steps.images.outputs.indexer }}"
+          docker push "${{ steps.acr.outputs.login_server }}/busterminal/indexer:latest"
+
       - name: tofu apply — roll revisions with new images
         working-directory: iac/environments/dev
         run: |
           tofu apply -auto-approve \
             -var "backend_image=${{ steps.images.outputs.backend }}" \
-            -var "frontend_image=${{ steps.images.outputs.frontend }}"
+            -var "frontend_image=${{ steps.images.outputs.frontend }}" \
+            -var "indexer_image=${{ steps.images.outputs.indexer }}"
 
       - name: Capture deploy outputs
         id: outs
