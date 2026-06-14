@@ -267,7 +267,7 @@ jobs:
       # and policies-report.json without re-running the plan.
       - name: Upload policy gate artifacts
         if: always() && (steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: policy-gate-${{ github.run_id }}
           path: |
