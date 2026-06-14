@@ -218,6 +218,19 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
   #       exporter can authenticate to Application Insights ingestion via
   #       AAD (Q1c / research §6).
   #
+  # Spec 008 / T008 / contracts/outputs-contract.md §1.4 — forward optionality
+  # for a future IaC-driven Reader grant on operator-supplied Service Bus
+  # namespaces:
+  #   acdd72a7-3385-48ef-bd42-f606fba81ae7  Reader (built-in)
+  #     → may be granted to the workload identity at namespace scope as a
+  #       non-breaking enhancement that replaces the runbook-driven flow
+  #       (see `iac/runbooks/grant-namespace-reader.md`). v1 does NOT issue
+  #       this grant via IaC (Complexity Tracking #1 in the spec-008 plan) —
+  #       the allowlist entry exists so a future spec doesn't re-litigate
+  #       the policy gate. BT-IAC-004 still forbids subscription-wide Reader
+  #       grants; this allowlist permits namespace-scope and resource-group-
+  #       scope grants only via the existing scope-evaluation gates.
+  #
   # NOT in this list: Cosmos DB Built-in Data Contributor — Cosmos uses its
   # OWN native RBAC surface (`azurerm_cosmosdb_sql_role_assignment`), not
   # Azure RBAC (`azurerm_role_assignment`), so this condition does not govern
@@ -235,7 +248,8 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
         69a216fc-b8fb-44d8-bc22-1f3c2cd27a39,
         4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0,
         8ebe5a00-799e-43f5-93ac-243d3dce84a7,
-        3913510d-42f4-4e42-8a64-420c390055eb
+        3913510d-42f4-4e42-8a64-420c390055eb,
+        acdd72a7-3385-48ef-bd42-f606fba81ae7
       }
     )
   CONDITION

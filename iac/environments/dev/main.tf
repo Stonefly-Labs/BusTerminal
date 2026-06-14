@@ -335,6 +335,15 @@ module "backend_app" {
     # `Monitoring Metrics Publisher` role is granted on the App Insights
     # resource via `module.workload_identity.assigned_azure_rbac`.
     APPLICATIONINSIGHTS_AUTHENTICATION_STRING = "Authorization=AAD;ClientId=${module.workload_identity.client_id}"
+
+    # Spec 008 / T009 / research §17. The workload UAMI's `principalId`
+    # surfaces via `GET /api/namespaces/identity` so the onboarding wizard
+    # can populate the `az role assignment create` runbook block. Graph
+    # `/me` is delegated-only and would fail under application tokens, so
+    # the principalId is injected as a static config value here. The
+    # workload-identity module exposes this output and the value never
+    # rotates over the UAMI's lifetime.
+    WORKLOAD_PRINCIPAL_ID = module.workload_identity.principal_id
   }
 
   secret_env_vars = {
@@ -486,19 +495,22 @@ module "probe_job_internal_caller" {
 }
 
 # Spec 003 / US6 / FR-024 — Microsoft Graph application-permission grant on
-# the API app registration. Declares `User.Read.All` (the sole permission this
-# slice grants — `contracts/graph-permissions-inventory.md` is the binding
-# inventory). Admin consent is NOT performed by Tofu (FR-024 + research § 9):
+# the API app registration. Declares `User.Read.All` (spec 003) and
+# `Group.Read.All` (spec 008 / T009) — both inventoried in
+# `specs/003-auth-and-identity/contracts/graph-permissions-inventory.md`.
+# Admin consent is NOT performed by Tofu (FR-024 + research § 9):
 # after `tofu apply`, a tenant admin must grant consent in the Entra portal
 # (or `az ad app permission admin-consent --id <bt-dev-api-app-id>`) before
-# any `IGraphClient` call succeeds. See quickstart.md § A.2.3.
+# any `IGraphClient` call succeeds. See quickstart.md § A.2.3 and
+# `specs/008-namespace-onboarding/quickstart.md §3`.
 module "graph_permissions" {
   source = "../../modules/graph-permissions"
 
   api_application_id = data.azuread_application.api.id
 
   granted_application_permission_ids = [
-    "df021288-bdef-4463-88db-98f22de89214", # User.Read.All (Application)
+    "df021288-bdef-4463-88db-98f22de89214", # User.Read.All  (Application) — spec 003
+    "5b567255-7703-4780-807c-7be8301ae99b", # Group.Read.All (Application) — spec 008
   ]
 }
 
@@ -719,6 +731,19 @@ module "app_registration_roles" {
       value                = "BusTerminal.Developer"
       display_name         = "BusTerminal Developer"
       description          = "API/spec/developer-tooling access. Authorizes Read and DeveloperTooling."
+      allowed_member_types = ["User", "Application"]
+    }
+    # Spec 008 / T009 / contracts/outputs-contract.md §1.1. Additive — does
+    # NOT alter the four spec-003 roles. `allowed_member_types = ["User",
+    # "Application"]` mirrors the spec-003 convention (Entra's `User`
+    # category covers both direct user assignments AND security-group
+    # assignments at the Enterprise App layer; the literal `"Group"` member
+    # type is not a valid Entra AppRole value).
+    namespace-administrator = {
+      role_id              = var.platform_role_ids.namespace_administrator
+      value                = "BusTerminal.NamespaceAdministrator"
+      display_name         = "Namespace Administrator"
+      description          = "May onboard, edit, lifecycle-transition, and validate Azure Service Bus namespaces (spec 008)."
       allowed_member_types = ["User", "Application"]
     }
   }

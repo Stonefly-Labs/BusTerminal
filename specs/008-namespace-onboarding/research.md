@@ -91,6 +91,8 @@ This decision is the basis of Complexity Tracking entry #1 in `plan.md`.
 - Two-tier (fail-fast on Existence, then run the other four in parallel) — considered. Would shave latency on the most common failure mode (operator pasted wrong ARM id). Rejected for v1 to keep the orchestrator simple; can be added later as a perf optimization without changing the contract.
 - Storing per-check spans separately in App Insights for later batch query — rejected: redundant with OTel span emission; the standard pipeline already persists spans to App Insights.
 
+**Operational definition of "normal ARM responsiveness"** (referenced by FR-015, FR-039, SC-004): the ARM management plane responds within p99 < 3s per call and is NOT issuing `Retry-After` headers / 429 responses at the moment of measurement. When ARM is degraded (responding > 3s p99 or actively throttling), the runner's per-check timeout fires and the aggregate run reports `Unhealthy` for the affected checks — the 15s p95 budget is a guarantee of *latency-bounded failure*, not of success-rate during ARM outages. SC-011 explicitly carves out the ARM-degraded case for the rest of the slice's surface (browse/details/lifecycle/edit must still function).
+
 ---
 
 ## §6. ValidationRun persistence: container shape + retention
@@ -280,12 +282,45 @@ A new `PlatformRole.NamespaceAdministrator` enum value (claim `BusTerminal.Names
 
 ---
 
+## §17. Workload UAMI `principalId` resolution at runtime
+
+**Decision**: Inject the workload UAMI's `principalId` as an **environment variable** `WORKLOAD_PRINCIPAL_ID` at deploy time. The value is sourced from `module.workload_identity.principal_id` (an existing OpenTofu output) and passed into the Container App's `env_vars` block alongside the existing `AZURE_CLIENT_ID`. The new `WorkloadIdentityProvider` reads `IConfiguration["WORKLOAD_PRINCIPAL_ID"]` at startup, parses it as `Guid`, caches it for the process lifetime, and exposes it via `Task<Guid> GetPrincipalIdAsync(CancellationToken)`. Falls back to a structured `ERROR` log + 500 from `/api/namespaces/identity` if the env var is missing or unparseable (which would indicate a deployment misconfiguration).
+
+**Rationale**:
+- Microsoft Graph's `/me` endpoint **does not work** for application-token (managed-identity) flows — it is delegated-flow-only. Calling `/me` from a workload identity returns 401/404 at runtime.
+- The clean alternatives are (a) Graph `GET /servicePrincipals?$filter=appId eq '{AZURE_CLIENT_ID}'`, which requires the Graph picker to be working *and* an extra round-trip on cold start, or (b) injecting the principalId directly from the deployment-time IaC output. Option (b) is strictly less ceremony — the value is already known to OpenTofu at apply time, the existing `container-app` module already accepts arbitrary `env_vars`, and there is no Graph dependency on cold start.
+- The IaC delta is one new env-var entry in `iac/environments/{dev,test,prod}/main.tf` per environment composition where the backend Container App is declared.
+
+**Alternatives considered**:
+- Graph `GET /servicePrincipals?$filter=appId eq ...` — adds startup-time Graph dependency for a value that is static across the process lifetime; rejected.
+- Configuration via Key Vault — rejected: the `principalId` is not a secret, and adding KV read for a non-secret value is unnecessary indirection.
+- Hard-coding the `principalId` in `appsettings.{env}.json` — rejected: couples runtime config to per-environment files outside the IaC source of truth; drift risk.
+
+---
+
+## §18. Pre-onboarding `ValidationRun.namespaceId` allocation
+
+**Decision**: The frontend wizard **pre-allocates** the namespace's `id` (`Guid`) **at the start of step 4** (immediately before the first validation run). The pre-allocated `Guid` is stored on the wizard's RHF root form, used as the `ValidationRun.namespaceId` for every validation run during the wizard, and re-used as the persisted `OnboardedNamespace.id` when step-5 Register succeeds. The backend `POST /api/namespaces/_validate` endpoint accepts an optional `proposedNamespaceId: Guid?` field in the request body — if present and well-formed, the runner stamps the resulting `ValidationRun.namespaceId` with it; if absent (e.g., a direct API caller bypassing the wizard), the runner generates a fresh `Guid`. On `POST /api/namespaces` (step-5 register), the request body's `validationRunId` is looked up; the runner's `namespaceId` MUST equal the new namespace's `id`; mismatch → 400 with `Code = "NamespaceIdMismatch"`.
+
+**Rationale**:
+- `ValidationRun.namespaceId` is the Cosmos partition key per `data-model.md §3`. Using `Guid.Empty` would create a hot partition for every pre-onboarding run in the system; using a fresh-but-different `Guid` per run would scatter pre-onboarding runs across thousands of single-document partitions (also wasteful + unindexable).
+- Pre-allocating the namespace `id` upfront lets the wizard's three validation runs (step 4 retries) all live in the same partition AND lets the eventually-registered namespace document use the same `id`, so the audit trail and ValidationRun trail are partition-aligned from day one.
+- Mutating a Cosmos document's PK after-the-fact is **not supported** by the SDK — pre-allocation is the only clean answer.
+- The `proposedNamespaceId` field is optional so direct API callers (CI scripts, test harnesses) that don't care about wizard pre-allocation can still call `_validate` and get a usable ValidationRun.
+
+**Alternatives considered**:
+- Server-allocated `namespaceId` returned in the `_validate` response, threaded back through the wizard's RHF state — works but adds an extra round-trip and a state-management concern (every step-4 retry needs to re-thread the same id).
+- Storing pre-onboarding runs in a separate `namespace-validation-runs-staging` Cosmos container — adds operational surface for a transient concern.
+- Embedding the validation run inside the wizard's sessionStorage only (never persisting until step-5) — rejected: the spec FR-016 explicitly requires every validation execution to be persisted as a ValidationRun record, including failed pre-onboarding attempts (so operators can see the history of attempts in the audit trail later).
+
+---
+
 ## Summary
 
-All 16 decisions above resolve the planning-time NEEDS-CLARIFICATION items implicit in the Technical Context. None of them invalidate the spec's Functional Requirements; several refine implementation-level details that the spec deliberately left open.
+All 18 decisions above resolve the planning-time NEEDS-CLARIFICATION items implicit in the Technical Context. None of them invalidate the spec's Functional Requirements; several refine implementation-level details that the spec deliberately left open. Decisions §17 (workload principalId injection) and §18 (pre-allocated namespaceId) were added during the `/speckit-analyze` remediation pass for findings F2 and F3 respectively; the spec's FR-043 was amended in the same pass to explicitly carve out operator-supplied namespace grants (closing finding F1).
 
-The two surviving deviations from the constitution / project conventions are documented in `plan.md §Complexity Tracking`:
-1. **Operator-supplied namespace Reader-role grant is out-of-band** (research §4).
+The two surviving deviations from the project's IaC convention are documented in `plan.md §Complexity Tracking`:
+1. **Operator-supplied namespace Reader-role grant is out-of-band** (research §4) — now sanctioned by amended FR-043.
 2. **A fifth platform role `namespace-administrator` is added to spec 003's role matrix** (research §15).
 
 Both are justified, scoped, and reversible by a future spec.

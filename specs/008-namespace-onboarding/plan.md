@@ -167,7 +167,7 @@ api/
 │   │   │   └── (everything else untouched)
 │   │   ├── Namespaces/                                     # NEW — top-level slice family for spec 008
 │   │   │   ├── _Shared/
-│   │   │   │   ├── OnboardedNamespace.cs                   # Extended RegistryNamespace fields (nullable on the shared type, populated for Onboarded source)
+│   │   │   │   # Note: OnboardedNamespace is NOT a separate file; the existing `Features/Registry/_Shared/RegistryEntity.cs` `RegistryNamespace` record is extended in place with nullable spec-008 fields (per data-model.md §1.1 and task T020).
 │   │   │   │   ├── OwnershipAssignment.cs                  # { role, principalType, objectId, displayNameSnapshot, assignedAtUtc, assignedBy }
 │   │   │   │   ├── OwnershipBlock.cs                       # { primaryOwner: OwnershipAssignment, secondaryOwners: [], stewards: [], supportContacts: [] }
 │   │   │   │   ├── LifecycleStatus.cs                      # Closed enum: PendingValidation (transient), Active, Disabled, Archived
@@ -200,13 +200,15 @@ api/
 │   │   │   ├── Ownership/
 │   │   │   │   ├── UpdateOwnershipEndpoint.cs              # PUT /api/namespaces/{id}/ownership — full-block replace
 │   │   │   │   ├── UpdateOwnershipRequest.cs
-│   │   │   │   └── UpdateOwnershipValidator.cs
+│   │   │   │   ├── UpdateOwnershipValidator.cs
+│   │   │   │   └── PickerEndpoint.cs                       # GET /api/namespaces/_picker — Graph-backed user/group search (AuthN-only)
 │   │   │   ├── Lifecycle/
 │   │   │   │   ├── TransitionLifecycleEndpoint.cs          # POST /api/namespaces/{id}/lifecycle — action: disable | enable | archive | restore
 │   │   │   │   ├── LifecycleTransitionRequest.cs           # { action, reason }
 │   │   │   │   └── LifecycleTransitionValidator.cs         # Enforces FR-023 permitted transitions
 │   │   │   ├── Validation/
 │   │   │   │   ├── RunValidationEndpoint.cs                # POST /api/namespaces/{id}/validation-runs — synchronous, p95 < 15s
+│   │   │   │   ├── PreOnboardingValidationEndpoint.cs      # POST /api/namespaces/_validate — wizard step-4 (no namespace doc exists yet)
 │   │   │   │   ├── ListValidationRunsEndpoint.cs           # GET /api/namespaces/{id}/validation-runs — paginated, time-descending
 │   │   │   │   ├── GetValidationRunEndpoint.cs             # GET /api/namespaces/{id}/validation-runs/{runId}
 │   │   │   │   ├── NamespaceValidationRunner.cs            # Orchestrates 5 parallel checks + per-check timeout + ValidationRun persistence

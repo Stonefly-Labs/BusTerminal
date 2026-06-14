@@ -21,8 +21,14 @@ variable "granted_application_permission_ids" {
     (or the durable successor doc) with a rationale — adding here without
     updating the inventory is a defect.
 
-    Current entries (slice 003):
+    Current entries:
       - `df021288-bdef-4463-88db-98f22de89214` → `User.Read.All` (Application)
+        Slice 003 — required for principal-picker user lookups.
+      - `5b567255-7703-4780-807c-7be8301ae99b` → `Group.Read.All` (Application)
+        Slice 008 — required for ownership picker group lookups
+        (`specs/008-namespace-onboarding/research.md §2`,
+        `contracts/outputs-contract.md §1.2`). Must be admin-consented
+        post-apply via `az ad app permission admin-consent --id <appId>`.
 
     Reference: https://learn.microsoft.com/graph/permissions-reference
   EOT

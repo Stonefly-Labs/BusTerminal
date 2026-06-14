@@ -75,10 +75,12 @@ The same Cosmos document type as spec 006's `RegistryNamespace`. Documents with 
 
 An append-only record of one validation execution per FR-016.
 
+**`namespaceId` allocation** (per research §18): the wizard pre-allocates the namespace's `id` (`Guid`) at the start of step 4 and re-uses that `Guid` as the `namespaceId` for every validation run AND as the persisted `OnboardedNamespace.id` once step-5 Register succeeds. This keeps pre-onboarding runs partition-aligned with the eventual namespace document instead of scattering them across `Guid.Empty` (hot partition) or per-run fresh Guids (wasteful single-document partitions). Direct API callers (e.g., CI scripts) MAY omit `proposedNamespaceId` on `POST /api/namespaces/_validate`; the runner generates a fresh `Guid` in that case, and the resulting ValidationRun is not bindable to a future namespace document.
+
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `Guid` | Stable identifier; equals `runId` everywhere else. |
-| `namespaceId` | `Guid` | Foreign key into the `OnboardedNamespace.id`. **Partition key.** |
+| `namespaceId` | `Guid` | Foreign key into the `OnboardedNamespace.id`. **Partition key.** For pre-onboarding runs, this is a wizard-pre-allocated Guid that becomes the namespace's `id` on register. For runs initiated against an existing namespace, this is the namespace's persisted `id`. |
 | `executedAtUtc` | `DateTime` | UTC timestamp of run start. |
 | `executedBy` | `Guid` | Entra `objectId` of the principal that initiated the run (administrator for on-demand, workload identity for first onboarding). |
 | `executedByDisplayNameSnapshot` | `string` | Display name at run time for audit-panel rendering. |

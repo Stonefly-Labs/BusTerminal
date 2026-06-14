@@ -1,6 +1,6 @@
-# Spec 006 / T013 / data-model.md §4.1. Provisions the three SQL containers
-# that back the Service Bus registry slice on the existing `canonical` database
-# (output by the cosmos-canonical-store module). The account is serverless
+# Spec 006 / T013 / data-model.md §4.1. Provisions the SQL containers that back
+# the Service Bus registry slice on the existing `canonical` database (output
+# by the cosmos-canonical-store module). The account is serverless
 # (cosmos-account/main.tf — EnableServerless capability) so neither database
 # nor container throughput attributes are configured here; serverless RU is
 # billed per-request.
@@ -14,6 +14,10 @@
 #   registry-entities-leases   — PK /id. Change-feed lease state for the indexer
 #                                (research §17 — managed-identity auth forbids
 #                                the trigger from auto-creating it).
+#   namespace-validation-runs  — PK /namespaceId. Append-only (spec 008 FR-016).
+#                                Namespace-scoped reads via
+#                                SELECT ... ORDER BY executedAtUtc DESC.
+#                                Indefinite retention in v1 (no TTL).
 
 resource "azurerm_cosmosdb_sql_container" "registry_entities" {
   name                  = var.entities_container_name
@@ -119,6 +123,48 @@ resource "azurerm_cosmosdb_sql_container" "registry_entities_leases" {
   # change feed to re-deliver every document, regenerating audit-event-shaped
   # side effects in the indexer. Keep prevent_destroy on to make that
   # deliberate.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Spec 008 / T007 / data-model.md §3 / research §6. Append-only history of
+# every namespace validation execution. Partition key `/namespaceId` aligns
+# every run for one namespace into a single logical partition (matches the
+# natural query "give me the most recent N runs for namespace X"). Indexing
+# is scoped to the fields the details + history surfaces query
+# (`executedAtUtc DESC`, `aggregateStatus`, `executedBy`), mirroring the
+# cost-conscious pattern used on `registry-audit`. Throughput inherits the
+# account's serverless mode (see header comment).
+resource "azurerm_cosmosdb_sql_container" "namespace_validation_runs" {
+  name                  = var.validation_runs_container_name
+  resource_group_name   = var.resource_group_name
+  account_name          = var.cosmos_account_name
+  database_name         = var.cosmos_canonical_database_name
+  partition_key_paths   = ["/namespaceId"]
+  partition_key_version = 2
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/executedAtUtc/?"
+    }
+    included_path {
+      path = "/aggregateStatus/?"
+    }
+    included_path {
+      path = "/executedBy/?"
+    }
+
+    excluded_path {
+      path = "/*"
+    }
+  }
+
+  # Append-only registry data plane — every operator-visible validation history
+  # lives here. A replace would erase it; force operator-driven destruction
+  # through a deliberate ops process per BT-IAC-007.
   lifecycle {
     prevent_destroy = true
   }
