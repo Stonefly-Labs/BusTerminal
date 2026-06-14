@@ -280,7 +280,7 @@ jobs:
           retention-days: 14
 
       - name: Comment plan + policy summary on PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         # The plan-comment is a reviewer convenience, not a gate. Transient
         # GitHub API failures (e.g., 401 Bad credentials on a token that
         # logs as PullRequests: write) shouldn't fail the IaC check —
