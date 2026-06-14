@@ -365,8 +365,8 @@ module "frontend_app" {
   memory                        = "1Gi"
 
   env_vars = {
-    NODE_ENV                       = "production"
-    PORT                           = tostring(local.frontend_target_port)
+    NODE_ENV = "production"
+    PORT     = tostring(local.frontend_target_port)
     # `module.backend_app.fqdn_url` already includes the `https://` scheme
     # (see module's outputs.tf — it returns the workload's HTTPS URL, not the
     # bare hostname). Don't re-prefix.
