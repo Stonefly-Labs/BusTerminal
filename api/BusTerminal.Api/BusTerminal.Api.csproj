@@ -22,8 +22,8 @@
     <!-- Spec 006 / Phase 1 T003 — boundary HTTP request validation
          (research §1); the per-entity-type validators in T074 register through
          AddValidatorsFromAssemblyContaining<RegistryEntityValidator>(). -->
-    <PackageReference Include="FluentValidation" Version="11.10.0" />
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.10.0" />
+    <PackageReference Include="FluentValidation" Version="12.1.1" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
