@@ -1,18 +1,13 @@
 /**
- * Spec 008 / T003 — placeholder inventory route.
+ * Spec 008 / T109 / US2. Inventory route shell.
  *
- * The real Inventory implementation (Server Component composing
- * `<NamespaceInventoryFilters>` + `<NamespaceInventoryTable>`) lands in
- * T109 (Phase 4). This stub exists so the route compiles before then.
+ * Thin RSC shell that mounts the Client Component inventory experience. The
+ * `(authenticated)` group above already enforces auth — this page just
+ * delegates to the URL-state-driven inventory client.
  */
 
-export default function NamespacesInventoryPlaceholderPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-lg font-semibold text-foreground-default">Namespaces</h1>
-      <p className="mt-2 text-sm text-foreground-muted">
-        Namespace inventory will render here once spec 008 Phase 4 (User Story 2) lands.
-      </p>
-    </div>
-  );
+import { NamespaceInventory } from "@/components/namespaces/inventory/namespace-inventory";
+
+export default function NamespacesInventoryPage() {
+  return <NamespaceInventory />;
 }

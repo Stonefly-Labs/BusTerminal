@@ -253,6 +253,46 @@ export const inventoryPageSchema = z.object({
 });
 export type InventoryPage = z.infer<typeof inventoryPageSchema>;
 
+// === Details response ===
+
+// Spec 008 / contracts/namespace-onboarding-api.yaml#/OnboardedNamespaceDetails.
+// Flat composition: all OnboardedNamespace fields + latestValidationRun +
+// recentAuditEvents at the same top level.
+export const namespaceAuditEventSchema = z.object({
+  id: z.string().uuid(),
+  entityId: z.string().uuid(),
+  entityType: z.literal("Namespace"),
+  environment: z.string(),
+  eventType: z.string(),
+  timestamp: z.string().datetime({ offset: true }),
+  actor: z
+    .object({
+      principalId: z.string().nullable().optional(),
+      displayName: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  changeSummary: z.string().nullable().optional(),
+  lifecycleReason: z.string().nullable().optional(),
+  fieldChanges: z
+    .array(
+      z.object({
+        field: z.string(),
+        before: z.unknown().optional(),
+        after: z.unknown().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
+});
+export type NamespaceAuditEvent = z.infer<typeof namespaceAuditEventSchema>;
+
+export const namespaceDetailsResponseSchema = onboardedNamespaceSchema.extend({
+  latestValidationRun: validationRunSchema.nullable().optional(),
+  recentAuditEvents: z.array(namespaceAuditEventSchema).default([]),
+});
+export type NamespaceDetailsResponse = z.infer<typeof namespaceDetailsResponseSchema>;
+
 export const validationRunListSchema = z.object({
   items: z.array(validationRunSchema),
   continuationToken: z.string().nullable().optional(),

@@ -1,17 +1,23 @@
 // Mirror of specs/003-auth-and-identity/contracts/role-permission-matrix.md.
 // The contract document is authoritative; this module is its code projection.
 
+// Spec 008 adds a fifth role (`BusTerminal.NamespaceAdministrator`) as an
+// additive extension — the existing four roles retain their spec-003
+// semantics unchanged. The new role gates namespace write surfaces only
+// (`/api/namespaces/*` mutating endpoints).
 export type PlatformRole =
   | "BusTerminal.Admin"
   | "BusTerminal.Operator"
   | "BusTerminal.Reader"
-  | "BusTerminal.Developer";
+  | "BusTerminal.Developer"
+  | "BusTerminal.NamespaceAdministrator";
 
 export const PLATFORM_ROLES: readonly PlatformRole[] = [
   "BusTerminal.Admin",
   "BusTerminal.Operator",
   "BusTerminal.Reader",
   "BusTerminal.Developer",
+  "BusTerminal.NamespaceAdministrator",
 ];
 
 const KNOWN_ROLE_VALUES = new Set<string>(PLATFORM_ROLES);

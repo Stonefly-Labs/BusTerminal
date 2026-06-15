@@ -92,4 +92,13 @@ public interface IRegistryEntityStore
     Task<RegistryEntity?> FindByAzureResourceIdAsync(
         string azureResourceId,
         CancellationToken cancellationToken);
+
+    // Spec 008 / T101 / US2. Cross-partition list of `source = Onboarded`
+    // namespaces with filter + sort + paging. Distinct from ListAsync because
+    // the inventory surface is intentionally cross-env (FR-035 env-scope rule
+    // applies to spec-006 polymorphic browse, not to the onboarded inventory).
+    Task<BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryPage>
+        ListOnboardedAsync(
+            BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryQuery query,
+            CancellationToken cancellationToken);
 }

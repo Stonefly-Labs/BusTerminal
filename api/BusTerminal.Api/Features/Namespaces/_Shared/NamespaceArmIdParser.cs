@@ -42,16 +42,28 @@ public sealed partial class NamespaceArmIdParser
     private readonly Guid _configuredTenantId;
     private readonly ConcurrentDictionary<Guid, Guid> _tenantCache = new();
 
+    // Mock-auth dev sentinel — when AzureAd:TenantId == "development" the
+    // backend is running with the mock auth handler (see
+    // AuthenticationExtensions). We honour the same sentinel here by binding
+    // the parser to MockAuthenticationHandler.DevTenantId so contract tests
+    // can drive the parser without an Entra tenant configured.
+    private const string DevelopmentTenantSentinel = "development";
+    private static readonly Guid MockDevTenantId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+
     public NamespaceArmIdParser(IArmSubscriptionTenantResolver resolver, IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(resolver);
         ArgumentNullException.ThrowIfNull(configuration);
         _resolver = resolver;
         var raw = configuration["AzureAd:TenantId"];
-        if (!Guid.TryParse(raw, out _configuredTenantId))
+        if (string.Equals(raw, DevelopmentTenantSentinel, StringComparison.Ordinal))
+        {
+            _configuredTenantId = MockDevTenantId;
+        }
+        else if (!Guid.TryParse(raw, out _configuredTenantId))
         {
             throw new InvalidOperationException(
-                "AzureAd:TenantId must be configured as a Guid to enforce FR-006 cross-tenant rejection.");
+                "AzureAd:TenantId must be configured as a Guid (or the literal 'development' sentinel in Development) to enforce FR-006 cross-tenant rejection.");
         }
     }
 

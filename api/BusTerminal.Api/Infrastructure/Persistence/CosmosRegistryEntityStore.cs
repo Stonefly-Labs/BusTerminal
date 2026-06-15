@@ -1,4 +1,5 @@
 using System.Net;
+using BusTerminal.Api.Features.Namespaces.Inventory;
 using BusTerminal.Api.Features.Registry.Shared;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
@@ -344,6 +345,120 @@ public sealed partial class CosmosRegistryEntityStore : IRegistryEntityStore
             if (doc is not null) return doc.ToEntity();
         }
         return null;
+    }
+
+    public async Task<NamespaceInventoryPage> ListOnboardedAsync(
+        NamespaceInventoryQuery query,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        // Cross-partition query against `source = Onboarded`. We accept the
+        // RU cost here because (a) the inventory result set is bounded by
+        // operator count (Constitution Decision Priorities: operational
+        // simplicity > RU efficiency at v1), and (b) the wizard discipline
+        // ensures Onboarded docs grow slowly. Composite indexes on
+        // (source, lastValidatedAtUtc DESC) and (source, displayName) are a
+        // v1.x optimization left to perf-baseline.md.
+        var sql = new System.Text.StringBuilder(
+            "SELECT * FROM c WHERE c.source = @source AND c.entityType = @entityType " +
+            "AND (NOT IS_DEFINED(c._isTombstone) OR c._isTombstone = false)");
+        var parameters = new List<(string Name, object Value)>
+        {
+            ("@source", nameof(RegistrySource.Onboarded)),
+            ("@entityType", nameof(RegistryEntityType.Namespace)),
+        };
+
+        if (!string.IsNullOrWhiteSpace(query.Environment))
+        {
+            sql.Append(" AND c.environment = @environment");
+            parameters.Add(("@environment", query.Environment));
+        }
+
+        if (query.LifecycleStatuses is { Count: > 0 })
+        {
+            var names = query.LifecycleStatuses.Select(s => s.ToString()).ToArray();
+            sql.Append(" AND ARRAY_CONTAINS(@lifecycleStatuses, c.lifecycleStatus)");
+            parameters.Add(("@lifecycleStatuses", names));
+        }
+
+        if (query.ValidationStatuses is { Count: > 0 })
+        {
+            var names = query.ValidationStatuses.Select(s => s.ToString()).ToArray();
+            sql.Append(" AND ARRAY_CONTAINS(@validationStatuses, c.validationStatus)");
+            parameters.Add(("@validationStatuses", names));
+        }
+
+        if (!query.IncludeArchived)
+        {
+            sql.Append(" AND (NOT IS_DEFINED(c.lifecycleStatus) OR c.lifecycleStatus != @archived)");
+            parameters.Add(("@archived", nameof(Features.Namespaces.Shared.LifecycleStatus.Archived)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            // Partial-name search across displayName + businessUnit (case-insensitive).
+            sql.Append(" AND (CONTAINS(LOWER(c.displayName ?? ''), LOWER(@search)) " +
+                       "OR CONTAINS(LOWER(c.businessUnit ?? ''), LOWER(@search)) " +
+                       "OR CONTAINS(LOWER(c.name ?? ''), LOWER(@search)))");
+            parameters.Add(("@search", query.Search));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.TagKey) && !string.IsNullOrWhiteSpace(query.TagValue))
+        {
+            sql.Append(" AND EXISTS (SELECT VALUE t FROM t IN c.tags " +
+                       "WHERE LOWER(t.key) = LOWER(@tagKey) AND t.value = @tagValue)");
+            parameters.Add(("@tagKey", query.TagKey));
+            parameters.Add(("@tagValue", query.TagValue));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.TagKey))
+        {
+            sql.Append(" AND EXISTS (SELECT VALUE t FROM t IN c.tags WHERE LOWER(t.key) = LOWER(@tagKey))");
+            parameters.Add(("@tagKey", query.TagKey));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.TagValue))
+        {
+            sql.Append(" AND EXISTS (SELECT VALUE t FROM t IN c.tags WHERE t.value = @tagValue)");
+            parameters.Add(("@tagValue", query.TagValue));
+        }
+
+        sql.Append(query.Sort switch
+        {
+            NamespaceInventorySort.DisplayNameAsc => " ORDER BY c.displayName ASC",
+            NamespaceInventorySort.DisplayNameDesc => " ORDER BY c.displayName DESC",
+            NamespaceInventorySort.EnvironmentAsc => " ORDER BY c.environment ASC",
+            NamespaceInventorySort.EnvironmentDesc => " ORDER BY c.environment DESC",
+            NamespaceInventorySort.LastValidatedAtAsc => " ORDER BY c.lastValidatedAtUtc ASC",
+            _ => " ORDER BY c.lastValidatedAtUtc DESC",
+        });
+
+        var definition = new QueryDefinition(sql.ToString());
+        foreach (var (name, value) in parameters)
+        {
+            definition = definition.WithParameter(name, value);
+        }
+
+        var requestOptions = new QueryRequestOptions
+        {
+            MaxItemCount = query.PageSize,
+        };
+
+        using var iterator = _container.GetItemQueryIterator<RegistryEntityDocument>(
+            definition,
+            continuationToken: query.ContinuationToken,
+            requestOptions: requestOptions);
+
+        if (!iterator.HasMoreResults)
+        {
+            return new NamespaceInventoryPage(Array.Empty<RegistryNamespace>(), ContinuationToken: null);
+        }
+
+        var page = await iterator.ReadNextAsync(cancellationToken).ConfigureAwait(false);
+        var items = page
+            .Select(d => d.ToEntity())
+            .OfType<RegistryNamespace>()
+            .ToArray();
+        return new NamespaceInventoryPage(items, page.ContinuationToken);
     }
 
     public async Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken cancellationToken)

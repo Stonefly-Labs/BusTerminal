@@ -347,6 +347,8 @@ public sealed class ValidatorTests
         public Task<RegistryEntity?> FindParentAsync(Guid parentId, RegistryEntityType type, string env, CancellationToken ct) => Task.FromResult<RegistryEntity?>(null);
         public Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
         public Task<RegistryEntity?> FindByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<RegistryEntity?>(null);
+        public Task<BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryPage> ListOnboardedAsync(BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryQuery q, CancellationToken ct)
+            => Task.FromResult(new BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryPage(Array.Empty<RegistryNamespace>(), null));
     }
 
     private sealed class StubValidationRunStore : INamespaceValidationRunStore

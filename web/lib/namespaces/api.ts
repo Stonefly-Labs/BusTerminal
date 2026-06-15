@@ -17,6 +17,7 @@ import { E2E_MOCK_ROLES_HEADER } from "@/tests/auth/personas";
 import type { NamespaceInventoryFilter } from "./query-keys";
 import {
   inventoryPageSchema,
+  namespaceDetailsResponseSchema,
   onboardedNamespaceSchema,
   principalPickerItemSchema,
   validationRunListSchema,
@@ -24,6 +25,7 @@ import {
   workloadIdentityResponseSchema,
   type InventoryPage,
   type LifecycleTransitionRequest,
+  type NamespaceDetailsResponse,
   type OnboardedNamespace,
   type OnboardingRequest,
   type PrincipalPickerItem,
@@ -118,7 +120,12 @@ export async function searchPrincipals(
     throw new NamespacesApiError(`GET ${url} → ${response.status}`, response.status);
   }
   const body = await readJsonOrThrow(response);
-  return principalPickerItemSchema.array().parse(body);
+  // Contract returns { items: [...] }; tolerate a bare-array shape in case
+  // a stub backend or test fixture inverts the wrapping.
+  const items = Array.isArray(body)
+    ? body
+    : ((body as { items?: unknown[] } | undefined)?.items ?? []);
+  return principalPickerItemSchema.array().parse(items);
 }
 
 // === POST /api/namespaces/_validate ===
@@ -167,7 +174,11 @@ export async function register(
 // === GET /api/namespaces (inventory) ===
 
 export async function listInventory(
-  filter: NamespaceInventoryFilter & { pageSize?: number; continuationToken?: string } = {},
+  filter: NamespaceInventoryFilter & {
+    pageSize?: number;
+    continuationToken?: string;
+    sort?: string;
+  } = {},
   options: NamespacesApiOptions = {},
 ): Promise<InventoryPage> {
   const search = new URLSearchParams();
@@ -178,6 +189,7 @@ export async function listInventory(
   if (filter.q) search.set("q", filter.q);
   if (filter.tagKey) search.set("tagKey", filter.tagKey);
   if (filter.tagValue) search.set("tagValue", filter.tagValue);
+  if (filter.sort) search.set("sort", filter.sort);
   if (filter.pageSize) search.set("pageSize", String(filter.pageSize));
   if (filter.continuationToken) search.set("continuationToken", filter.continuationToken);
   const qs = search.toString();
@@ -196,19 +208,24 @@ export interface NamespaceWithEtag {
   readonly etag: string;
 }
 
+export interface NamespaceDetailsWithEtag {
+  readonly details: NamespaceDetailsResponse;
+  readonly etag: string;
+}
+
 export async function getDetails(
   id: string,
   options: NamespacesApiOptions = {},
-): Promise<NamespaceWithEtag | null> {
+): Promise<NamespaceDetailsWithEtag | null> {
   const url = `${baseUrlFor(options)}/${id}`;
   const response = await httpFetch(url, makeFetchInit(options, buildHeaders(options), "namespaces.details"));
   if (response.status === 404) return null;
   if (!response.ok) {
     throw new NamespacesApiError(`GET ${url} → ${response.status}`, response.status);
   }
-  const ns = onboardedNamespaceSchema.parse(await readJsonOrThrow(response));
-  const etag = response.headers.get("etag") ?? ns.id;
-  return { namespace: ns, etag };
+  const details = namespaceDetailsResponseSchema.parse(await readJsonOrThrow(response));
+  const etag = response.headers.get("etag") ?? details.id;
+  return { details, etag };
 }
 
 // === PUT /api/namespaces/{id}/metadata ===

@@ -11,6 +11,8 @@ export type {
   LifecycleAction,
   LifecycleStatus,
   LifecycleTransitionRequest,
+  NamespaceAuditEvent,
+  NamespaceDetailsResponse,
   OnboardedNamespace,
   OnboardingActor,
   OnboardingRequest,

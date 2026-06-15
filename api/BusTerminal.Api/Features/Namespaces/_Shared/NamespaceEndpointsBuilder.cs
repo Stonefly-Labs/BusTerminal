@@ -1,3 +1,9 @@
+using BusTerminal.Api.Features.Namespaces.Details;
+using BusTerminal.Api.Features.Namespaces.Identity;
+using BusTerminal.Api.Features.Namespaces.Inventory;
+using BusTerminal.Api.Features.Namespaces.Onboarding;
+using BusTerminal.Api.Features.Namespaces.Ownership;
+using BusTerminal.Api.Features.Namespaces.Validation;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
@@ -41,10 +47,21 @@ public static class NamespaceEndpointsBuilder
     {
         ArgumentNullException.ThrowIfNull(endpoints);
         _ = endpoints.MapNamespacesGroup();
-        // US1 (T077–T080), US2 (T102–T103), US3 (T128–T132) endpoint mappers
-        // attach to this group as those tasks land. Phase 2 ships the group +
-        // DI so the build verifies and integration tests can wire MapGroup
-        // without touching Program.cs again.
+
+        // US1 (T077–T081) — wizard-supporting endpoints. Each endpoint
+        // registers its own route directly (not via the shared group)
+        // because they apply per-endpoint policies (write surfaces require
+        // namespace-administrator; reads stay AuthN-only).
+        endpoints.MapWorkloadIdentityEndpoint();
+        endpoints.MapPickerEndpoint();
+        endpoints.MapPreOnboardingValidationEndpoint();
+        endpoints.MapOnboardingEndpoint();
+
+        // US2 (T102–T103) — inventory + details.
+        endpoints.MapInventoryEndpoint();
+        endpoints.MapDetailsEndpoint();
+
+        // US3 (T128–T132) endpoint mappers attach below as those tasks land.
         return endpoints;
     }
 }

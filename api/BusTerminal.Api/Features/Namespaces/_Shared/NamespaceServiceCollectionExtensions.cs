@@ -4,6 +4,8 @@ using BusTerminal.Api.Features.Namespaces.Lifecycle;
 using BusTerminal.Api.Features.Namespaces.Metadata;
 using BusTerminal.Api.Features.Namespaces.Onboarding;
 using BusTerminal.Api.Features.Namespaces.Ownership;
+using BusTerminal.Api.Features.Namespaces.Validation;
+using BusTerminal.Api.Features.Namespaces.Validation.Checks;
 using BusTerminal.Api.Infrastructure.Credentials;
 using BusTerminal.Api.Infrastructure.Graph;
 using BusTerminal.Api.Infrastructure.Identity;
@@ -76,6 +78,17 @@ public static class NamespaceServiceCollectionExtensions
 
         // Spec 008 / T027.
         services.AddSingleton<NamespaceDtoMapping>();
+
+        // Spec 008 / T071–T076. Validation checks (five named per FR-014) plus
+        // the parallel runner that fans them out under the aggregate 15s
+        // budget (research §5). Singletons — every check + the runner are
+        // stateless and rely on the singleton IArmNamespaceProbe.
+        services.AddSingleton<INamespaceValidationCheck, ExistenceCheck>();
+        services.AddSingleton<INamespaceValidationCheck, AccessibilityCheck>();
+        services.AddSingleton<INamespaceValidationCheck, RequiredPermissionsCheck>();
+        services.AddSingleton<INamespaceValidationCheck, IdentityAuthorizationCheck>();
+        services.AddSingleton<INamespaceValidationCheck, ApiReachabilityCheck>();
+        services.AddScoped<NamespaceValidationRunner>();
 
         // Time abstraction for the OnboardingValidator's freshness window.
         services.TryAddSingleton(TimeProvider.System);
