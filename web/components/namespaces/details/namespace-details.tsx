@@ -8,7 +8,7 @@
  */
 
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, PencilLine } from "lucide-react";
 
 import { useAcquireToken } from "@/hooks/use-acquire-token";
@@ -33,12 +33,24 @@ interface NamespaceDetailsProps {
 export function NamespaceDetails({ id }: NamespaceDetailsProps) {
   const isAdmin = useHasRole("BusTerminal.NamespaceAdministrator");
   const getToken = useAcquireToken();
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: namespaceKeys.details(id),
     queryFn: async () => {
       const token = await getToken();
       return NamespacesApi.getDetails(id, token ? { accessToken: token } : {});
+    },
+  });
+
+  // Spec 008 / T140 — Re-run validation from the details page.
+  const reRunMutation = useMutation({
+    mutationFn: async () => {
+      const token = await getToken();
+      return NamespacesApi.runValidation(id, token ? { accessToken: token } : {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: namespaceKeys.details(id) });
     },
   });
 
@@ -131,7 +143,11 @@ export function NamespaceDetails({ id }: NamespaceDetailsProps) {
           ownership={details.ownership ?? null}
           onboardingActor={details.onboardingActor ?? null}
         />
-        <NamespaceValidationPanel run={details.latestValidationRun ?? null} />
+        <NamespaceValidationPanel
+          run={details.latestValidationRun ?? null}
+          {...(isAdmin ? { onReRun: () => reRunMutation.mutate() } : {})}
+          isReRunning={reRunMutation.isPending}
+        />
         <NamespaceAuditPanel events={details.recentAuditEvents} />
       </div>
     </div>

@@ -1,6 +1,8 @@
 using BusTerminal.Api.Features.Namespaces.Details;
 using BusTerminal.Api.Features.Namespaces.Identity;
 using BusTerminal.Api.Features.Namespaces.Inventory;
+using BusTerminal.Api.Features.Namespaces.Lifecycle;
+using BusTerminal.Api.Features.Namespaces.Metadata;
 using BusTerminal.Api.Features.Namespaces.Onboarding;
 using BusTerminal.Api.Features.Namespaces.Ownership;
 using BusTerminal.Api.Features.Namespaces.Validation;
@@ -61,7 +63,12 @@ public static class NamespaceEndpointsBuilder
         endpoints.MapInventoryEndpoint();
         endpoints.MapDetailsEndpoint();
 
-        // US3 (T128–T132) endpoint mappers attach below as those tasks land.
+        // US3 (T128–T132) — metadata / ownership / lifecycle / validation-runs.
+        endpoints.MapUpdateMetadataEndpoint();
+        endpoints.MapUpdateOwnershipEndpoint();
+        endpoints.MapTransitionLifecycleEndpoint();
+        endpoints.MapRunValidationEndpoint();
+        endpoints.MapListValidationRunsEndpoint();
         return endpoints;
     }
 }
