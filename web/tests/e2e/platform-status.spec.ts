@@ -27,8 +27,12 @@ test.describe("US1: platform-status round-trip", () => {
   test("seeded Reader lands on platform-status with identity + correlation cards", async ({ page }) => {
     // With a seeded MSAL session, AuthGuard admits the user immediately
     // and the (authenticated) layout routes a role-bearing principal to
-    // /platform-status.
+    // /home (the default landing as of the home-dashboard PR; pre-PR
+    // this was /platform-status). This test exercises the platform-status
+    // round-trip specifically, so navigate there explicitly.
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForURL(/\/home/, { timeout: 30_000 });
+    await page.goto("/platform-status");
     await page.waitForURL(/\/platform-status/, { timeout: 30_000 });
 
     const identityCard = page.getByTestId("identity-card");
