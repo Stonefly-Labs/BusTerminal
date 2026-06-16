@@ -59,47 +59,63 @@ builder.Services.AddRouting();
 
 var app = builder.Build();
 
-// Development-only CORS so a locally-running Next.js dev server (default
-// :3000) can fetch /whoami and /api/* without the browser blocking the
-// preflight. In Production the SPA and the API are co-located behind the
-// same ingress and no cross-origin call ever reaches this surface.
+// CORS for cross-origin browser fetches. Local dev has the Next.js dev
+// server at :3000 and the API at :8080; deployed envs run frontend + API
+// as separate Container Apps with distinct FQDNs (e.g.
+// `ca-bt-{env}-web.*.azurecontainerapps.io` vs `ca-bt-{env}-api.*...`), so
+// every browser-originated request to the API is cross-origin — preflight
+// included.
 //
-// We handle CORS via a raw middleware instead of the framework's
-// `UseCors()` because minimal-API + endpoint-routing's 405 dispatch
-// short-circuits before the framework CORS middleware can intercept an
-// OPTIONS preflight to a GET-only route. Raw middleware runs strictly
-// first in the pipeline and emits the preflight response unconditionally.
-if (app.Environment.IsDevelopment())
+// Allowlist comes from config (`Cors:AllowedOrigins`, an array; IaC injects
+// `Cors__AllowedOrigins__0 = <frontend fqdn>` per env). Built-in localhost
+// entries are always allowed so local-dev flows work even when config
+// supplies a deployed FQDN — Origin is browser-controlled and not
+// spoofable, so always-localhost has no production blast radius.
+//
+// Raw middleware (not framework `UseCors()`) because minimal-API +
+// endpoint-routing's 405 dispatch short-circuits an OPTIONS preflight to a
+// GET-only route before the framework CORS middleware can intercept it.
+// This runs strictly first in the pipeline and emits the preflight
+// response unconditionally.
+var allowedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
-    var allowedOrigins = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+};
+var configuredOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>();
+if (configuredOrigins is not null)
+{
+    foreach (var configured in configuredOrigins)
     {
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    };
-    app.Use(async (ctx, next) =>
-    {
-        var origin = ctx.Request.Headers.Origin.ToString();
-        if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin))
-        {
-            ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
-            ctx.Response.Headers["Access-Control-Allow-Credentials"] = "true";
-            ctx.Response.Headers.Vary = "Origin";
-            if (HttpMethods.IsOptions(ctx.Request.Method))
-            {
-                var reqHeaders = ctx.Request.Headers["Access-Control-Request-Headers"].ToString();
-                ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
-                ctx.Response.Headers["Access-Control-Allow-Headers"] =
-                    string.IsNullOrEmpty(reqHeaders)
-                        ? "Authorization, Content-Type, traceparent, X-Mock-Roles, X-Mock-Caller-Type"
-                        : reqHeaders;
-                ctx.Response.Headers["Access-Control-Max-Age"] = "600";
-                ctx.Response.StatusCode = StatusCodes.Status204NoContent;
-                return;
-            }
-        }
-        await next();
-    });
+        if (string.IsNullOrWhiteSpace(configured)) continue;
+        allowedOrigins.Add(configured.TrimEnd('/'));
+    }
 }
+app.Use(async (ctx, next) =>
+{
+    var origin = ctx.Request.Headers.Origin.ToString();
+    if (!string.IsNullOrEmpty(origin) && allowedOrigins.Contains(origin))
+    {
+        ctx.Response.Headers["Access-Control-Allow-Origin"] = origin;
+        ctx.Response.Headers["Access-Control-Allow-Credentials"] = "true";
+        ctx.Response.Headers.Vary = "Origin";
+        if (HttpMethods.IsOptions(ctx.Request.Method))
+        {
+            var reqHeaders = ctx.Request.Headers["Access-Control-Request-Headers"].ToString();
+            ctx.Response.Headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+            ctx.Response.Headers["Access-Control-Allow-Headers"] =
+                string.IsNullOrEmpty(reqHeaders)
+                    ? "Authorization, Content-Type, traceparent, X-Mock-Roles, X-Mock-Caller-Type"
+                    : reqHeaders;
+            ctx.Response.Headers["Access-Control-Max-Age"] = "600";
+            ctx.Response.StatusCode = StatusCodes.Status204NoContent;
+            return;
+        }
+    }
+    await next();
+});
 
 app.UseSerilogRequestLogging();
 

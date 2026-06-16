@@ -288,6 +288,12 @@ module "backend_app" {
     # surfaces via `GET /api/namespaces/identity` so the onboarding wizard
     # can populate the `az role assignment create` runbook block.
     WORKLOAD_PRINCIPAL_ID = module.workload_identity.principal_id
+
+    # Browser-fetch CORS allowlist for the SPA's deployed origin. See
+    # dev/main.tf for the design rationale (we construct the FQDN directly
+    # from the app name + env default domain to avoid a backend ↔ frontend
+    # module dependency cycle).
+    Cors__AllowedOrigins__0 = "https://${local.frontend_app_name}.${module.container_apps_env.default_domain}"
   }
 
   secret_env_vars = {

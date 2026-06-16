@@ -352,6 +352,17 @@ module "backend_app" {
     # workload-identity module exposes this output and the value never
     # rotates over the UAMI's lifetime.
     WORKLOAD_PRINCIPAL_ID = module.workload_identity.principal_id
+
+    # Browser-fetch CORS allowlist. Backend + frontend each get their own
+    # Container Apps FQDN, so every request from the SPA to the API is a
+    # cross-origin call and Edge/Chrome will preflight write methods. The
+    # backend's raw CORS middleware (Program.cs) merges this allowlist
+    # with built-in localhost defaults. We construct the FQDN directly
+    # from the app name + env default domain instead of consuming
+    # `module.frontend_app.fqdn_url` to avoid a backend ↔ frontend module
+    # dependency cycle (frontend already depends on backend for
+    # `NEXT_PUBLIC_API_BASE_URL`).
+    Cors__AllowedOrigins__0 = "https://${local.frontend_app_name}.${module.container_apps_env.default_domain}"
   }
 
   secret_env_vars = {
