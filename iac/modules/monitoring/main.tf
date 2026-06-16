@@ -18,7 +18,14 @@ module "log_analytics" {
   location                                  = var.location
   log_analytics_workspace_retention_in_days = var.retention_in_days
   log_analytics_workspace_sku               = "PerGB2018"
-  tags                                      = var.tags
+
+  # Pinned explicit so any out-of-band drift surfaces at `tofu plan`
+  # time. See variables.tf for the full rationale (AMPLS is the only
+  # supported way to disable these).
+  log_analytics_workspace_internet_ingestion_enabled = var.internet_ingestion_enabled
+  log_analytics_workspace_internet_query_enabled     = var.internet_query_enabled
+
+  tags = var.tags
 }
 
 module "application_insights" {
@@ -33,7 +40,15 @@ module "application_insights" {
   # Spec 005 / Q1c / research §6 — MUST stay `false`. See variables.tf and
   # README.md § Local authentication for the full rationale.
   local_authentication_disabled = var.local_authentication_disabled
-  tags                          = var.tags
+
+  # Pinned explicit so any out-of-band drift surfaces at `tofu plan`
+  # time. AI ingestion can technically be reachable when LAW ingestion
+  # is disabled, but the telemetry would land at AI and then drop at
+  # the LAW boundary — they MUST stay in lockstep.
+  internet_ingestion_enabled = var.internet_ingestion_enabled
+  internet_query_enabled     = var.internet_query_enabled
+
+  tags = var.tags
 }
 
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {

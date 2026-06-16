@@ -52,3 +52,31 @@ variable "local_authentication_disabled" {
   type        = bool
   default     = false
 }
+
+variable "internet_ingestion_enabled" {
+  description = <<-EOT
+    Controls whether the Log Analytics Workspace AND the Application Insights
+    component accept telemetry from the public internet. MUST remain `true`
+    unless an Azure Monitor Private Link Scope (AMPLS) + private endpoint +
+    private DNS zone are wired up — without that triad, disabling this
+    silently drops EVERY ingestion (backend OTel + frontend AI JavaScript
+    SDK + every diagnostic-setting writer in the tenant), with NO
+    client-visible error. Locked-in explicitly so any out-of-band drift
+    surfaces at `tofu plan` time.
+  EOT
+  type        = bool
+  default     = true
+}
+
+variable "internet_query_enabled" {
+  description = <<-EOT
+    Controls whether the Log Analytics Workspace AND the Application Insights
+    component accept query traffic from the public internet (Azure portal
+    KQL, Azure Monitor REST API, SDK-based query clients). MUST remain
+    `true` unless an Azure Monitor Private Link Scope (AMPLS) is wired up
+    for the operator + on-call paths. Locked-in explicitly so any
+    out-of-band drift surfaces at `tofu plan` time.
+  EOT
+  type        = bool
+  default     = true
+}
