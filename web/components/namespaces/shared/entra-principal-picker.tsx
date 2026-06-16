@@ -88,7 +88,7 @@ export function EntraPrincipalPicker({
     <div className="flex flex-col gap-1.5">
       <span className="text-sm font-medium text-foreground-default">
         {label}
-        {required ? <span className="ml-0.5 text-error-foreground">*</span> : null}
+        {required ? <span className="ms-0.5 text-error-foreground">*</span> : null}
       </span>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -114,7 +114,7 @@ export function EntraPrincipalPicker({
               ) : null}
               <span className="truncate">{triggerLabel}</span>
             </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
+            <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-60" aria-hidden="true" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">

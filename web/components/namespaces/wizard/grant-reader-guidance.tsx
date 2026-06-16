@@ -102,7 +102,7 @@ export function GrantReaderGuidance({ azureResourceId }: GrantReaderGuidanceProp
                 aria-label="Copy az role assignment command"
                 data-testid="grant-reader-guidance-copy"
               >
-                <Copy className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+                <Copy className="me-1 h-3.5 w-3.5" aria-hidden="true" />
                 {copied ? "Copied!" : "Copy command"}
               </Button>
               {identity.data?.runbookUrl ? (
@@ -114,7 +114,7 @@ export function GrantReaderGuidance({ azureResourceId }: GrantReaderGuidanceProp
                     data-testid="grant-reader-guidance-runbook"
                   >
                     Runbook
-                    <ExternalLink className="ml-1 h-3.5 w-3.5" aria-hidden="true" />
+                    <ExternalLink className="ms-1 h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 </Button>
               ) : null}

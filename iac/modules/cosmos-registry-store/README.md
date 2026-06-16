@@ -27,6 +27,7 @@ See [`specs/006-service-bus-registry-core/data-model.md` §4.1](../../../specs/0
 
 | Name | Type |
 | ---- | ---- |
+| [azurerm_cosmosdb_sql_container.namespace_validation_runs](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cosmosdb_sql_container) | resource |
 | [azurerm_cosmosdb_sql_container.registry_audit](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cosmosdb_sql_container) | resource |
 | [azurerm_cosmosdb_sql_container.registry_entities](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cosmosdb_sql_container) | resource |
 | [azurerm_cosmosdb_sql_container.registry_entities_leases](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/cosmosdb_sql_container) | resource |
@@ -42,6 +43,7 @@ See [`specs/006-service-bus-registry-core/data-model.md` §4.1](../../../specs/0
 | <a name="input_entities_container_name"></a> [entities\_container\_name](#input\_entities\_container\_name) | Name of the registry-entities container. Partition key /environment. | `string` | `"registry-entities"` | no |
 | <a name="input_entity_default_ttl_seconds"></a> [entity\_default\_ttl\_seconds](#input\_entity\_default\_ttl\_seconds) | Default TTL on the registry-entities container. `-1` enables per-item TTL so the tombstone-then-delete pattern (research §10) can self-expire markers. Set to `0` (off) to disable per-item TTL — only do this in a future ops spec that replaces the tombstone approach. | `number` | `-1` | no |
 | <a name="input_leases_container_name"></a> [leases\_container\_name](#input\_leases\_container\_name) | Name of the Cosmos change-feed lease container for the indexer (research §17). Partition key /id, required by the change-feed trigger. | `string` | `"registry-entities-leases"` | no |
+| <a name="input_validation_runs_container_name"></a> [validation\_runs\_container\_name](#input\_validation\_runs\_container\_name) | Name of the namespace-validation-runs container (spec 008). Partition key /namespaceId. Append-only writes; indefinite retention in v1. | `string` | `"namespace-validation-runs"` | no |
 
 ## Outputs
 
@@ -53,4 +55,6 @@ See [`specs/006-service-bus-registry-core/data-model.md` §4.1](../../../specs/0
 | <a name="output_entities_container_name"></a> [entities\_container\_name](#output\_entities\_container\_name) | Name of the registry-entities container. Consumed by CosmosRegistryOptions.EntitiesContainer. |
 | <a name="output_leases_container_id"></a> [leases\_container\_id](#output\_leases\_container\_id) | ARM resource id of the leases container. |
 | <a name="output_leases_container_name"></a> [leases\_container\_name](#output\_leases\_container\_name) | Name of the change-feed lease container. |
+| <a name="output_validation_runs_container_id"></a> [validation\_runs\_container\_id](#output\_validation\_runs\_container\_id) | ARM resource id of the namespace-validation-runs container. |
+| <a name="output_validation_runs_container_name"></a> [validation\_runs\_container\_name](#output\_validation\_runs\_container\_name) | Name of the namespace-validation-runs container. Consumed by CosmosRegistryOptions.ValidationRunsContainer (spec 008). |
 <!-- END_TF_DOCS -->

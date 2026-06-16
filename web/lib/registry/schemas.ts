@@ -143,6 +143,14 @@ export const auditEventTypeSchema = z.enum([
   "Updated",
   "Deleted",
   "StatusChanged",
+  // Spec 008 (T149) — emitted only on Onboarded-source namespace documents.
+  // The registry-audit Cosmos container stores both spec-006 and spec-008
+  // events side-by-side; consumers discriminate via eventType.
+  "NamespaceOnboarded",
+  "NamespaceMetadataUpdated",
+  "NamespaceOwnershipUpdated",
+  "NamespaceLifecycleTransitioned",
+  "NamespaceValidationExecuted",
 ]);
 export type AuditEventType = z.infer<typeof auditEventTypeSchema>;
 

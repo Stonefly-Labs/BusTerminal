@@ -97,12 +97,11 @@ function FieldBody({
     return m ? m[1] : null;
   }, [value]);
 
-  // Debounced duplicate probe. We only fire once the format passes.
+  // Debounced duplicate probe. We only fire once the format passes; if the
+  // value changes back to an invalid format the stale `duplicateMessage` is
+  // ignored by the derived state below (gated on `formatResult.success`).
   useEffect(() => {
-    if (!formatResult.success) {
-      setDuplicateMessage(null);
-      return;
-    }
+    if (!formatResult.success) return;
     const handle = window.setTimeout(async () => {
       try {
         const token = await getToken();
@@ -110,11 +109,11 @@ function FieldBody({
           { q: value, pageSize: 1 },
           token ? { accessToken: token } : {},
         );
-        if (page.items.length > 0) {
-          setDuplicateMessage("This Azure Service Bus namespace is already onboarded.");
-        } else {
-          setDuplicateMessage(null);
-        }
+        setDuplicateMessage(
+          page.items.length > 0
+            ? "This Azure Service Bus namespace is already onboarded."
+            : null,
+        );
       } catch {
         // Best-effort — backend will hard-block on register if duplicate.
         setDuplicateMessage(null);
@@ -122,6 +121,8 @@ function FieldBody({
     }, 350);
     return () => window.clearTimeout(handle);
   }, [value, formatResult.success, getToken]);
+
+  const effectiveDuplicateMessage = formatResult.success ? duplicateMessage : null;
 
   // Cross-tenant heuristic: when the user's MSAL `tid` claim is known AND the
   // ARM id's subscription has been hit before in another tenant, we can't
@@ -143,12 +144,12 @@ function FieldBody({
         ?? "Azure Resource ID does not match the canonical Service Bus namespace pattern.";
       return { state: "error", message: issue };
     }
-    if (duplicateMessage) {
-      return { state: "error", message: duplicateMessage };
+    if (effectiveDuplicateMessage) {
+      return { state: "error", message: effectiveDuplicateMessage };
     }
     if (crossTenantHint) return crossTenantHint;
     return { state: "ok" };
-  }, [value, formatResult, duplicateMessage, crossTenantHint]);
+  }, [value, formatResult, effectiveDuplicateMessage, crossTenantHint]);
 
   useEffect(() => {
     onValidationStateChange?.(state);

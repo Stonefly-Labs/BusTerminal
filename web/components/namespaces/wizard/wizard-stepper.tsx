@@ -53,7 +53,7 @@ export function WizardStepper({ steps, currentIndex, onStepClick }: WizardSteppe
                   disabled={!isClickable}
                   onClick={isClickable ? () => onStepClick?.(index) : undefined}
                   className={cn(
-                    "flex flex-1 items-center gap-3 rounded-md p-2 text-left",
+                    "flex flex-1 items-center gap-3 rounded-md p-2 text-start",
                     "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--focus-ring-color)",
                     isClickable
                       ? "cursor-pointer hover:bg-surface-muted"

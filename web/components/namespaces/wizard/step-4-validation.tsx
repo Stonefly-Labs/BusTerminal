@@ -12,7 +12,7 @@
  * Re-runs validation only on validation-relevant field change per FR-003.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useFormContext } from "react-hook-form";
 import { useMutation } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Loader2, XCircle } from "lucide-react";
@@ -94,7 +94,7 @@ export function Step4Validation({ goNext, goBack, setValidationRun, validationRu
         >
           {runMutation.isPending ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              <Loader2 className="me-2 h-4 w-4 animate-spin" aria-hidden="true" />
               Running validation
             </>
           ) : validationRun ? (
@@ -208,7 +208,7 @@ function CheckRow({ check }: { readonly check: ValidationCheckResult }) {
         <p className="text-xs text-foreground-muted">
           {check.reason}
           {check.reasonCategory !== "Ok" ? (
-            <span className="ml-1">
+            <span className="ms-1">
               (<code className="font-mono">{remediationCategory(check.reasonCategory)}</code>)
             </span>
           ) : null}
