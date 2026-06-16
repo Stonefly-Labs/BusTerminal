@@ -93,22 +93,27 @@ variable "tags" {
 
 variable "platform_role_ids" {
   description = <<-EOT
-    Stable role_id GUIDs for the four BusTerminal platform app roles declared
+    Stable role_id GUIDs for the BusTerminal platform app roles declared
     on the API app registration. Entra ID treats `role_id` as the identity of
     the role; once a value is assigned, it must never change (assignments
     reference it). Generate once with `uuidgen` and commit; wire from CI via
     `TF_VAR_platform_role_ids` (JSON object).
+
+    Spec 003 declares `admin`, `operator`, `reader`, `developer`. Spec 008 adds
+    `namespace_administrator` for namespace-onboarding write authorization
+    (see `specs/008-namespace-onboarding/contracts/outputs-contract.md §1.1`).
   EOT
   type = object({
-    admin     = string
-    operator  = string
-    reader    = string
-    developer = string
+    admin                   = string
+    operator                = string
+    reader                  = string
+    developer               = string
+    namespace_administrator = string
   })
 
   validation {
     condition = alltrue([
-      for v in [var.platform_role_ids.admin, var.platform_role_ids.operator, var.platform_role_ids.reader, var.platform_role_ids.developer] :
+      for v in [var.platform_role_ids.admin, var.platform_role_ids.operator, var.platform_role_ids.reader, var.platform_role_ids.developer, var.platform_role_ids.namespace_administrator] :
       can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", v))
     ])
     error_message = "Every platform_role_ids.* value must be a UUID."

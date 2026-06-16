@@ -75,8 +75,8 @@
     },
     "source": {
       "type": "string",
-      "enum": ["Manual"],
-      "description": "FR-004. 'Discovered' is reserved for a future automatic-discovery spec and MUST NOT appear in this slice."
+      "enum": ["Manual", "Onboarded"],
+      "description": "FR-004. 'Manual' = spec-006 polymorphic create. 'Onboarded' = spec-008 namespace onboarding wizard (additive; only appears on Namespace entities with validation-verified provenance). 'Discovered' remains reserved for a future automatic-discovery spec and MUST NOT appear in either slice."
     },
     "azureResourceId": {
       "type": ["string", "null"],

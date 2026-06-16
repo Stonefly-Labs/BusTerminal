@@ -77,6 +77,19 @@ public static class UpdateEndpoint
                 context.Request.Path);
         }
 
+        // Spec 008 / research §7. Onboarded-source namespaces are owned by the
+        // /api/namespaces surface; the spec-006 polymorphic PUT does not carry
+        // the structured ownership block and would obliterate spec-008 fields.
+        // Reject with a 409 that redirects the caller to the typed endpoint.
+        if (current.Source == RegistrySource.Onboarded)
+        {
+            return RegistryProblemFactory.Conflict(
+                "OnboardedNamespaceWriteNotPermitted",
+                "Onboarded namespace writes are not permitted on /api/registry",
+                "This namespace was onboarded via the spec-008 wizard and is read-only through the polymorphic registry surface. Use /api/namespaces/{id}/metadata for metadata edits or /api/namespaces/{id}/ownership for ownership edits.",
+                $"/api/namespaces/{current.Id:D}/metadata");
+        }
+
         // Immutables: entityType, createdAtUtc, environment, source.
         if (request.EntityType != current.EntityType)
         {

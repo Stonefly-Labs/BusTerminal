@@ -18,8 +18,14 @@ variable "role_definitions" {
   description = <<-EOT
     Map of platform role definitions to declare on the target app registration.
     Each key is a stable role nickname (e.g. `admin`, `operator`, `reader`,
-    `developer`); each value carries the on-wire role claim value, display
-    metadata, and the stable role GUID used as the resource's role_id.
+    `developer`, `namespace-administrator`); each value carries the on-wire
+    role claim value, display metadata, and the stable role GUID used as the
+    resource's role_id.
+
+    Spec 003 declares the four baseline roles (Admin / Operator / Reader /
+    Developer). Spec 008 adds a fifth role (NamespaceAdministrator) gated
+    on namespace-onboarding mutations — see
+    `specs/008-namespace-onboarding/contracts/outputs-contract.md §1.1`.
   EOT
   type = map(object({
     role_id              = string
@@ -30,8 +36,8 @@ variable "role_definitions" {
   }))
 
   validation {
-    condition     = length(var.role_definitions) == 4
-    error_message = "role_definitions must contain exactly four entries (Admin, Operator, Reader, Developer)."
+    condition     = length(var.role_definitions) >= 4 && length(var.role_definitions) <= 5
+    error_message = "role_definitions must contain 4 entries (spec 003 baseline) or 5 entries (spec 008 adds NamespaceAdministrator)."
   }
 
   validation {

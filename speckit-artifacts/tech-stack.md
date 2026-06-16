@@ -22,6 +22,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Dependency Injection | **Built-in .NET DI container** | Third-party containers only with documented justification. |
 | API contracts | **OpenAPI** | Generated and maintained for every public API surface (Constitution Principle II — API-First). |
 | HTTP request validation | **FluentValidation 11.10.x** | Boundary validation on API endpoints (HTTP request DTOs). Complements the spec-004 `ValidationEngine` (canonical-domain validation at write time). Invoked manually from Minimal-API handlers — `AddFluentValidationAutoValidation` is MVC-only. Introduced by spec 006. |
+| Azure ARM management plane | **`Azure.ResourceManager.ServiceBus` 1.x** | Authenticated via `DefaultAzureCredential` (workload UAMI). Used by spec 008's namespace-onboarding validation runner for Existence / Accessibility / RequiredPermissions / IdentityAuthorization / ApiReachability checks. Authoritative source for cross-tenant guard via subscription→tenant resolution. **No connection strings or SAS tokens** — FR-017 / FR-033 / SC-007 forbid them across the namespace-onboarding surface. |
 | State | **Stateless services where practical** | |
 
 **Cross-cutting rules**

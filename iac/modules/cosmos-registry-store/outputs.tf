@@ -30,3 +30,14 @@ output "leases_container_id" {
   description = "ARM resource id of the leases container."
   value       = azurerm_cosmosdb_sql_container.registry_entities_leases.id
 }
+
+# Spec 008 / T007.
+output "validation_runs_container_name" {
+  description = "Name of the namespace-validation-runs container. Consumed by CosmosRegistryOptions.ValidationRunsContainer (spec 008)."
+  value       = azurerm_cosmosdb_sql_container.namespace_validation_runs.name
+}
+
+output "validation_runs_container_id" {
+  description = "ARM resource id of the namespace-validation-runs container."
+  value       = azurerm_cosmosdb_sql_container.namespace_validation_runs.id
+}

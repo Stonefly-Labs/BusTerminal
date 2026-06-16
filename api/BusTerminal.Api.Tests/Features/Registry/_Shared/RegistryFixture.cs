@@ -56,6 +56,7 @@ public sealed class RegistryFixture : IAsyncLifetime
                 ["CosmosRegistry:EntitiesContainer"] = System.Environment.GetEnvironmentVariable("BUSTERMINAL_TEST_REGISTRY_CONTAINER") ?? "registry-entities",
                 ["CosmosRegistry:AuditContainer"] = System.Environment.GetEnvironmentVariable("BUSTERMINAL_TEST_AUDIT_CONTAINER") ?? "registry-audit",
                 ["CosmosRegistry:LeasesContainer"] = "registry-entities-leases",
+                ["CosmosRegistry:ValidationRunsContainer"] = System.Environment.GetEnvironmentVariable("BUSTERMINAL_TEST_VALIDATION_RUNS_CONTAINER") ?? "namespace-validation-runs",
                 ["AiSearch:Endpoint"] = System.Environment.GetEnvironmentVariable("BUSTERMINAL_TEST_SEARCH_ENDPOINT") ?? string.Empty,
                 ["AiSearch:IndexName"] = "registry-entities-v1",
             })

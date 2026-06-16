@@ -37,6 +37,7 @@ describe("role-permission-matrix", () => {
         "BusTerminal.Operator",
         "BusTerminal.Reader",
         "BusTerminal.Developer",
+        "BusTerminal.NamespaceAdministrator",
       ].sort(),
     );
   });

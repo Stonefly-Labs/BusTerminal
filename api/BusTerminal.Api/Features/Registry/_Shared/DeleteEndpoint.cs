@@ -47,6 +47,18 @@ public static class DeleteEndpoint
                 context.Request.Path);
         }
 
+        // Spec 008 / FR-026 + research §7. Onboarded-source namespaces have no
+        // physical-delete surface. Direct callers MUST use the lifecycle Archive
+        // action instead so the audit trail remains intact.
+        if (current.Source == RegistrySource.Onboarded)
+        {
+            return RegistryProblemFactory.Conflict(
+                "OnboardedNamespaceDeleteNotPermitted",
+                "Onboarded namespaces cannot be physically deleted",
+                "This namespace was onboarded via the spec-008 wizard. Use POST /api/namespaces/{id}/lifecycle with action=archive to remove it from active use.",
+                $"/api/namespaces/{current.Id:D}/lifecycle");
+        }
+
         // FR-009 — block when children exist.
         var blockingChildren = await childCountChecker.CheckAsync(
             current.Id, current.Environment, context.Request.Path, cancellationToken)

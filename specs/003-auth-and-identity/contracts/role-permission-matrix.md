@@ -116,3 +116,15 @@ Changes to the matrix are spec changes, not implementation changes. To change:
 4. Re-run the role-probe integration tests; all five probes × four roles × no-role combinations (25 cases) must pass with the new matrix.
 
 The matrix is intentionally conservative: when in doubt, prefer the smaller authorized-role set. Loosening is easier than tightening once consumers depend on a permission.
+
+---
+
+## Cross-spec extensions (informative)
+
+Subsequent specs are permitted to define **additional, domain-scoped roles** outside this matrix. These roles are additive — they do not alter the semantics of the four core roles defined above — and they exist to gate domain-specific write surfaces that are intentionally stricter than the spec-006 "any authenticated tenant user may write" stance for that domain.
+
+| Role | Defined by | Claim | Purpose |
+|---|---|---|---|
+| `Namespace Administrator` | Spec 008 (FR-032 clarified decision) | `BusTerminal.NamespaceAdministrator` | Required for all namespace-onboarding writes (POST /api/namespaces, PUT /api/namespaces/{id}/metadata, PUT /api/namespaces/{id}/ownership, POST /api/namespaces/{id}/lifecycle, POST /api/namespaces/{id}/validation-runs). Reads remain AuthN-only. |
+
+Cross-spec roles are declared via `iac/modules/app-registration-roles/` in the same Entra app as the four core roles; the policy registration lives next to the slice that owns it (e.g., `BusTerminal.Api.Features.Namespaces._Shared.NamespacePolicies`). Adding a cross-spec role does NOT require a change to this matrix's core table or its five operation classes — the row above is a directory of in-tree extensions, not a structural change to the contract.

@@ -27,6 +27,11 @@ public sealed class CosmosRegistryOptions
     [Required]
     public string LeasesContainer { get; set; } = "registry-entities-leases";
 
+    // Spec 008 / data-model.md §3 — append-only ValidationRun records
+    // (PK /namespaceId, no TTL, lowest autoscale RU band per research §6).
+    [Required]
+    public string ValidationRunsContainer { get; set; } = "namespace-validation-runs";
+
     // Tombstone TTL in seconds — research §10. Cosmos item-level TTL deletes
     // the tombstone marker automatically; the indexer has the window between
     // write and TTL expiry to propagate the delete to AI Search.
@@ -53,6 +58,10 @@ internal sealed class CosmosRegistryOptionsValidator : IValidateOptions<CosmosRe
         if (string.IsNullOrWhiteSpace(options.LeasesContainer))
         {
             errors.Add("CosmosRegistry:LeasesContainer must be set.");
+        }
+        if (string.IsNullOrWhiteSpace(options.ValidationRunsContainer))
+        {
+            errors.Add("CosmosRegistry:ValidationRunsContainer must be set.");
         }
         if (options.TombstoneTtlSeconds < 1)
         {

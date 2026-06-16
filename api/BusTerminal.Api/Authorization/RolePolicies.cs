@@ -38,8 +38,24 @@ public static class RolePolicies
                 OperationClassPolicies.CanUseDeveloperTooling,
                 policy => policy.RequireRole(
                     PlatformRoleClaims.Developer,
-                    PlatformRoleClaims.Admin));
+                    PlatformRoleClaims.Admin))
+            // Spec 008 / research §15. Strictly tighter than spec 006's
+            // permissive "any authenticated tenant user may write" stance —
+            // namespace mutation requires explicit attestation via the
+            // namespace-administrator App Role. Admin is intentionally NOT
+            // permitted here: Admin is the platform-administration capability
+            // surface and is overpowered for routine namespace onboarding;
+            // operators must hold the dedicated role.
+            .AddPolicy(
+                NamespacePolicies.CanAdministerNamespaces,
+                policy => policy.RequireRole(
+                    PlatformRoleClaims.NamespaceAdministrator));
 
         return services;
     }
+}
+
+public static class NamespacePolicies
+{
+    public const string CanAdministerNamespaces = "CanAdministerNamespaces";
 }

@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using BusTerminal.Api.Features.Namespaces.Inventory;
+using BusTerminal.Api.Features.Namespaces.Shared;
 using BusTerminal.Api.Features.Registry.Shared;
 
 namespace BusTerminal.Api.Tests.Features.Registry.Fakes;
@@ -31,6 +33,14 @@ public sealed class InMemoryRegistryEntityStore : IRegistryEntityStore
             return Task.FromResult<RegistryEntity?>(existing.Entity);
         }
         return Task.FromResult<RegistryEntity?>(null);
+    }
+
+    public Task<RegistryEntity?> FindByAzureResourceIdAsync(string azureResourceId, CancellationToken cancellationToken)
+    {
+        var match = _items.Values
+            .Select(s => s.Entity)
+            .FirstOrDefault(e => string.Equals(e.AzureResourceId, azureResourceId, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(match);
     }
 
     public Task<RegistryEntityPage> ListAsync(RegistryEntityListQuery query, CancellationToken cancellationToken)
@@ -139,6 +149,77 @@ public sealed class InMemoryRegistryEntityStore : IRegistryEntityStore
             .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         return Task.FromResult<IReadOnlyList<string>>(envs);
+    }
+
+    public Task<NamespaceInventoryPage> ListOnboardedAsync(
+        NamespaceInventoryQuery query,
+        CancellationToken cancellationToken)
+    {
+        var items = _items.Values
+            .Select(s => s.Entity)
+            .OfType<RegistryNamespace>()
+            .Where(n => n.Source == RegistrySource.Onboarded);
+
+        if (!string.IsNullOrWhiteSpace(query.Environment))
+        {
+            items = items.Where(n => string.Equals(n.Environment, query.Environment, StringComparison.Ordinal));
+        }
+
+        if (query.LifecycleStatuses is { Count: > 0 })
+        {
+            var set = query.LifecycleStatuses.ToHashSet();
+            items = items.Where(n => n.LifecycleStatus.HasValue && set.Contains(n.LifecycleStatus.Value));
+        }
+
+        if (query.ValidationStatuses is { Count: > 0 })
+        {
+            var set = query.ValidationStatuses.ToHashSet();
+            items = items.Where(n => n.ValidationStatus.HasValue && set.Contains(n.ValidationStatus.Value));
+        }
+
+        if (!query.IncludeArchived)
+        {
+            items = items.Where(n => n.LifecycleStatus != LifecycleStatus.Archived);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var needle = query.Search;
+            items = items.Where(n =>
+                (n.DisplayName?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (n.BusinessUnit?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false)
+                || n.Name.Contains(needle, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.TagKey) && !string.IsNullOrWhiteSpace(query.TagValue))
+        {
+            items = items.Where(n => n.Tags.Any(t =>
+                string.Equals(t.Key, query.TagKey, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(t.Value, query.TagValue, StringComparison.Ordinal)));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.TagKey))
+        {
+            items = items.Where(n => n.Tags.Any(t =>
+                string.Equals(t.Key, query.TagKey, StringComparison.OrdinalIgnoreCase)));
+        }
+        else if (!string.IsNullOrWhiteSpace(query.TagValue))
+        {
+            items = items.Where(n => n.Tags.Any(t =>
+                string.Equals(t.Value, query.TagValue, StringComparison.Ordinal)));
+        }
+
+        items = query.Sort switch
+        {
+            NamespaceInventorySort.DisplayNameAsc => items.OrderBy(n => n.DisplayName, StringComparer.OrdinalIgnoreCase),
+            NamespaceInventorySort.DisplayNameDesc => items.OrderByDescending(n => n.DisplayName, StringComparer.OrdinalIgnoreCase),
+            NamespaceInventorySort.EnvironmentAsc => items.OrderBy(n => n.Environment, StringComparer.OrdinalIgnoreCase),
+            NamespaceInventorySort.EnvironmentDesc => items.OrderByDescending(n => n.Environment, StringComparer.OrdinalIgnoreCase),
+            NamespaceInventorySort.LastValidatedAtAsc => items.OrderBy(n => n.LastValidatedAtUtc),
+            _ => items.OrderByDescending(n => n.LastValidatedAtUtc),
+        };
+
+        var page = items.Take(query.PageSize).ToArray();
+        return Task.FromResult(new NamespaceInventoryPage(page, ContinuationToken: null));
     }
 
     public void Clear() => _items.Clear();

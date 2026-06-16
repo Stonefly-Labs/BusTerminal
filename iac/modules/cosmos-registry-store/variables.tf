@@ -39,3 +39,16 @@ variable "entity_default_ttl_seconds" {
   type        = number
   default     = -1
 }
+
+# Spec 008 / T007 — new container for namespace validation run history.
+# Partition key `/namespaceId`; append-only writes; indefinite retention in
+# v1 (no TTL) per `specs/008-namespace-onboarding/contracts/outputs-contract.md
+# §1.3` and `research.md §6`. Throughput is account-controlled (the canonical
+# Cosmos account is serverless — see comment block in main.tf — so the
+# contract's `autoscale_min_ru = 1000 / max_ru = 4000` is informational only;
+# serverless RU is billed per-request).
+variable "validation_runs_container_name" {
+  description = "Name of the namespace-validation-runs container (spec 008). Partition key /namespaceId. Append-only writes; indefinite retention in v1."
+  type        = string
+  default     = "namespace-validation-runs"
+}

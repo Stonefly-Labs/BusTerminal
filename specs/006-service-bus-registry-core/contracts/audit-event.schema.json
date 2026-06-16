@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://busterminal.dev/schemas/audit-event.schema.json",
   "title": "AuditEvent",
-  "description": "Append-only audit event recording a create/update/delete/status-change on a registry entity (FR-032..FR-034). One document per event in the registry-audit Cosmos container.",
+  "description": "Append-only audit event recording a create/update/delete/status-change on a registry entity (FR-032..FR-034). One document per event in the registry-audit Cosmos container. Spec 008 (T149) added five additional eventType values + an optional lifecycleReason — see specs/008-namespace-onboarding/contracts/namespace-audit-event.schema.json for the full namespace-onboarding shape (a strict superset that the same container stores side-by-side with spec-006 events; consumers tolerate both via the eventType discriminator).",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "entityId", "entityType", "environment", "eventType", "timestamp", "actor", "changeSummary", "wasForceOverwrite", "correlationId"],
@@ -11,7 +11,21 @@
     "entityId":    { "type": "string", "format": "uuid", "description": "Subject of the change. Cosmos partition key (/entityId)." },
     "entityType":  { "type": "string", "enum": ["Namespace", "Queue", "Topic", "Subscription", "Rule"] },
     "environment": { "type": "string", "minLength": 1 },
-    "eventType":   { "type": "string", "enum": ["Created", "Updated", "Deleted", "StatusChanged"] },
+    "eventType":   {
+      "type": "string",
+      "enum": [
+        "Created",
+        "Updated",
+        "Deleted",
+        "StatusChanged",
+        "NamespaceOnboarded",
+        "NamespaceMetadataUpdated",
+        "NamespaceOwnershipUpdated",
+        "NamespaceLifecycleTransitioned",
+        "NamespaceValidationExecuted"
+      ],
+      "description": "Spec 006 emits Created/Updated/Deleted/StatusChanged on Manual-source documents. Spec 008 (T149) emits the five Namespace* values on Onboarded-source documents. Both share the same registry-audit Cosmos container."
+    },
     "timestamp":   { "type": "string", "format": "date-time" },
     "actor": {
       "type": "object",
@@ -48,6 +62,11 @@
     "correlationId": {
       "type": "string",
       "description": "W3C traceparent trace ID. Links back to the originating frontend trace in App Insights (FR-042, SC-012)."
+    },
+    "lifecycleReason": {
+      "type": ["string", "null"],
+      "maxLength": 1000,
+      "description": "Spec 008 (T149) — populated only on NamespaceLifecycleTransitioned events; the reason note supplied by the namespace administrator at transition time. Null on every other eventType."
     }
   }
 }

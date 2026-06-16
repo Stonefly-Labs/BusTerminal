@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/008/validation-run.json",
+  "title": "ValidationRun",
+  "description": "Append-only record of one BusTerminal namespace validation execution. Persisted in the Cosmos `namespace-validation-runs` container (PK /namespaceId).",
+  "type": "object",
+  "required": [
+    "id", "namespaceId", "executedAtUtc", "executedBy", "executedByDisplayNameSnapshot",
+    "azureResourceIdAtRun", "aggregateStatus", "checkResults", "driftDetected", "driftFields", "totalDurationMs"
+  ],
+  "properties": {
+    "id": { "type": "string", "format": "uuid", "description": "Stable identifier; equals runId everywhere." },
+    "namespaceId": { "type": "string", "format": "uuid", "description": "Foreign key into OnboardedNamespace.id. Partition key path." },
+    "executedAtUtc": { "type": "string", "format": "date-time" },
+    "executedBy": { "type": "string", "format": "uuid", "description": "Entra objectId of the principal that initiated the run." },
+    "executedByDisplayNameSnapshot": { "type": "string", "maxLength": 256 },
+    "azureResourceIdAtRun": {
+      "type": "string",
+      "pattern": "^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.ServiceBus/namespaces/[^/]+$"
+    },
+    "aggregateStatus": { "type": "string", "enum": ["Healthy", "Degraded", "Unhealthy"] },
+    "checkResults": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "$ref": "#/$defs/CheckResult" },
+      "description": "Exactly five entries: Existence, Accessibility, RequiredPermissions, IdentityAuthorization, ApiReachability."
+    },
+    "armResourceSnapshot": {
+      "type": ["object", "null"],
+      "required": ["region", "resourceGroup", "subscriptionId", "capturedAtUtc"],
+      "properties": {
+        "region": { "type": "string" },
+        "resourceGroup": { "type": "string" },
+        "subscriptionId": { "type": "string", "format": "uuid" },
+        "capturedAtUtc": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false,
+      "description": "Captured from ARM when Existence passes; null when Existence fails."
+    },
+    "driftDetected": {
+      "type": "boolean",
+      "description": "True iff armResourceSnapshot differs from the persisted namespace doc's Azure-identifier fields."
+    },
+    "driftFields": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["field", "persistedValue", "observedValue"],
+        "properties": {
+          "field": { "type": "string", "enum": ["region", "resourceGroup", "subscriptionId"] },
+          "persistedValue": { "type": "string" },
+          "observedValue": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "totalDurationMs": { "type": "integer", "minimum": 0 },
+    "_etag": { "type": "string" },
+    "_ts": { "type": "integer" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "CheckResult": {
+      "type": "object",
+      "required": ["name", "outcome", "reason", "reasonCategory", "durationMs"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["Existence", "Accessibility", "RequiredPermissions", "IdentityAuthorization", "ApiReachability"]
+        },
+        "outcome": { "type": "string", "enum": ["Pass", "Fail", "Skipped"] },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "Human-readable. Categorical per FR-035 — no PII, no raw exception text."
+        },
+        "reasonCategory": {
+          "type": "string",
+          "enum": ["Ok", "Timeout", "Unauthorized", "NotFound", "Throttled", "CrossTenant", "Unknown"]
+        },
+        "durationMs": { "type": "integer", "minimum": 0 },
+        "correlationRequestId": {
+          "type": ["string", "null"],
+          "description": "ARM `x-ms-correlation-request-id` header when available."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -440,3 +440,9 @@ jobs:
 
       - name: Gitleaks scan
         run: gitleaks detect --config .gitleaks.toml --redact --no-banner --verbose
+
+      # Spec 008 / T155 / SC-007 — hard-fail on any Azure Service Bus
+      # credential pattern. Belt-and-braces over gitleaks: catches connection
+      # strings, SAS keys, SAS key names, and SAS tokens across the source tree.
+      - name: No Service Bus credentials
+        run: scripts/check-no-servicebus-credentials.sh

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using BusTerminal.Api.Features.Namespaces.Shared;
 using BusTerminal.Api.Features.Registry.Shared;
 
 namespace BusTerminal.Api.Infrastructure.Persistence;
@@ -42,6 +43,28 @@ internal sealed record RegistryEntityDocument
     [JsonPropertyName("metadata")] public JsonElement? Metadata { get; init; }
     [JsonPropertyName("parentId")] public string? ParentId { get; init; }
 
+    // Spec 008 / data-model.md §1.1 — Onboarded-source-only fields. Null on
+    // every Manual document; populated on every Onboarded document. The
+    // namespace-validation-runs container and the structured ownership block
+    // ride on the same `registry-entities` document so spec-006 readers
+    // continue to surface them as additional properties without modification.
+    [JsonPropertyName("displayName")] public string? DisplayName { get; init; }
+    [JsonPropertyName("subscriptionId")] public Guid? SubscriptionId { get; init; }
+    [JsonPropertyName("subscriptionName")] public string? SubscriptionName { get; init; }
+    [JsonPropertyName("resourceGroup")] public string? ResourceGroup { get; init; }
+    [JsonPropertyName("tenantId")] public Guid? TenantId { get; init; }
+    [JsonPropertyName("region")] public string? Region { get; init; }
+    [JsonPropertyName("businessUnit")] public string? BusinessUnit { get; init; }
+    [JsonPropertyName("productOrApplication")] public string? ProductOrApplication { get; init; }
+    [JsonPropertyName("costCenter")] public string? CostCenter { get; init; }
+    [JsonPropertyName("notes")] public string? Notes { get; init; }
+    [JsonPropertyName("lifecycleStatus")] public LifecycleStatus? LifecycleStatus { get; init; }
+    [JsonPropertyName("validationStatus")] public ValidationStatus? ValidationStatus { get; init; }
+    [JsonPropertyName("lastValidationRunId")] public Guid? LastValidationRunId { get; init; }
+    [JsonPropertyName("lastValidatedAtUtc")] public DateTimeOffset? LastValidatedAtUtc { get; init; }
+    [JsonPropertyName("ownership")] public OwnershipBlock? Ownership { get; init; }
+    [JsonPropertyName("onboardingActor")] public OnboardingActor? OnboardingActor { get; init; }
+
     [JsonPropertyName("_isTombstone")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsTombstone { get; init; }
@@ -54,7 +77,7 @@ internal sealed record RegistryEntityDocument
     {
         ArgumentNullException.ThrowIfNull(entity);
 
-        return new RegistryEntityDocument
+        var doc = new RegistryEntityDocument
         {
             Id = entity.Id.ToString("D"),
             EntityType = entity.EntityType,
@@ -77,6 +100,34 @@ internal sealed record RegistryEntityDocument
             ParentId = entity.ParentId?.ToString("D"),
             Etag = entity.Etag,
         };
+
+        // Spec 008 / data-model.md §1.1 — copy Onboarded-source-only fields
+        // from the RegistryNamespace subtype. Null-safe on Manual documents
+        // and on non-namespace entities.
+        if (entity is RegistryNamespace ns)
+        {
+            doc = doc with
+            {
+                DisplayName = ns.DisplayName,
+                SubscriptionId = ns.SubscriptionId,
+                SubscriptionName = ns.SubscriptionName,
+                ResourceGroup = ns.ResourceGroup,
+                TenantId = ns.TenantId,
+                Region = ns.Region,
+                BusinessUnit = ns.BusinessUnit,
+                ProductOrApplication = ns.ProductOrApplication,
+                CostCenter = ns.CostCenter,
+                Notes = ns.Notes,
+                LifecycleStatus = ns.LifecycleStatus,
+                ValidationStatus = ns.ValidationStatus,
+                LastValidationRunId = ns.LastValidationRunId,
+                LastValidatedAtUtc = ns.LastValidatedAtUtc,
+                Ownership = ns.Ownership,
+                OnboardingActor = ns.OnboardingActor,
+            };
+        }
+
+        return doc;
     }
 
     public RegistryEntity ToEntity()
@@ -88,12 +139,32 @@ internal sealed record RegistryEntityDocument
         // Materialize the concrete sub-record matching the discriminator so
         // callers can pattern-match on type. The sub-record constructors all
         // funnel into the base record's positional fields, so the field set
-        // returned here is identical to the persisted shape.
+        // returned here is identical to the persisted shape. Spec-008
+        // Onboarded-source fields ride on init-only properties of
+        // RegistryNamespace — copied separately below the construction call.
         return EntityType switch
         {
             RegistryEntityType.Namespace => new RegistryNamespace(
                 id, Name, Environment, Status, CreatedAtUtc, UpdatedAtUtc, Source,
-                FullyQualifiedName, Description, tags, Owner, AzureResourceId, Metadata, Etag),
+                FullyQualifiedName, Description, tags, Owner, AzureResourceId, Metadata, Etag)
+            {
+                DisplayName = DisplayName,
+                SubscriptionId = SubscriptionId,
+                SubscriptionName = SubscriptionName,
+                ResourceGroup = ResourceGroup,
+                TenantId = TenantId,
+                Region = Region,
+                BusinessUnit = BusinessUnit,
+                ProductOrApplication = ProductOrApplication,
+                CostCenter = CostCenter,
+                Notes = Notes,
+                LifecycleStatus = LifecycleStatus,
+                ValidationStatus = ValidationStatus,
+                LastValidationRunId = LastValidationRunId,
+                LastValidatedAtUtc = LastValidatedAtUtc,
+                Ownership = Ownership,
+                OnboardingActor = OnboardingActor,
+            },
             RegistryEntityType.Queue => new RegistryQueue(
                 id, Name, Environment, Status, CreatedAtUtc, UpdatedAtUtc, Source,
                 parentId ?? throw new InvalidOperationException("Queue document missing parentId."),

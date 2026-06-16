@@ -75,5 +75,7 @@ public class ChildCountCheckerTests
         public Task<RegistryEntity?> FindParentAsync(Guid parentId, RegistryEntityType expectedParentType, string environment, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<string>> ListDistinctEnvironmentsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<RegistryEntity?> FindByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<RegistryEntity?> FindByAzureResourceIdAsync(string azureResourceId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryPage> ListOnboardedAsync(BusTerminal.Api.Features.Namespaces.Inventory.NamespaceInventoryQuery query, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 }

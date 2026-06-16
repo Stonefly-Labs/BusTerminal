@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://busterminal.dev/schemas/008/onboarded-namespace.json",
+  "title": "OnboardedNamespace",
+  "description": "Canonical JSON shape of an Azure Service Bus namespace document that has completed BusTerminal onboarding. Extends spec 006's RegistryNamespace with structured ownership, lifecycle state, validation status, and business metadata. Documents with source = Manual (legacy spec-006) leave the spec-008 fields null.",
+  "type": "object",
+  "required": [
+    "id", "entityType", "source", "name", "displayName", "environment", "status",
+    "azureResourceId", "subscriptionId", "resourceGroup", "tenantId", "region",
+    "lifecycleStatus", "validationStatus", "lastValidationRunId", "lastValidatedAtUtc",
+    "ownership", "onboardingActor", "createdAtUtc", "updatedAtUtc"
+  ],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "entityType": { "type": "string", "const": "Namespace" },
+    "source": { "type": "string", "enum": ["Manual", "Onboarded"] },
+    "name": { "type": "string", "minLength": 6, "maxLength": 50, "pattern": "^[A-Za-z][A-Za-z0-9-]{4,48}[A-Za-z0-9]$" },
+    "fullyQualifiedName": { "type": "string" },
+    "displayName": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "description": { "type": ["string", "null"], "maxLength": 4000 },
+    "environment": { "type": "string", "minLength": 1, "maxLength": 100 },
+    "status": { "type": "string", "enum": ["Active", "Deprecated"] },
+    "azureResourceId": {
+      "type": "string",
+      "pattern": "^/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[^/]+/providers/Microsoft\\.ServiceBus/namespaces/[A-Za-z][A-Za-z0-9-]{4,48}[A-Za-z0-9]$"
+    },
+    "subscriptionId": { "type": "string", "format": "uuid" },
+    "subscriptionName": { "type": ["string", "null"], "maxLength": 256 },
+    "resourceGroup": { "type": "string", "minLength": 1, "maxLength": 90 },
+    "tenantId": { "type": "string", "format": "uuid" },
+    "region": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "businessUnit": { "type": ["string", "null"], "maxLength": 200 },
+    "productOrApplication": { "type": ["string", "null"], "maxLength": 200 },
+    "costCenter": { "type": ["string", "null"], "maxLength": 100 },
+    "notes": { "type": ["string", "null"], "maxLength": 4000 },
+    "tags": {
+      "type": "array",
+      "maxItems": 50,
+      "items": { "$ref": "#/$defs/Tag" }
+    },
+    "lifecycleStatus": {
+      "type": "string",
+      "enum": ["Active", "Disabled", "Archived"],
+      "description": "PendingValidation is transient-only and never appears on persisted documents (FR-022)."
+    },
+    "validationStatus": { "type": "string", "enum": ["Healthy", "Degraded", "Unhealthy"] },
+    "lastValidationRunId": { "type": ["string", "null"], "format": "uuid" },
+    "lastValidatedAtUtc": { "type": ["string", "null"], "format": "date-time" },
+    "ownership": { "$ref": "ownership-assignment.schema.json#/$defs/OwnershipBlock" },
+    "onboardingActor": {
+      "type": "object",
+      "required": ["objectId", "displayNameSnapshot", "onboardedAtUtc"],
+      "properties": {
+        "objectId": { "type": "string", "format": "uuid" },
+        "displayNameSnapshot": { "type": "string", "maxLength": 256 },
+        "onboardedAtUtc": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "metadata": { "type": ["object", "null"], "description": "Extensible metadata bag (per spec 006 FR-002). ≤ 100KB serialized." },
+    "parentId": { "type": ["null"], "description": "Namespaces are roots; parentId is always null." },
+    "createdAtUtc": { "type": "string", "format": "date-time" },
+    "updatedAtUtc": { "type": "string", "format": "date-time" },
+    "_etag": { "type": "string" },
+    "_ts": { "type": "integer" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "Tag": {
+      "type": "object",
+      "required": ["key", "value"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "value": { "type": "string", "maxLength": 1024 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "source": { "const": "Onboarded" } } },
+      "then": {
+        "required": [
+          "subscriptionId", "resourceGroup", "tenantId", "region",
+          "lifecycleStatus", "validationStatus", "lastValidationRunId",
+          "lastValidatedAtUtc", "ownership", "onboardingActor"
+        ]
+      }
+    }
+  ]
+}
