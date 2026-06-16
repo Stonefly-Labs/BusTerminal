@@ -185,9 +185,17 @@ resource "time_sleep" "wait_for_kv_rbac_propagation" {
 # idempotent — they're a no-op once the resource is in state — and can stay
 # in tree until the team forgets why they exist (or be removed in a later
 # cleanup commit).
+#
+# Note (2026-06-15): the original `pipeline_kv_secrets_officer` role
+# assignment (`d78aec1f-…`) was deleted out-of-band between 2026-06-14 18:07Z
+# and 21:59Z (root cause unknown — surfaced as PR #61's iac-validate plan-job
+# 403 on `kv-bt-dev-chdev01/secrets/ApplicationInsightsConnectionString`).
+# The id below points at the replacement assignment (`ce04803c-…`) created via
+# `az role assignment create` during PR #61's CI remediation; same role +
+# principal + scope as the IaC declaration so the import is a no-op adoption.
 import {
   to = azurerm_role_assignment.pipeline_kv_secrets_officer
-  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.Authorization/roleAssignments/d78aec1f-2553-464e-9be2-bd382da9818c"
+  id = "/subscriptions/08b37dc0-0011-4841-84c0-0349a5c65883/resourceGroups/rg-bt-dev/providers/Microsoft.Authorization/roleAssignments/ce04803c-dc74-4afc-93ad-95056a79cbb8"
 }
 
 import {
