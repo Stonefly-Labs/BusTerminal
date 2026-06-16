@@ -10,7 +10,7 @@ import { API_SCOPE_REQUEST } from "@/lib/auth/scopes";
 
 function SignInRedirect() {
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") ?? "/platform-status";
+  const callbackUrl = params.get("callbackUrl") ?? "/home";
   const isAuthenticated = useIsAuthenticated();
   const { instance, inProgress } = useMsal();
 

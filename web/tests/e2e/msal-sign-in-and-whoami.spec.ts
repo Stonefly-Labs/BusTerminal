@@ -83,8 +83,12 @@ test.describe("MSAL sign-in + /whoami", () => {
 
       await page.goto("/");
 
-      // After sign-in, the SPA routes to /platform-status (the (authenticated)
-      // layout's default landing when roles are non-empty).
+      // After sign-in, the SPA routes to /home (the default landing as of
+      // the home-dashboard PR). This test exercises /platform-status
+      // specifically — navigate there explicitly so the assertions below
+      // continue to target identity-card / correlation-card on that page.
+      await page.waitForURL(/\/home/, { timeout: 30_000 });
+      await page.goto("/platform-status");
       await page.waitForURL(/\/platform-status/, { timeout: 30_000 });
 
       // /platform-status fetches /whoami and renders the identity + roles +

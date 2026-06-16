@@ -1,7 +1,7 @@
 "use client";
 
 import type { Route } from "next";
-import { Database, Layers, type LucideIcon } from "lucide-react";
+import { Database, Home as HomeIcon, Layers, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -27,6 +27,7 @@ interface NavEntry {
 }
 
 const NAV_ENTRIES: readonly NavEntry[] = [
+  { href: "/home" as Route, label: "Home", operationClass: "Read", icon: HomeIcon },
   { href: "/platform-status" as Route, label: "Platform status", operationClass: "Read" },
   {
     href: "/registry" as Route,
