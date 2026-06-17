@@ -139,6 +139,20 @@ jobs:
           echo "frontend=${{ steps.acr.outputs.login_server }}/busterminal/web:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
           echo "indexer=${{ steps.acr.outputs.login_server }}/busterminal/indexer:${{ steps.names.outputs.image_tag }}" >> "$GITHUB_OUTPUT"
 
+      # Re-auth before ACR login: the GitHub federated JWT issued by the
+      # initial `azure/login` is valid for ~5 min, but the preceding
+      # `tofu apply --infra-only` regularly runs longer than that. When the
+      # assertion expires, `az acr login` cannot exchange for an ACR
+      # refresh token and falls back to admin credentials — which are
+      # disabled on the ACR by design (per BT-IAC security stance). A
+      # second `azure/login` requests a fresh JWT just before push.
+      - name: Azure login (refresh before ACR push)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
       - name: ACR login (managed-identity)
         run: az acr login --name "${{ steps.acr.outputs.name }}"
 
