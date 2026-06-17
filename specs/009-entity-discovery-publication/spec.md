@@ -10,6 +10,15 @@
 
 > **Numbering note**: The user-supplied title labeled this as "Spec 008", but `specs/008-namespace-onboarding` already exists. This spec has been assigned the next available sequential slot, `009`, and renamed accordingly. The dependency reference to "Spec 007 – Namespace Onboarding Fixes and Improvements" in the source input maps to the existing `008-namespace-onboarding` directory.
 
+## Clarifications
+
+### Session 2026-06-17
+
+- Q: For a "large" namespace (500 queues, 500 topics, 5,000 subscriptions, 5,000 rules), what is the maximum acceptable duration of a single discovery run? → A: ≤ 5 minutes (aggressive, near-interactive feel; requires significant parallelism in the discovery worker)
+- Q: How should the discovery worker handle transient Azure API failures (HTTP 429 throttling, 503, network timeouts) encountered mid-run? → A: Bounded retry/backoff on transient errors (small attempt budget with exponential backoff, e.g., up to 3 attempts per call); fail the run only on persistent errors or authorization failures. Total retry overhead MUST stay within the 5-minute SC-005 budget.
+- Q: When a discovery request arrives for a namespace that already has a run in flight, what should the system do? → A: Coalesce — return a reference to the in-flight run as a successful idempotent response; do not start a second run.
+- Q: What is the cardinality of the relationship between a published entity and a registered service? → A: Many-to-many — an entity may be associated with any number of services, and each association carries a role label drawn from a v1 taxonomy of `Owner` (governance-accountable), `Producer` (publishes messages to the entity), and `Consumer` (receives messages from the entity). Any number of services may hold any role; multiple Owners are permitted (conflict resolution is left to organizational convention).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Discover and publish Service Bus entities for a registered namespace (Priority: P1)
@@ -39,7 +48,7 @@ Any authenticated registry user opens the entity catalog, searches by entity nam
 
 **Acceptance Scenarios**:
 
-1. **Given** a catalog containing entities from multiple namespaces, **When** an authenticated user searches by partial entity name, **Then** matching entities across all namespaces appear in the results with namespace, service, type, status, and last-discovered timestamp visible.
+1. **Given** a catalog containing entities from multiple namespaces, **When** an authenticated user searches by partial entity name, **Then** matching entities across all namespaces appear in the results with namespace, associated services (with roles), type, status, and last-discovered timestamp visible.
 2. **Given** the entity catalog, **When** a user filters by entity type = Topic and status = Active, **Then** only active topics are listed and results can be further sorted by name or last-discovered timestamp.
 3. **Given** a published entity, **When** a user opens its detail view, **Then** Azure-sourced technical configuration and registry-curated metadata are presented as visually distinct sections, alongside first-discovered timestamp, last-discovered timestamp, and current lifecycle status.
 
@@ -63,7 +72,7 @@ A platform administrator opens a namespace's discovery history, reviews chronolo
 
 ### User Story 4 - Curate registry-owned metadata on a published entity (Priority: P4)
 
-A service owner opens an entity that belongs to a service they own, adds a business description, attaches a documentation link, tags it, assigns it to the correct service, and saves. A later discovery run that updates the entity's Azure-sourced configuration does not disturb any of this curated metadata.
+A service owner opens an entity that their service owns (i.e., has an `Owner`-role association with), adds a business description, attaches a documentation link, tags it, attaches additional `Producer`/`Consumer` associations for the services that interact with it, and saves. A later discovery run that updates the entity's Azure-sourced configuration does not disturb any of this curated metadata or the service associations.
 
 **Why this priority**: Curation is what transforms a raw inventory into a governance asset, but it is sequenced after US1–US3 because users must be able to publish, find, and trust the catalog before curation effort is worthwhile. Independent of US3.
 
@@ -71,7 +80,7 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 
 **Acceptance Scenarios**:
 
-1. **Given** a published entity, **When** a service owner with permission updates its description, tags, documentation link, contact info, and service association, **Then** the changes are saved and visible in the entity detail view.
+1. **Given** a published entity, **When** a service owner of an `Owner`-role associated service updates its description, tags, documentation link, contact info, and adds a `Consumer`-role association for another service, **Then** the changes are saved and visible in the entity detail view.
 2. **Given** an entity with curated registry metadata, **When** a subsequent discovery run updates the entity's Azure-sourced configuration, **Then** every curated field (description, ownership, tags, documentation, contacts, operational notes) is preserved unchanged while Azure-sourced fields reflect the new values.
 3. **Given** a user without the required role, **When** they attempt to edit an entity's registry metadata, **Then** the operation is rejected with an authorization error.
 
@@ -97,7 +106,7 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 
 - **FR-001**: The system MUST allow a user holding the Namespace Administrator or Platform Administrator role for a registered namespace to initiate a discovery operation for that namespace through both the UI and a programmatic API.
 - **FR-002**: The system MUST authenticate to Azure Service Bus using the platform's configured managed identity and MUST use the registered namespace's subscription ID, resource group, and namespace name to address Azure Resource Manager and Service Bus administration APIs.
-- **FR-003**: The system MUST prevent two discovery operations for the same namespace from running concurrently.
+- **FR-003**: The system MUST prevent two discovery operations for the same namespace from running concurrently. When a discovery is requested for a namespace that already has an in-flight run, the system MUST return a successful response carrying a reference to the in-flight run rather than starting a second run (idempotent coalescing). The caller MUST be able to observe from the response whether a new run was started or an existing run was returned.
 
 **What is discovered**
 
@@ -111,7 +120,11 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 - **FR-008**: The system MUST persist every discovered entity as a registry-managed catalog record that is queryable through APIs and surfaced through UI experiences.
 - **FR-009**: The system MUST assign each published entity a stable identity derived from its Azure resource identifier and its position in the Service Bus entity hierarchy, so that repeated discoveries update the existing record rather than creating duplicates.
 - **FR-010**: The system MUST preserve and surface the parent–child relationships of the Service Bus hierarchy (topic → subscription → rule; namespace → queue|topic) on every published entity.
-- **FR-011**: The system MUST associate every published entity with its parent registered namespace and MUST permit association of an entity with a registered service, where the association may be set manually by an authorized user.
+- **FR-011**: The system MUST associate every published entity with its parent registered namespace. The system MUST also permit any number of associations between a published entity and registered services, where each association carries a role label from the v1 taxonomy `Owner` | `Producer` | `Consumer`. Associations may be set manually by an authorized user. Multiple services may hold the same role for the same entity (including multiple `Owner` associations); an entity may have zero service associations.
+- **FR-011a**: Role definitions for v1:
+  - `Owner` — a service accountable for the entity's governance and curated metadata.
+  - `Producer` — a service that publishes messages to the entity.
+  - `Consumer` — a service that receives messages from the entity (subscribes to a topic, or reads from a queue).
 
 **Lifecycle and change detection**
 
@@ -134,17 +147,18 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 **Failure handling**
 
 - **FR-021**: When a discovery run fails, the system MUST record the failure status and captured error details, MUST leave the prior catalog state intact, and MUST NOT mark previously Active entities as Missing on the basis of an unsuccessful run.
+- **FR-021a**: The discovery worker MUST retry transient Azure API failures (HTTP 429, 503, network timeouts, and equivalent retriable errors) using a bounded exponential-backoff strategy with a small per-call attempt budget. The worker MUST NOT retry persistent failures (authentication/authorization errors, "not found" responses for the namespace itself, malformed-request errors) and MUST fail the run immediately when such errors are encountered. Total retry overhead MUST be bounded so that successful runs against a SC-005-sized namespace still complete within 5 minutes.
 
 **Searching and viewing**
 
-- **FR-022**: The published entity catalog MUST be searchable and filterable by, at minimum: entity name (substring), entity type, namespace, service, tag, and lifecycle status, and MUST support result sorting by at least name and last-discovered timestamp.
+- **FR-022**: The published entity catalog MUST be searchable and filterable by, at minimum: entity name (substring), entity type, namespace, associated service, association role (`Owner` | `Producer` | `Consumer`), tag, and lifecycle status, and MUST support result sorting by at least name and last-discovered timestamp. The "associated service" filter MUST match an entity if any of its `EntityServiceAssociation` entries reference the selected service (across all roles unless the user narrows by role).
 - **FR-023**: Any authenticated user MUST be able to read the published entity catalog and view any entity's detail.
 - **FR-024**: The entity detail view MUST visually distinguish Azure-sourced metadata from registry-owned metadata and MUST display first-discovered timestamp, last-discovered timestamp, and current lifecycle status.
 - **FR-025**: The namespace overview experience MUST surface a discovery action, the last discovery status, the last discovery timestamp, and entity counts by type for the namespace.
 
 **Authorization**
 
-- **FR-026**: The system MUST permit editing of an entity's registry-owned metadata only to users holding the Service Owner role for the entity's associated service, or the Namespace Administrator role for the entity's namespace, or the Platform Administrator role.
+- **FR-026**: The system MUST permit editing of an entity's registry-owned metadata only to users who satisfy at least one of: (a) hold the Service Owner role for *any* service that has an `Owner`-role association with the entity, (b) hold the Namespace Administrator role for the entity's namespace, or (c) hold the Platform Administrator role. Holding the Service Owner role for a service that is only associated with the entity as `Producer` or `Consumer` does NOT grant metadata-edit permission.
 - **FR-027**: The system MUST reject any discovery initiation request from a user who does not hold the Namespace Administrator or Platform Administrator role for the target namespace.
 
 **Scalability and idempotency**
@@ -156,7 +170,9 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 
 - **DiscoveryRun** — Represents a single discovery execution against one registered namespace. Captures the run identifier, parent namespace, status (e.g., InProgress, Succeeded, Failed), start and completion timestamps, any error detail, per-entity-type discovery counts (queues, topics, subscriptions, rules), and per-classification counts (new, updated, missing).
 
-- **PublishedEntity** — Represents a discovered Service Bus entity as a first-class registry resource. Carries the entity identifier, parent namespace, optional associated service, entity type (Queue | Topic | Subscription | Rule), name, the Azure resource identifier that anchors its identity, the parent published-entity identifier (for subscriptions and rules), lifecycle status (Active | Missing | Archived), first-discovered timestamp, last-seen timestamp, the Azure-sourced technical attributes, and the registry-owned curated attributes.
+- **PublishedEntity** — Represents a discovered Service Bus entity as a first-class registry resource. Carries the entity identifier, parent namespace, entity type (Queue | Topic | Subscription | Rule), name, the Azure resource identifier that anchors its identity, the parent published-entity identifier (for subscriptions and rules), lifecycle status (Active | Missing | Archived), first-discovered timestamp, last-seen timestamp, the Azure-sourced technical attributes, the registry-owned curated attributes, and a collection of `EntityServiceAssociation` entries.
+
+- **EntityServiceAssociation** — Represents a many-to-many link between a `PublishedEntity` and a registered service. Carries the associated entity identifier, associated service identifier, and a role label drawn from the v1 taxonomy `Owner` | `Producer` | `Consumer`. An entity may have any number of associations; a service may participate in any number of associations across entities; the same service may hold multiple roles for the same entity (one association record per (entity, service, role) triple).
 
 - **Supported entity types**: Queue, Topic, Subscription, Rule.
 
@@ -168,7 +184,7 @@ A service owner opens an entity that belongs to a service they own, adds a busin
 - **SC-002**: After a successful discovery, the registry catalog reflects 100% of the queues, topics, subscriptions, and rules present in the underlying Azure Service Bus namespace, with no missing entities and no spurious entries.
 - **SC-003**: Re-running discovery on an unchanged namespace produces zero new, zero updated, and zero missing entity classifications and zero duplicate records.
 - **SC-004**: Curated registry metadata (description, ownership, tags, documentation links, contact info, operational notes) is preserved across every subsequent discovery run with zero overwrites.
-- **SC-005**: Discovery completes for a namespace containing at least 500 queues, 500 topics, 5,000 subscriptions, and 5,000 rules within an operationally acceptable single-run duration without requiring manual paging or batching by the user.
+- **SC-005**: Discovery completes for a namespace containing at least 500 queues, 500 topics, 5,000 subscriptions, and 5,000 rules in **≤ 5 minutes** end-to-end, without requiring manual paging or batching by the user.
 - **SC-006**: A failed discovery run leaves 100% of previously published entities visible at their last-known-good state, and the failure is recoverable by simply re-initiating discovery once the underlying cause is resolved.
 - **SC-007**: A registry user can locate any specific published entity by name through catalog search in under 10 seconds from opening the catalog.
 - **SC-008**: A platform administrator investigating a synchronization issue can identify the cause of a failed run from the discovery history view without needing to inspect platform logs or external systems for the recorded error detail.
