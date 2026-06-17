@@ -71,3 +71,19 @@ variable "public_network_access_enabled" {
   type        = bool
   default     = true
 }
+
+variable "ip_range_filter" {
+  description = <<-EOT
+    Cosmos `ipRules` set. When a private endpoint is configured AND
+    `public_network_access_enabled = true`, Cosmos enters a default
+    "restricted public" mode where public traffic is dropped unless
+    explicitly allowed via this set. The special magic value `0.0.0.0`
+    permits traffic originating from any Azure datacenter — used in
+    dev so the Container Apps Environment's egress NAT (a public
+    Azure-allocated IP) can reach Cosmos for the indexer's change-feed
+    listener. Empty set keeps the default-restrictive posture (PE-only
+    + named IP allowlist). Bare IP literals or CIDRs are also accepted.
+  EOT
+  type        = set(string)
+  default     = []
+}

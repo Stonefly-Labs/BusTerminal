@@ -559,6 +559,17 @@ module "cosmos_account" {
   private_endpoint_subnet_id    = module.networking.subnet_private_endpoints_id
   private_dns_zone_id           = module.networking.private_dns_zone_ids["privatelink.documents.azure.com"]
 
+  # Allow traffic originating from any Azure datacenter — the Container
+  # Apps Environment hosting the backend + indexer is not vnet-integrated
+  # (CAE vnetConfig: null), so its egress is a public Azure NAT IP. Cosmos
+  # in "PE + public-enabled" mode drops public traffic by default unless
+  # explicitly allowed via ipRules. `0.0.0.0` is Cosmos's magic value for
+  # "Allow access from public Azure datacenters" — narrower than allowing
+  # the entire internet (which would be `0.0.0.0/0`), and AAD/RBAC still
+  # gates every connection regardless. When the CAE is vnet-integrated by
+  # a future spec, this entry can be removed.
+  ip_range_filter = ["0.0.0.0"]
+
   tags = local.shared_tags
 }
 
