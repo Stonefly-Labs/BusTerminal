@@ -32,10 +32,25 @@ public sealed class CosmosRegistryOptions
     [Required]
     public string ValidationRunsContainer { get; set; } = "namespace-validation-runs";
 
+    // Spec 009 / data-model.md §1.2 — discovery run history container
+    // (PK /namespaceId, composite index on (/namespaceId, /startedUtc DESC)).
+    [Required]
+    public string DiscoveryRunsContainer { get; set; } = "discovery-runs";
+
+    // Spec 009 / data-model.md §1.3 — per-namespace coalescing lock document
+    // (PK /namespaceId, one doc per namespace with id="lock").
+    [Required]
+    public string DiscoveryLocksContainer { get; set; } = "discovery-locks";
+
     // Tombstone TTL in seconds — research §10. Cosmos item-level TTL deletes
     // the tombstone marker automatically; the indexer has the window between
     // write and TTL expiry to propagate the delete to AI Search.
     public int TombstoneTtlSeconds { get; set; } = 60;
+
+    // Spec 009 / data-model.md §1.3 — coalescing-lock expiry window. Matches
+    // the SC-005 ceiling: any lock older than this is considered orphaned and
+    // may be stolen by a subsequent acquisition attempt.
+    public int DiscoveryLockExpirySeconds { get; set; } = 300;
 }
 
 internal sealed class CosmosRegistryOptionsValidator : IValidateOptions<CosmosRegistryOptions>
@@ -63,9 +78,21 @@ internal sealed class CosmosRegistryOptionsValidator : IValidateOptions<CosmosRe
         {
             errors.Add("CosmosRegistry:ValidationRunsContainer must be set.");
         }
+        if (string.IsNullOrWhiteSpace(options.DiscoveryRunsContainer))
+        {
+            errors.Add("CosmosRegistry:DiscoveryRunsContainer must be set.");
+        }
+        if (string.IsNullOrWhiteSpace(options.DiscoveryLocksContainer))
+        {
+            errors.Add("CosmosRegistry:DiscoveryLocksContainer must be set.");
+        }
         if (options.TombstoneTtlSeconds < 1)
         {
             errors.Add("CosmosRegistry:TombstoneTtlSeconds must be ≥ 1.");
+        }
+        if (options.DiscoveryLockExpirySeconds < 60)
+        {
+            errors.Add("CosmosRegistry:DiscoveryLockExpirySeconds must be ≥ 60 to allow the worker time to complete a run.");
         }
 
         return errors.Count > 0 ? ValidateOptionsResult.Fail(errors) : ValidateOptionsResult.Success;

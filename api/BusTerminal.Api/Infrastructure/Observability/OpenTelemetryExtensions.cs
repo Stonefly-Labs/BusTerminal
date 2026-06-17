@@ -1,5 +1,6 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using BusTerminal.Api.Domain.Validation;
+using BusTerminal.Api.Features.Discovery.Shared.Telemetry;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -51,7 +52,10 @@ public static class OpenTelemetryExtensions
 
         // Spec 004 — Cosmos SDK emits spans on its single ActivitySource. Add it
         // here so persistence operations show up in the existing trace pipeline.
-        otel.WithTracing(tracing => tracing.AddSource("Azure.Cosmos.Operation"));
+        // Spec 009 / T021 — discovery ActivitySource subscribed alongside.
+        otel.WithTracing(tracing => tracing
+            .AddSource("Azure.Cosmos.Operation")
+            .AddSource(DiscoveryActivitySource.Name));
 
         // Spec 004 / T153 — subscribe the validation Meter so the three finding-
         // count counters emitted by MeteredValidationEngine flow through the OTel
@@ -59,7 +63,10 @@ public static class OpenTelemetryExtensions
         // connection string is configured). Subscription is required even when
         // UseAzureMonitor is active: UseAzureMonitor wires the exporter but does
         // not auto-subscribe to first-party Meters.
-        otel.WithMetrics(metrics => metrics.AddMeter(ValidationMeter.Name));
+        // Spec 009 / T021 — discovery Meter subscribed alongside.
+        otel.WithMetrics(metrics => metrics
+            .AddMeter(ValidationMeter.Name)
+            .AddMeter(DiscoveryMeter.Name));
 
         if (!string.IsNullOrWhiteSpace(connectionString))
         {

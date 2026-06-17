@@ -1,6 +1,7 @@
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Health;
 using BusTerminal.Api.Features.Identity;
+using BusTerminal.Api.Features.Discovery.Shared;
 using BusTerminal.Api.Features.Namespaces.Shared;
 using BusTerminal.Api.Features.Registry.Shared;
 using BusTerminal.Api.Features.RoleProbes;
@@ -53,6 +54,12 @@ builder.Services.AddRegistryFeature(builder.Configuration);
 // CanAdministerNamespaces policy. Endpoints attach to the group via
 // `app.MapNamespaceEndpoints()` below.
 builder.Services.AddNamespaceOnboardingFeature(builder.Configuration);
+
+// Spec 009 — entity discovery & publication slice. PublishedEntity store +
+// DiscoveryRun store + DiscoveryLock store + EntityMetadataEditorAuthorizer
+// + discovery telemetry. Endpoint surfaces are registered progressively by
+// Phase 3–6 tasks via MapDiscoveryEndpoints() below.
+builder.Services.AddDiscoveryFeature();
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();
@@ -133,6 +140,7 @@ app.MapWhoAmIEndpoint();
 app.MapRoleProbeEndpoints();
 app.MapRegistryEndpoints();
 app.MapNamespaceEndpoints();
+app.MapDiscoveryEndpoints();
 
 try
 {
