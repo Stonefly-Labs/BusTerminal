@@ -279,6 +279,13 @@ module "workload_identity" {
       role_definition_name = "Monitoring Metrics Publisher"
       scope                = module.monitoring.application_insights_id
     }
+    # Spec 006 indexer — Functions runtime's AzureWebJobsStorage AAD
+    # connection. Blob Data Owner covers the runtime's container-create
+    # needs on the storage account declared below.
+    indexer-webjobs-blob-owner = {
+      role_definition_name = "Storage Blob Data Owner"
+      scope                = azurerm_storage_account.indexer_webjobs.id
+    }
   }
 
   api_service_principal_object_id = data.azuread_service_principal.api.object_id
@@ -716,12 +723,10 @@ resource "azurerm_storage_account" "indexer_webjobs" {
   tags = local.shared_tags
 }
 
-resource "azurerm_role_assignment" "workload_uami_indexer_webjobs_blob_owner" {
-  scope                = azurerm_storage_account.indexer_webjobs.id
-  role_definition_name = "Storage Blob Data Owner"
-  principal_id         = module.workload_identity.principal_id
-  description          = "Indexer Functions runtime AAD access to AzureWebJobsStorage. Blob Data Owner covers the runtime's container-create needs."
-}
+# Storage Blob Data Owner for the workload UAMI is wired via the
+# workload-identity module's `assigned_azure_rbac` input above
+# (entry `indexer-webjobs-blob-owner`) — per the project's
+# "no inline IAM in env compositions" lint rule.
 
 module "indexer_container_app" {
   source = "../../modules/functions-container-app"
@@ -761,7 +766,7 @@ module "indexer_container_app" {
   # race ahead of role propagation and the runtime restarts a few times
   # before the role catches up.
   depends_on = [
-    azurerm_role_assignment.workload_uami_indexer_webjobs_blob_owner,
+    module.workload_identity,
   ]
 }
 
