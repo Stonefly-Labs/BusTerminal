@@ -698,9 +698,14 @@ resource "azurerm_storage_account" "indexer_webjobs" {
   account_tier                  = "Standard"
   account_replication_type      = "LRS"
   account_kind                  = "StorageV2"
-  shared_access_key_enabled     = false
+  shared_access_key_enabled     = false # AAD-only
   public_network_access_enabled = var.data_services_public_access_enabled
   min_tls_version               = "TLS1_2"
+
+  # CKV_AZURE_190 / CKV2_AZURE_47 — block public anonymous blob access at
+  # the account level. The Functions runtime never needs anonymous reads;
+  # all access flows through the workload UAMI's AAD role assignment.
+  allow_nested_items_to_be_public = false
 
   blob_properties {
     delete_retention_policy {
