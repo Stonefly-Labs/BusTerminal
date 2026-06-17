@@ -231,6 +231,18 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
   #       grants; this allowlist permits namespace-scope and resource-group-
   #       scope grants only via the existing scope-evaluation gates.
   #
+  # Spec 006 indexer storage — AzureWebJobsStorage AAD access:
+  #   b7e6dc6d-f1e8-4753-8033-0f276bb0955b  Storage Blob Data Owner
+  #     → granted to the workload identity on the indexer's
+  #       AzureWebJobsStorage account so the Functions runtime can
+  #       authenticate to its internal blob containers via AAD (the
+  #       account has `shared_access_key_enabled = false`). The pipeline
+  #       MI also needs this role on the same account so the azurerm
+  #       provider's post-create blob data-plane wait succeeds with
+  #       `storage_use_azuread = true`; that self-grant is wired inline
+  #       in `iac/environments/dev/main.tf` (allowlist entry in
+  #       `scripts/lint-iac-inline-iam.sh`).
+  #
   # NOT in this list: Cosmos DB Built-in Data Contributor — Cosmos uses its
   # OWN native RBAC surface (`azurerm_cosmosdb_sql_role_assignment`), not
   # Azure RBAC (`azurerm_role_assignment`), so this condition does not govern
@@ -249,7 +261,8 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
         4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0,
         8ebe5a00-799e-43f5-93ac-243d3dce84a7,
         3913510d-42f4-4e42-8a64-420c390055eb,
-        acdd72a7-3385-48ef-bd42-f606fba81ae7
+        acdd72a7-3385-48ef-bd42-f606fba81ae7,
+        b7e6dc6d-f1e8-4753-8033-0f276bb0955b
       }
     )
   CONDITION

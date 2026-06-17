@@ -47,6 +47,16 @@ terraform {
 provider "azurerm" {
   subscription_id = var.subscription_id
 
+  # Spec 006 indexer storage — keys are disabled on the new
+  # AzureWebJobsStorage account (`shared_access_key_enabled = false`).
+  # Without this flag, the provider's post-create data-plane wait for
+  # the Blob service uses key-based auth and 403s on
+  # `KeyBasedAuthenticationNotPermitted`, failing the apply. The flag
+  # tells azurerm to use AAD for data-plane operations on all storage
+  # accounts in this composition; key-based ops continue to work where
+  # they're still enabled.
+  storage_use_azuread = true
+
   features {
     resource_group {
       prevent_deletion_if_contains_resources = true
