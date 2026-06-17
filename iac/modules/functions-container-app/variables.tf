@@ -94,6 +94,20 @@ variable "memory" {
   default     = "1Gi"
 }
 
+variable "azure_webjobs_storage_account_name" {
+  description = <<-EOT
+    Storage account name backing `AzureWebJobsStorage` for the Functions
+    runtime. Even though the indexer's only trigger is the Cosmos
+    change-feed (which uses Cosmos's lease container for state), the
+    Functions runtime still expects this connection at startup and
+    flags the host as unhealthy when absent. We supply an AAD-only
+    storage account here; the workload UAMI is granted Storage Blob
+    Data Owner on it by the composition (no shared keys, no connection
+    strings — consistent with the project's managed-identity stance).
+  EOT
+  type        = string
+}
+
 variable "tags" {
   description = "Resource tags."
   type        = map(string)

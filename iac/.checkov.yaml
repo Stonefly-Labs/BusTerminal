@@ -273,3 +273,25 @@ skip-check:
   # endpoint.this` will be created). Re-evaluate if Checkov improves
   # cross-module tracing.
   - CKV2_AZURE_32
+
+  # CKV2_AZURE_33 — "Ensure storage account is configured with private
+  # endpoint". The indexer's AzureWebJobsStorage account intentionally
+  # uses public access (gated on `data_services_public_access_enabled`)
+  # because the Container Apps Environment hosting the indexer is not
+  # vnet-integrated — the CAE has `vnetConfig: null`, so even if the
+  # storage account had a private endpoint the indexer couldn't reach it
+  # through the missing vnet. This matches the same posture used for
+  # Cosmos and AI Search across the dev composition. When the CAE
+  # becomes vnet-integrated under a future spec, this allowlist entry
+  # should be reconsidered alongside the Cosmos/Search analogues.
+  - CKV2_AZURE_33
+
+  # CKV2_AZURE_1 — "Ensure storage for critical data are encrypted with
+  # Customer Managed Key". The indexer's AzureWebJobsStorage holds only
+  # the Functions runtime's internal state (no operator data, no audit
+  # log, no registry payload — those live in Cosmos). Azure-managed keys
+  # (encryption at rest by default) are the documented posture for
+  # Functions runtime storage; a CMK on this account would add KV +
+  # rotation overhead with no data-sensitivity gain. The registry
+  # critical data IS in Cosmos, which itself uses AAD-only auth.
+  - CKV2_AZURE_1

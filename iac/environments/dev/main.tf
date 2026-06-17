@@ -279,6 +279,13 @@ module "workload_identity" {
       role_definition_name = "Monitoring Metrics Publisher"
       scope                = module.monitoring.application_insights_id
     }
+    # Spec 006 indexer — Functions runtime's AzureWebJobsStorage AAD
+    # connection. Blob Data Owner covers the runtime's container-create
+    # needs on the storage account declared below.
+    indexer-webjobs-blob-owner = {
+      role_definition_name = "Storage Blob Data Owner"
+      scope                = azurerm_storage_account.indexer_webjobs.id
+    }
   }
 
   api_service_principal_object_id = data.azuread_service_principal.api.object_id
@@ -680,6 +687,47 @@ module "ai_search_registry_index" {
   search_service_name = module.ai_search.name
 }
 
+# Spec 006 — AzureWebJobsStorage for the indexer Functions runtime.
+#
+# Even though the Cosmos change-feed trigger uses Cosmos's lease container
+# for state, the Functions host still wants `AzureWebJobsStorage` at startup
+# or it logs the host as unhealthy and floods the container with "Unable to
+# create client for AzureWebJobsStorage" every 30s. We supply a minimal
+# AAD-only storage account here; the workload UAMI holds Storage Blob Data
+# Owner on it via the role assignment below. No shared keys, no connection
+# strings — managed-identity is the only auth path.
+resource "azurerm_storage_account" "indexer_webjobs" {
+  # Storage account names: globally unique, 3-24 lowercase alphanumerics.
+  # `stbtdev<suffix>` keeps us within the limit even at long suffixes.
+  name                          = "stbtdev${var.unique_suffix}"
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  account_tier                  = "Standard"
+  account_replication_type      = "LRS"
+  account_kind                  = "StorageV2"
+  shared_access_key_enabled     = false # AAD-only
+  public_network_access_enabled = var.data_services_public_access_enabled
+  min_tls_version               = "TLS1_2"
+
+  # CKV_AZURE_190 / CKV2_AZURE_47 — block public anonymous blob access at
+  # the account level. The Functions runtime never needs anonymous reads;
+  # all access flows through the workload UAMI's AAD role assignment.
+  allow_nested_items_to_be_public = false
+
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+  }
+
+  tags = local.shared_tags
+}
+
+# Storage Blob Data Owner for the workload UAMI is wired via the
+# workload-identity module's `assigned_azure_rbac` input above
+# (entry `indexer-webjobs-blob-owner`) — per the project's
+# "no inline IAM in env compositions" lint rule.
+
 module "indexer_container_app" {
   source = "../../modules/functions-container-app"
 
@@ -708,7 +756,18 @@ module "indexer_container_app" {
 
   app_insights_connection_string_kv_secret_uri = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
 
+  azure_webjobs_storage_account_name = azurerm_storage_account.indexer_webjobs.name
+
   tags = local.shared_tags
+
+  # The data-plane role assignment (Storage Blob Data Owner) must propagate
+  # via AAD before the Functions runtime opens its first connection.
+  # Without an explicit ordering edge, Container Apps revision rollout can
+  # race ahead of role propagation and the runtime restarts a few times
+  # before the role catches up.
+  depends_on = [
+    module.workload_identity,
+  ]
 }
 
 # Per-Container-App diagnostic settings are intentionally NOT provisioned for
