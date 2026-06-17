@@ -41,6 +41,14 @@ ALLOWLIST=(
   # Standing operator access for `kv_operator_object_ids`. Per-env operator
   # set — not a workload grant, not a fit for the workload-identity module.
   "azurerm_role_assignment.operator_kv_secrets_officer"
+
+  # Spec 006 indexer storage — pipeline MI's data-plane grant on the
+  # indexer's AzureWebJobsStorage account. Required because the account
+  # has `shared_access_key_enabled = false`, so the azurerm provider's
+  # post-create blob data-plane wait must use AAD. Same shape as the KV
+  # pipeline grant above; the workload-identity module is parented on
+  # the workload UAMI and this is a PIPELINE grant — can't be folded in.
+  "azurerm_role_assignment.pipeline_storage_blob_data_owner"
 )
 
 # `iac/environments/<env>/main.tf` only — submodules + helper files are
