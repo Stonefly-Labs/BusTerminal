@@ -696,6 +696,35 @@ module "ai_search_registry_index" {
 # AAD-only storage account here; the workload UAMI holds Storage Blob Data
 # Owner on it via the role assignment below. No shared keys, no connection
 # strings — managed-identity is the only auth path.
+
+# Pipeline MI self-grant — required because the indexer storage account has
+# `shared_access_key_enabled = false`, so the azurerm provider's post-create
+# blob data-plane wait must use AAD (via `storage_use_azuread = true` on the
+# provider). Without this grant, the AAD call from the provider 403s and
+# `tofu apply` fails on the storage account resource. RG-scoped so the role
+# assignment can be created BEFORE the storage account (the storage account
+# resource block depends_on this grant + a propagation sleep below). Mirrors
+# the `pipeline_kv_secrets_officer` pattern: per-env, RG-scoped, allowlisted
+# in `scripts/lint-iac-inline-iam.sh` because the workload-identity module
+# is parented on the workload UAMI and this is a pipeline grant.
+resource "azurerm_role_assignment" "pipeline_storage_blob_data_owner" {
+  scope                = azurerm_resource_group.this.id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = data.azurerm_client_config.current.object_id
+  description          = "Pipeline MI manages `azurerm_storage_account.indexer_webjobs` data-plane wait via AAD (shared keys disabled on the account)."
+}
+
+# Azure AD role assignments have eventual-consistency propagation. Without
+# this sleep, the first `azurerm_storage_account` post-create data-plane
+# wait races propagation of the pipeline grant and 403s — same shape as the
+# KV `wait_for_kv_rbac_propagation` block above.
+resource "time_sleep" "wait_for_storage_rbac_propagation" {
+  depends_on = [
+    azurerm_role_assignment.pipeline_storage_blob_data_owner,
+  ]
+  create_duration = "60s"
+}
+
 resource "azurerm_storage_account" "indexer_webjobs" {
   # Storage account names: globally unique, 3-24 lowercase alphanumerics.
   # `stbtdev<suffix>` keeps us within the limit even at long suffixes.
@@ -721,6 +750,13 @@ resource "azurerm_storage_account" "indexer_webjobs" {
   }
 
   tags = local.shared_tags
+
+  # Ordering edge for the provider's post-create blob data-plane wait —
+  # the pipeline MI's Storage Blob Data Owner role must exist + propagate
+  # before the storage account is created.
+  depends_on = [
+    time_sleep.wait_for_storage_rbac_propagation,
+  ]
 }
 
 # Storage Blob Data Owner for the workload UAMI is wired via the
