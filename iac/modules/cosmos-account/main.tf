@@ -37,6 +37,12 @@ resource "azurerm_cosmosdb_account" "this" {
   # Spec 005 FR-031 — per-env public-network-access toggle (Q2c).
   public_network_access_enabled = var.public_network_access_enabled
 
+  # Cosmos `ipRules` — required when public access is enabled alongside a
+  # private endpoint, otherwise the account enters a default-restrictive
+  # mode that drops all public traffic. See variables.tf for the full
+  # rationale (and the `0.0.0.0` Azure-datacenter magic value).
+  ip_range_filter = var.ip_range_filter
+
   # Automatic-failover off for dev — single-region serverless. AVM rejects multi-region
   # with EnableServerless anyway.
   automatic_failover_enabled = false
