@@ -16,6 +16,9 @@ const EXPECTED: Record<OperationClass, readonly PlatformRole[]> = {
     "BusTerminal.Developer",
     "BusTerminal.Operator",
     "BusTerminal.Admin",
+    // Spec 008 — NamespaceAdministrator implicitly grants Read. See
+    // role-permission-matrix.ts for rationale.
+    "BusTerminal.NamespaceAdministrator",
   ],
   MutateDomain: ["BusTerminal.Operator", "BusTerminal.Admin"],
   OperatePlatform: ["BusTerminal.Operator", "BusTerminal.Admin"],
