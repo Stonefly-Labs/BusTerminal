@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 import {
   createEntity,
   updateEntity,
@@ -59,6 +60,7 @@ export function useEntityForm({
   apiOptions,
 }: UseEntityFormArgs): UseEntityFormResult {
   const queryClient = useQueryClient();
+  const getToken = useAcquireToken();
   const [state, setState] = useState<EntityFormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
   const [successMessage, setSuccessMessage] = useState<string | undefined>(undefined);
@@ -70,6 +72,17 @@ export function useEntityForm({
   ): Promise<void> => {
     setState("submitting");
     setErrorMessage(undefined);
+
+    // Acquire an access token if the caller didn't already supply one in
+    // apiOptions. The registry create + update endpoints require a bearer
+    // token (FR-037 AuthN-only); without this the form silently 401s.
+    let resolvedApiOptions = apiOptions;
+    if (!resolvedApiOptions?.accessToken) {
+      const token = await getToken();
+      if (token) {
+        resolvedApiOptions = { ...(apiOptions ?? {}), accessToken: token };
+      }
+    }
 
     const payload = {
       id,
@@ -87,7 +100,7 @@ export function useEntityForm({
 
     try {
       if (mode === "create") {
-        const result = await createEntity(payload as RegistryEntityCreateRequest, apiOptions);
+        const result = await createEntity(payload as RegistryEntityCreateRequest, resolvedApiOptions);
         await queryClient.invalidateQueries({ queryKey: registryQueryKeys.entities.all });
         // T125 / FR-033 — the new entity's Created audit event should be visible
         // immediately on its detail page (quickstart §7 expectation).
@@ -109,7 +122,7 @@ export function useEntityForm({
           id,
           updateBody,
           persistedEtag,
-          apiOptions,
+          resolvedApiOptions,
         );
         if (!result.ok) {
           setConflict(result.conflict);
