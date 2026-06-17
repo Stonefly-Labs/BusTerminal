@@ -47,6 +47,14 @@ const MATRIX: Readonly<Record<OperationClass, readonly PlatformRole[]>> = {
     "BusTerminal.Developer",
     "BusTerminal.Operator",
     "BusTerminal.Admin",
+    // Spec 008 — NamespaceAdministrator implicitly grants Read. A user
+    // who administers namespaces MUST be able to read what they
+    // administer (the inventory + details surfaces) and SHOULD have
+    // read access to peer operational surfaces (registry, platform
+    // status) for diagnosis. Without this, a user holding only the
+    // NamespaceAdministrator role sees the empty "No items available
+    // for your role." sidebar.
+    "BusTerminal.NamespaceAdministrator",
   ],
   MutateDomain: ["BusTerminal.Operator", "BusTerminal.Admin"],
   OperatePlatform: ["BusTerminal.Operator", "BusTerminal.Admin"],
