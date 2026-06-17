@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/008-namespace-onboarding/plan.md`.
+`specs/009-entity-discovery-publication/plan.md`.
 <!-- SPECKIT END -->
 
 # Tools

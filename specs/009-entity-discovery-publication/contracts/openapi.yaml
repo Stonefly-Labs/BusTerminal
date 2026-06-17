@@ -1,0 +1,563 @@
+openapi: 3.1.0
+info:
+  title: BusTerminal Registry — Entity Discovery and Publication
+  description: |
+    OpenAPI contract for Spec 009 endpoints. Extends the existing BusTerminal Registry API
+    surface with discovery initiation, discovery run inspection, entity catalog search,
+    entity detail / metadata editing, and service-association management.
+
+    All endpoints require Microsoft Entra ID authentication (JWT bearer). Per-endpoint
+    role requirements are documented under the `x-required-role` extension on each
+    operation.
+
+    Cross-cutting: every request MUST carry a W3C `traceparent` header propagated by the
+    UI's existing `lib/http/client.ts` layer. Backend acquires the trace context and
+    propagates it into discovery worker spans via the Service Bus message envelope.
+  version: 1.0.0
+
+servers:
+  - url: https://api.busterminal.example.com
+    description: Production
+  - url: https://api.dev.busterminal.example.com
+    description: Development
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Discovery
+    description: Initiating and inspecting discovery runs.
+  - name: Entities
+    description: Searching, viewing, and curating published entities.
+  - name: Associations
+    description: Managing M:N entity↔service relationships.
+
+paths:
+  /api/namespaces/{namespaceId}/discover:
+    post:
+      tags: [Discovery]
+      summary: Start a discovery run for a registered namespace.
+      description: |
+        Enqueues a discovery operation against the registered namespace. If a discovery
+        is already in flight for this namespace, the system returns a reference to the
+        in-flight run instead of starting a new one (FR-003 idempotent coalescing —
+        the response field `coalescedFromExisting` indicates which behavior occurred).
+      operationId: startDiscovery
+      x-required-role: NamespaceAdministrator | PlatformAdministrator
+      parameters:
+        - $ref: '#/components/parameters/NamespaceIdPath'
+      responses:
+        '202':
+          description: Discovery run accepted (either newly started or coalesced with an in-flight run).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartDiscoveryResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/discovery-runs/{discoveryRunId}:
+    get:
+      tags: [Discovery]
+      summary: Fetch a specific discovery run.
+      operationId: getDiscoveryRun
+      x-required-role: Authenticated
+      parameters:
+        - $ref: '#/components/parameters/DiscoveryRunIdPath'
+        - in: query
+          name: namespaceId
+          required: true
+          schema: { type: string }
+          description: Partition key. Required for efficient single-partition read.
+      responses:
+        '200':
+          description: The discovery run record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiscoveryRun' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/namespaces/{namespaceId}/discovery-runs:
+    get:
+      tags: [Discovery]
+      summary: List discovery runs for a namespace.
+      operationId: listDiscoveryRuns
+      x-required-role: Authenticated
+      parameters:
+        - $ref: '#/components/parameters/NamespaceIdPath'
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - in: query
+          name: continuationToken
+          schema: { type: string }
+          description: Opaque pagination cursor returned by a prior call.
+      responses:
+        '200':
+          description: A page of discovery runs ordered by `startedUtc` DESC.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiscoveryRun' }
+                  continuationToken:
+                    type: string
+                    nullable: true
+
+  /api/entities:
+    get:
+      tags: [Entities]
+      summary: Search the published entity catalog.
+      operationId: searchEntities
+      x-required-role: Authenticated
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+          description: Substring search over entity name.
+        - in: query
+          name: entityType
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/EntityType' }
+        - in: query
+          name: namespaceId
+          schema: { type: string }
+        - in: query
+          name: associatedServiceId
+          schema: { type: string }
+          description: Match entities associated with this service in any role (or narrow with `associationRole`).
+        - in: query
+          name: associationRole
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/EntityServiceRole' }
+          description: Narrows `associatedServiceId` to specific roles.
+        - in: query
+          name: tag
+          schema:
+            type: array
+            items: { type: string }
+        - in: query
+          name: lifecycleStatus
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/LifecycleStatus' }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [name_asc, name_desc, lastSeen_asc, lastSeen_desc]
+            default: name_asc
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: A page of search results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, totalCount, page, pageSize]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PublishedEntitySummary' }
+                  totalCount: { type: integer }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+
+  /api/entities/{entityId}:
+    get:
+      tags: [Entities]
+      summary: Get full detail for a published entity.
+      operationId: getEntityDetail
+      x-required-role: Authenticated
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+      responses:
+        '200':
+          description: The full entity document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishedEntity' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+    patch:
+      tags: [Entities]
+      summary: Update registry-owned (curated) metadata on an entity.
+      description: |
+        Updates registry-owned fields only. Azure-sourced attributes (`azureSourced.*`)
+        cannot be modified through this endpoint — discovery owns them and any inbound
+        value is rejected. Optimistic concurrency via the `If-Match` request header
+        carrying the prior `ETag` (returned on GET).
+      operationId: updateEntityMetadata
+      x-required-role: ServiceOwner (Owner-role assoc) | NamespaceAdministrator | PlatformAdministrator
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+        - in: header
+          name: If-Match
+          required: true
+          schema: { type: string }
+          description: ETag of the prior version of the entity (required for optimistic concurrency).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateEntityMetadataRequest' }
+      responses:
+        '200':
+          description: The updated entity document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishedEntity' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '412':
+          description: Precondition failed — the supplied `If-Match` ETag does not match the current entity. Caller should refetch and retry.
+
+  /api/entities/{entityId}/archive:
+    post:
+      tags: [Entities]
+      summary: Set the entity's lifecycle status to Archived.
+      operationId: archiveEntity
+      x-required-role: ServiceOwner (Owner-role assoc) | NamespaceAdministrator | PlatformAdministrator
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+        - in: header
+          name: If-Match
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: The updated entity document (lifecycleStatus = Archived).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishedEntity' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '412': { description: ETag mismatch }
+
+  /api/entities/{entityId}/associations:
+    get:
+      tags: [Associations]
+      summary: List service associations for an entity.
+      operationId: listEntityAssociations
+      x-required-role: Authenticated
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+      responses:
+        '200':
+          description: The current associations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EntityServiceAssociation' }
+
+    post:
+      tags: [Associations]
+      summary: Add a service association to an entity.
+      operationId: addEntityAssociation
+      x-required-role: ServiceOwner (Owner-role assoc, OR Owner of the service being added) | NamespaceAdministrator | PlatformAdministrator
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+        - in: header
+          name: If-Match
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddAssociationRequest' }
+      responses:
+        '201':
+          description: The created association.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntityServiceAssociation' }
+        '409':
+          description: An association with the same `(serviceId, role)` already exists for this entity.
+
+  /api/entities/{entityId}/associations/{associationId}:
+    delete:
+      tags: [Associations]
+      summary: Remove a service association from an entity.
+      operationId: removeEntityAssociation
+      x-required-role: ServiceOwner (Owner-role assoc) | NamespaceAdministrator | PlatformAdministrator
+      parameters:
+        - $ref: '#/components/parameters/EntityIdPath'
+        - in: path
+          name: associationId
+          required: true
+          schema: { type: string }
+        - in: header
+          name: If-Match
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Association removed. }
+        '404': { description: Association not found. }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    NamespaceIdPath:
+      in: path
+      name: namespaceId
+      required: true
+      schema: { type: string }
+      description: Registry-side namespace identifier.
+
+    DiscoveryRunIdPath:
+      in: path
+      name: discoveryRunId
+      required: true
+      schema: { type: string, pattern: '^dr_[A-Z0-9]{26}$' }
+
+    EntityIdPath:
+      in: path
+      name: entityId
+      required: true
+      schema: { type: string, pattern: '^pe_[A-Z2-7]{24}$' }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid bearer token.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Authenticated user lacks the required role for this operation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: The referenced resource does not exist.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    BadRequest:
+      description: Validation failure.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+    EntityType:
+      type: string
+      enum: [Queue, Topic, Subscription, Rule]
+
+    LifecycleStatus:
+      type: string
+      enum: [Active, Missing, Archived]
+
+    EntityServiceRole:
+      type: string
+      enum: [Owner, Producer, Consumer]
+
+    DiscoveryRunStatus:
+      type: string
+      enum: [Queued, InProgress, Succeeded, Failed]
+
+    DiscoveryFailureCategory:
+      type: string
+      enum: [Authn, Authz, NotFound, Throttled, Transport, Internal, WorkerLost, Unknown]
+
+    DiscoveryPhase:
+      type: string
+      enum: [LockAcquire, FetchQueues, FetchTopics, FetchSubscriptions, FetchRules, Persist, ResultWrite]
+
+    StartDiscoveryResponse:
+      type: object
+      required: [discoveryRunId, status, coalescedFromExisting]
+      properties:
+        discoveryRunId: { type: string }
+        namespaceId: { type: string }
+        status: { $ref: '#/components/schemas/DiscoveryRunStatus' }
+        coalescedFromExisting:
+          type: boolean
+          description: True when this request was matched to an in-flight run rather than starting a new one (FR-003).
+        startedUtc: { type: string, format: date-time }
+
+    DiscoveryRun:
+      type: object
+      required: [id, schemaVersion, namespaceId, status, trigger, startedUtc, requestedBy]
+      properties:
+        id: { type: string }
+        schemaVersion: { type: string }
+        namespaceId: { type: string }
+        status: { $ref: '#/components/schemas/DiscoveryRunStatus' }
+        trigger:
+          type: string
+          enum: [Manual]
+        startedUtc: { type: string, format: date-time }
+        completedUtc: { type: string, format: date-time, nullable: true }
+        durationMs: { type: integer, nullable: true }
+        requestedBy: { type: string, description: Entra object ID of the initiator. }
+        queueCount: { type: integer }
+        topicCount: { type: integer }
+        subscriptionCount: { type: integer }
+        ruleCount: { type: integer }
+        newCount: { type: integer }
+        updatedCount: { type: integer }
+        unchangedCount: { type: integer }
+        missingCount: { type: integer }
+        failure:
+          nullable: true
+          type: object
+          required: [category, message, occurredAtPhase]
+          properties:
+            category: { $ref: '#/components/schemas/DiscoveryFailureCategory' }
+            message: { type: string }
+            occurredAtPhase: { $ref: '#/components/schemas/DiscoveryPhase' }
+            retriesExhausted: { type: integer, nullable: true }
+        coalescedRequests:
+          type: array
+          items:
+            type: object
+            properties:
+              requestedUtc: { type: string, format: date-time }
+              requestedBy: { type: string }
+        correlationId: { type: string }
+
+    PublishedEntitySummary:
+      type: object
+      required: [id, entityType, namespaceId, name, lifecycleStatus]
+      properties:
+        id: { type: string }
+        entityType: { $ref: '#/components/schemas/EntityType' }
+        namespaceId: { type: string }
+        name: { type: string }
+        parentEntityId: { type: string, nullable: true }
+        lifecycleStatus: { $ref: '#/components/schemas/LifecycleStatus' }
+        lastSeenUtc: { type: string, format: date-time }
+        associatedServiceIds:
+          type: array
+          items: { type: string }
+        associationRoles:
+          type: array
+          items: { $ref: '#/components/schemas/EntityServiceRole' }
+        tags:
+          type: array
+          items: { type: string }
+
+    PublishedEntity:
+      allOf:
+        - $ref: '#/components/schemas/PublishedEntitySummary'
+        - type: object
+          required: [schemaVersion, environment, compositeKey, firstDiscoveredUtc, azureSourced, azureSourcedHash, serviceAssociations]
+          properties:
+            schemaVersion: { type: string }
+            environment: { type: string }
+            compositeKey: { type: string }
+            displayName: { type: string }
+            description: { type: string, nullable: true }
+            businessPurpose: { type: string, nullable: true }
+            documentationLinks:
+              type: array
+              items:
+                type: object
+                required: [label, url]
+                properties:
+                  label: { type: string }
+                  url: { type: string, format: uri }
+            contactInformation:
+              type: object
+              nullable: true
+              properties:
+                primaryContact: { type: string }
+                escalationPath: { type: string }
+            operationalNotes: { type: string, nullable: true }
+            lifecycleStatusChangedUtc: { type: string, format: date-time }
+            firstDiscoveredUtc: { type: string, format: date-time }
+            lastDiscoveryRunId: { type: string }
+            azureSourced:
+              type: object
+              description: Discriminated by `entityType`. See data-model.md §1.1 for per-type shape variants.
+              additionalProperties: true
+            azureSourcedHash: { type: string }
+            serviceAssociations:
+              type: array
+              items: { $ref: '#/components/schemas/EntityServiceAssociation' }
+            etag:
+              type: string
+              description: Returned in the `ETag` HTTP header; echo it back via `If-Match` on PATCH/DELETE.
+
+    EntityServiceAssociation:
+      type: object
+      required: [associationId, serviceId, role, createdUtc, createdBy]
+      properties:
+        associationId: { type: string }
+        serviceId: { type: string }
+        role: { $ref: '#/components/schemas/EntityServiceRole' }
+        createdUtc: { type: string, format: date-time }
+        createdBy: { type: string }
+
+    UpdateEntityMetadataRequest:
+      type: object
+      description: |
+        Partial update — only fields explicitly set in the request body are updated.
+        Sending `null` for a field clears it. Azure-sourced fields are rejected with 400.
+      properties:
+        description: { type: string, nullable: true }
+        businessPurpose: { type: string, nullable: true }
+        tags:
+          type: array
+          items: { type: string }
+        documentationLinks:
+          type: array
+          items:
+            type: object
+            required: [label, url]
+            properties:
+              label: { type: string }
+              url: { type: string, format: uri }
+        contactInformation:
+          type: object
+          nullable: true
+          properties:
+            primaryContact: { type: string }
+            escalationPath: { type: string }
+        operationalNotes: { type: string, nullable: true }
+
+    AddAssociationRequest:
+      type: object
+      required: [serviceId, role]
+      properties:
+        serviceId: { type: string }
+        role: { $ref: '#/components/schemas/EntityServiceRole' }
