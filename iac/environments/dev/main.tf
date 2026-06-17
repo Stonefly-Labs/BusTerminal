@@ -680,6 +680,44 @@ module "ai_search_registry_index" {
   search_service_name = module.ai_search.name
 }
 
+# Spec 006 — AzureWebJobsStorage for the indexer Functions runtime.
+#
+# Even though the Cosmos change-feed trigger uses Cosmos's lease container
+# for state, the Functions host still wants `AzureWebJobsStorage` at startup
+# or it logs the host as unhealthy and floods the container with "Unable to
+# create client for AzureWebJobsStorage" every 30s. We supply a minimal
+# AAD-only storage account here; the workload UAMI holds Storage Blob Data
+# Owner on it via the role assignment below. No shared keys, no connection
+# strings — managed-identity is the only auth path.
+resource "azurerm_storage_account" "indexer_webjobs" {
+  # Storage account names: globally unique, 3-24 lowercase alphanumerics.
+  # `stbtdev<suffix>` keeps us within the limit even at long suffixes.
+  name                          = "stbtdev${var.unique_suffix}"
+  resource_group_name           = azurerm_resource_group.this.name
+  location                      = azurerm_resource_group.this.location
+  account_tier                  = "Standard"
+  account_replication_type      = "LRS"
+  account_kind                  = "StorageV2"
+  shared_access_key_enabled     = false
+  public_network_access_enabled = var.data_services_public_access_enabled
+  min_tls_version               = "TLS1_2"
+
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+  }
+
+  tags = local.shared_tags
+}
+
+resource "azurerm_role_assignment" "workload_uami_indexer_webjobs_blob_owner" {
+  scope                = azurerm_storage_account.indexer_webjobs.id
+  role_definition_name = "Storage Blob Data Owner"
+  principal_id         = module.workload_identity.principal_id
+  description          = "Indexer Functions runtime AAD access to AzureWebJobsStorage. Blob Data Owner covers the runtime's container-create needs."
+}
+
 module "indexer_container_app" {
   source = "../../modules/functions-container-app"
 
@@ -708,7 +746,18 @@ module "indexer_container_app" {
 
   app_insights_connection_string_kv_secret_uri = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
 
+  azure_webjobs_storage_account_name = azurerm_storage_account.indexer_webjobs.name
+
   tags = local.shared_tags
+
+  # The data-plane role assignment (Storage Blob Data Owner) must propagate
+  # via AAD before the Functions runtime opens its first connection.
+  # Without an explicit ordering edge, Container Apps revision rollout can
+  # race ahead of role propagation and the runtime restarts a few times
+  # before the role catches up.
+  depends_on = [
+    azurerm_role_assignment.workload_uami_indexer_webjobs_blob_owner,
+  ]
 }
 
 # Per-Container-App diagnostic settings are intentionally NOT provisioned for

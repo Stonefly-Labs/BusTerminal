@@ -93,6 +93,27 @@ resource "azurerm_container_app" "indexer" {
         name  = "FUNCTIONS_WORKER_RUNTIME"
         value = "dotnet-isolated"
       }
+
+      # AzureWebJobsStorage — AAD-only. The Functions runtime expects
+      # this connection at startup even when the only trigger (Cosmos
+      # change-feed) doesn't need it. Without it the runtime reports
+      # the host as unhealthy and the indexer container logs spam
+      # "Unable to create client for AzureWebJobsStorage" every 30s.
+      # No connection strings, no shared keys — the workload UAMI is
+      # granted Storage Blob Data Owner on the account by the env
+      # composition.
+      env {
+        name  = "AzureWebJobsStorage__accountName"
+        value = var.azure_webjobs_storage_account_name
+      }
+      env {
+        name  = "AzureWebJobsStorage__credential"
+        value = "managedidentity"
+      }
+      env {
+        name  = "AzureWebJobsStorage__clientId"
+        value = var.workload_uami_client_id
+      }
     }
   }
 
