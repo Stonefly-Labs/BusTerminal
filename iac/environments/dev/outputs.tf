@@ -369,3 +369,40 @@ output "indexer_container_app_fqdn" {
   description = "Indexer Container App internal FQDN (empty when no ingress is configured)."
   value       = module.indexer_container_app.container_app_fqdn
 }
+
+# -----------------------------------------------------------------------------
+# Spec 009 — Entity discovery & publication. Outputs surface the internal
+# discovery queue + the two new Cosmos containers so the API + Indexer env-var
+# assembly (a Phase 2/3 task) can bind them without re-reading the module
+# tree. Names follow the spec-006 convention (`<service>_<resource>_<facet>`).
+# -----------------------------------------------------------------------------
+
+output "service_bus_discovery_queue_name" {
+  description = "Name of the internal `discovery-requested` queue on the platform Service Bus namespace. Bound to ServiceBus:DiscoveryQueueName."
+  value       = module.service_bus.discovery_queue_name
+}
+
+output "service_bus_discovery_queue_id" {
+  description = "ARM resource id of the discovery-requested queue."
+  value       = module.service_bus.discovery_queue_id
+}
+
+output "cosmos_registry_discovery_runs_container_name" {
+  description = "Name of the discovery-runs Cosmos container. Bound to CosmosRegistry:DiscoveryRunsContainer (spec 009)."
+  value       = module.cosmos_registry_store.discovery_runs_container_name
+}
+
+output "cosmos_registry_discovery_runs_container_id" {
+  description = "Full resource id of the discovery-runs Cosmos container."
+  value       = module.cosmos_registry_store.discovery_runs_container_id
+}
+
+output "cosmos_registry_discovery_locks_container_name" {
+  description = "Name of the discovery-locks Cosmos container. Bound to CosmosRegistry:DiscoveryLocksContainer (spec 009)."
+  value       = module.cosmos_registry_store.discovery_locks_container_name
+}
+
+output "cosmos_registry_discovery_locks_container_id" {
+  description = "Full resource id of the discovery-locks Cosmos container."
+  value       = module.cosmos_registry_store.discovery_locks_container_id
+}

@@ -41,3 +41,24 @@ output "validation_runs_container_id" {
   description = "ARM resource id of the namespace-validation-runs container."
   value       = azurerm_cosmosdb_sql_container.namespace_validation_runs.id
 }
+
+# Spec 009 / T005.
+output "discovery_runs_container_name" {
+  description = "Name of the discovery-runs container. Consumed by CosmosRegistryOptions.DiscoveryRunsContainer (spec 009)."
+  value       = azurerm_cosmosdb_sql_container.discovery_runs.name
+}
+
+output "discovery_runs_container_id" {
+  description = "ARM resource id of the discovery-runs container."
+  value       = azurerm_cosmosdb_sql_container.discovery_runs.id
+}
+
+output "discovery_locks_container_name" {
+  description = "Name of the discovery-locks container. Consumed by CosmosRegistryOptions.DiscoveryLocksContainer (spec 009)."
+  value       = azurerm_cosmosdb_sql_container.discovery_locks.name
+}
+
+output "discovery_locks_container_id" {
+  description = "ARM resource id of the discovery-locks container."
+  value       = azurerm_cosmosdb_sql_container.discovery_locks.id
+}

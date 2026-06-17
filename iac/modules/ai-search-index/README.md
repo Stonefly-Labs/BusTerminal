@@ -6,6 +6,15 @@ source of truth in
 [`specs/006-service-bus-registry-core/contracts/search-index.json`](../../../specs/006-service-bus-registry-core/contracts/search-index.json)
 and is read by this module via `jsondecode(file(...))`.
 
+Spec 009 / T006 extends the schema additively with `lifecycleStatus`,
+`associatedServiceIds`, `associationRoles`, `firstDiscoveredUtc`,
+`lastSeenUtc`, and the `azureSourced` complex type — all backward-compatible
+(legacy documents missing these fields are simply absent from the
+corresponding filters). The schema's `name` (and thus the index version
+suffix `-v1`) is unchanged: AI Search accepts non-breaking field additions
+in-place. Historical documents are backfilled by an off-cycle
+canonical-rebuild run (see spec 009 `tasks.md` T114).
+
 Implementation uses the `azapi` provider's `azapi_data_plane_resource`
 (type `Microsoft.Search/searchServices/indexes@2024-07-01`) because Azure
 AI Search indexes are data-plane resources living on the service endpoint
