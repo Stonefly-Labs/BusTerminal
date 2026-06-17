@@ -80,8 +80,10 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T026 [P] [Frontend foundational] Create the typed API client wrapper in `web/lib/discovery/api.ts` exporting `startDiscovery`, `getDiscoveryRun`, `listDiscoveryRuns`, `searchEntities`, `getEntityDetail`, `updateEntityMetadata`, `archiveEntity`, `listEntityAssociations`, `addEntityAssociation`, `removeEntityAssociation`. Reuse the existing `web/lib/http/client.ts` for token acquisition + traceparent.
 - [ ] T027 [P] [Frontend foundational] Create Zod schemas in `web/lib/discovery/schemas.ts` mirroring `contracts/openapi.yaml`: `EntityTypeSchema`, `LifecycleStatusSchema`, `EntityServiceRoleSchema`, `DiscoveryRunSchema`, `PublishedEntitySchema`, `PublishedEntitySummarySchema`, `EntityServiceAssociationSchema`, `StartDiscoveryResponseSchema`, `UpdateEntityMetadataRequestSchema`, `AddAssociationRequestSchema`. Every API client method parses through these.
 - [ ] T028 [P] [Frontend foundational] Create `web/lib/discovery/permissions.ts` exporting `canEditEntityMetadata(entity, roleContext, ownedServices)` mirroring server-side R-15 so client UI can pre-gate the Edit button without round-tripping.
+- [ ] T028a [P] [Frontend foundational] Create `useOwnedServices()` hook in `web/hooks/use-owned-services.ts` that returns the set of service IDs the current user has the Service Owner role for. Wrap with TanStack Query (stale-while-revalidate). Backend source: reuse the Spec 003 `/api/me/...` surface if one exists; otherwise add a thin `GET /api/me/owned-services` endpoint to `api/BusTerminal.Api/Features/Identity/`. Required for `canEditEntityMetadata` (T028) to compute correctly on the client without an extra round-trip per render.
 - [ ] T029 [P] [Frontend foundational] Add Storybook stories scaffold under `web/components/discovery/_stories/.gitkeep` so each new component has a matching `.stories.tsx`.
-- [ ] T030 Update `api/BusTerminal.Api/Program.cs` to call `MapDiscoveryEndpoints()` (route registration added per-endpoint in later tasks).
+- [ ] T029a [P] [Foundational] Create `PublishedEntityIdComputer` in `api/BusTerminal.Api/Features/Discovery/_Shared/PublishedEntityIdComputer.cs` implementing R-07 stable identity (`pe_` + first 24 base32 chars of SHA-256(compositeKey)) for each entity type. Used by both API (URL construction) and worker (idempotent upsert). Unit tests in `api/BusTerminal.Api.Tests/Features/Discovery/_Shared/PublishedEntityIdComputerTests.cs` covering each entity type and composite-key edge cases (hierarchy depth, escaping). Implements FR-009.
+- [ ] T030 Create empty `DiscoveryEndpointsBuilder` shell in `api/BusTerminal.Api/Features/Discovery/_Shared/DiscoveryEndpointsBuilder.cs` exposing `MapDiscoveryEndpoints(IEndpointRouteBuilder)` as an extension method with no routes registered yet. Wire the call from `api/BusTerminal.Api/Program.cs`. Subsequent tasks (T047, T072, T087, T110) progressively populate this method.
 
 **Checkpoint**: Foundation in place. Stores tested. Telemetry registered. Auth helper unit-tested. Frontend client + Zod schemas ready. User stories may now begin in parallel.
 
@@ -101,7 +103,7 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T034 [P] [US1] Integration test for FR-027 (rejection without role) in `.../StartDiscoveryAuthorizationTests.cs`.
 - [ ] T035 [P] [US1] Worker-side unit tests for `AzureSourcedHash` in `api/BusTerminal.Indexer.Tests/Discovery/Classification/AzureSourcedHashTests.cs` verifying deterministic, order-independent canonical JSON hashing.
 - [ ] T036 [P] [US1] Worker-side unit tests for `EntityClassifier` in `.../Classification/EntityClassifierTests.cs` covering new / updated / unchanged transitions on each entity type.
-- [ ] T037 [P] [US1] Worker-side integration test in `api/BusTerminal.Indexer.Tests/Discovery/EntityDiscoveryOrchestratorTests.cs` against a recorded ARM HTTP fixture (`api/BusTerminal.Indexer.Tests/Discovery/_Fixtures/arm-recorded-namespace/*.json`) covering: empty namespace, full namespace, mid-run partial failure, idempotent re-run, missing-detection sweep.
+- [ ] T037 [P] [US1] Worker-side integration test in `api/BusTerminal.Indexer.Tests/Discovery/EntityDiscoveryOrchestratorTests.cs` against a recorded ARM HTTP fixture (`api/BusTerminal.Indexer.Tests/Discovery/_Fixtures/arm-recorded-namespace/*.json`) covering: empty namespace, full namespace, mid-run partial failure, idempotent re-run, missing-detection sweep. **Explicit partial-failure case**: simulate topics fetch succeeds but subscriptions fetch fails — assert that NO entity (queues, topics, or pre-existing subscriptions) is marked Missing as a result, only the run is marked Failed. Covers the "Partial discovery failure" edge case.
 - [ ] T038 [P] [US1] Worker-side unit test for the retry/backoff configuration in `.../RetryPolicyTests.cs` confirming `MaxRetries = 3`, exponential backoff, and that auth failures bypass retry (FR-021a).
 - [ ] T039 [P] [US1] E2E Playwright test in `web/tests/e2e/discovery-flow.spec.ts` covering the US1 walkthrough from `quickstart.md` against the dev environment.
 - [ ] T040 [P] [US1] Component test for `<DiscoverButton>` in `web/components/discovery/discover-button.test.tsx` (Vitest + RTL): role-gated render, click triggers `startDiscovery`, polls for completion, surfaces errors.
@@ -114,7 +116,7 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T044 [US1] `api/BusTerminal.Api/Features/Discovery/StartDiscovery/StartDiscoveryRequest.cs` + `StartDiscoveryResponse.cs` + `StartDiscoveryValidator.cs` (FluentValidation — namespace exists; user is authenticated; namespace is in a discoverable lifecycle state per Spec 008).
 - [ ] T045 [US1] `api/BusTerminal.Api/Features/Discovery/StartDiscovery/StartDiscoveryEndpoint.cs` — Minimal API mapping `POST /api/namespaces/{namespaceId}/discover`; runs validator → coalescer → if newly created, publishes the message; returns 202 + response. Applies `RequireNamespaceAdministrator()`.
 - [ ] T046 [US1] `api/BusTerminal.Api/Features/Discovery/GetDiscoveryRun/GetDiscoveryRunEndpoint.cs` — Minimal API mapping `GET /api/discovery-runs/{discoveryRunId}?namespaceId={ns}`. Returns 404 if not found in the supplied partition.
-- [ ] T047 [US1] Register the two new endpoints in `api/BusTerminal.Api/Features/Discovery/_Shared/DiscoveryEndpointsBuilder.cs::MapDiscoveryEndpoints()`.
+- [ ] T047 [US1] Register the two new endpoints (`StartDiscoveryEndpoint`, `GetDiscoveryRunEndpoint`) in `api/BusTerminal.Api/Features/Discovery/_Shared/DiscoveryEndpointsBuilder.cs::MapDiscoveryEndpoints()`. **Sequential with T072, T087, T110 — same file.**
 
 ### Implementation for User Story 1 — Worker
 
@@ -123,7 +125,8 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T050 [P] [US1] `api/BusTerminal.Indexer/Discovery/Classification/AzureSourcedHash.cs` — canonical SHA-256 over sorted-key JSON serialization per R-08.
 - [ ] T051 [P] [US1] `api/BusTerminal.Indexer/Discovery/Classification/EntityClassifier.cs` — classifies each discovered entity as new/updated/unchanged given the prior persisted document's `azureSourcedHash`.
 - [ ] T052 [P] [US1] `api/BusTerminal.Indexer/Discovery/Persistence/DiscoveryWriteBatcher.cs` — channel-backed 32-way parallel writer; calls `IRegistryEntityStore.UpsertAzureSourcedAsync`; updates lifecycle on reappearance per FR-014.
-- [ ] T053 [US1] `api/BusTerminal.Indexer/Discovery/EntityDiscoveryOrchestrator.cs` — orchestrates: lock holder validation → fetch (parallel per R-05) → classify → persist → missing-sweep → final run update. Emits all spans/metrics from R-12. On non-retriable error: marks run Failed with the appropriate `DiscoveryFailureCategory` and `DiscoveryPhase`, releases the lock, exits cleanly.
+- [ ] T053 [US1] `api/BusTerminal.Indexer/Discovery/EntityDiscoveryOrchestrator.cs` — orchestrates: lock holder validation → fetch (parallel per R-05) → classify → persist → missing-sweep → final run update. Emits all spans/metrics from R-12. On non-retriable error: marks run Failed with the appropriate `DiscoveryFailureCategory` and `DiscoveryPhase`, releases the lock, exits cleanly. **Partial-failure invariant**: orchestrator MUST track a `completedScopes: Set<EntityType>` and the missing-sweep MUST filter to only the scopes whose fetch completed successfully — if any scope failed, that scope's entities are NOT considered for Missing transition (covers the "Partial discovery failure" edge case + FR-021).
+- [ ] T053a [P] [US1] `api/BusTerminal.Indexer/Discovery/FailureMessageSanitizer.cs` — utility that strips ARM resource paths, entity names, and any other potentially-sensitive substrings from exception messages before they're persisted to `DiscoveryRun.failure.message`. Enforces the constitution's "no PII in telemetry" rule and the R-12 dimension cap. Unit tests in `api/BusTerminal.Indexer.Tests/Discovery/FailureMessageSanitizerTests.cs` covering ARM ID redaction, entity name redaction, and pass-through of operator-friendly error categories. Called from T053 before writing `DiscoveryRun.failure`.
 - [ ] T054 [US1] `api/BusTerminal.Indexer/Discovery/DiscoveryRequestedFunction.cs` — `[ServiceBusTrigger("discovery-requested", Connection = "ServiceBus__fullyQualifiedNamespace")]` entry point; deserializes the envelope, seeds the worker activity from the message's W3C `traceparent`, invokes `EntityDiscoveryOrchestrator`. On unhandled exception: lets the Service Bus binding dead-letter the message after `MaxDeliveryCount` per FR-021.
 - [ ] T055 [US1] DI registration in `api/BusTerminal.Indexer/Program.cs` for the orchestrator, provider, classifier, batcher, telemetry.
 
@@ -145,6 +148,8 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 
 **Independent Test**: With a populated catalog (from US1 or seeded data), perform searches by name and entity type, apply combinations of filters, sort, drill into detail. Verify both metadata sections are clearly distinguished and lifecycle status is visible.
 
+**⚠️ Environment prerequisite**: On any environment that contains pre-existing Spec 006 entities (dev, test, prod), **T114 (AI Search canonical rebuild) MUST run before US2 acceptance testing** — otherwise legacy entities will render with empty `lifecycleStatus`, `associatedServiceIds`, and `azureSourced` fields, breaking the new filters. T114 lives in Phase 7 for pipeline simplicity but executes-before-acceptance for US2.
+
 ### Tests for User Story 2
 
 - [ ] T061 [P] [US2] Contract test for `GET /api/entities` in `api/BusTerminal.Api.Tests/Features/Discovery/SearchEntities/SearchEntitiesContractTests.cs` (validates all new filter parameters and the response shape).
@@ -161,7 +166,7 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 
 - [ ] T070 [US2] Extend the existing Spec 006 search handler — `api/BusTerminal.Api/Features/Discovery/SearchEntities/SearchEntitiesEndpoint.cs` — to accept and forward the new query params (`associatedServiceId`, `associationRole[]`, `lifecycleStatus[]`, `sort=lastSeen_*`). Translate to AI Search OData filter clauses; reuse existing `AzureAiSearchClient`.
 - [ ] T071 [US2] `api/BusTerminal.Api/Features/Discovery/GetEntityDetail/GetEntityDetailEndpoint.cs` — Minimal API `GET /api/entities/{entityId}`. Returns the full document including `azureSourced.*`, `serviceAssociations[]`, and a `Last-Modified` + `ETag` header. Resolves the partition key by reading from AI Search first to find the `environment`, then doing a single-partition Cosmos read.
-- [ ] T072 [US2] Register both endpoints in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`.
+- [ ] T072 [US2] Register both endpoints (`SearchEntitiesEndpoint`, `GetEntityDetailEndpoint`) in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T087, T110 — same file.**
 
 ### Implementation for User Story 2 — Frontend
 
@@ -195,7 +200,7 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 ### Implementation for User Story 3 — Backend
 
 - [ ] T086 [US3] `api/BusTerminal.Api/Features/Discovery/ListDiscoveryRuns/ListDiscoveryRunsEndpoint.cs` — Minimal API `GET /api/namespaces/{namespaceId}/discovery-runs` with continuation-token pagination via Cosmos's native cursor.
-- [ ] T087 [US3] Register in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`.
+- [ ] T087 [US3] Register `ListDiscoveryRunsEndpoint` in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T072, T110 — same file.**
 
 ### Implementation for User Story 3 — Frontend
 
@@ -224,7 +229,7 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T097 [P] [US4] Integration test for FR-015 archive sticky-ness in `.../ArchiveStickyIntegrationTests.cs`: archive an entity, simulate discovery seeing it again, verify status stays `Archived`.
 - [ ] T098 [P] [US4] Integration test for the three-branch authorization in `.../UpdateEntityMetadata/AuthorizationIntegrationTests.cs` — Platform Admin, Namespace Admin, Owner-role Service Owner all allow; Producer/Consumer-role Service Owner and unrelated users are denied.
 - [ ] T099 [P] [US4] Component test for `<ServiceAssociationEditor>` in `web/components/discovery/service-association-editor.test.tsx` covering add, remove, duplicate-prevention UX, validation errors.
-- [ ] T100 [P] [US4] Component test for the extended edit form (re-exercise `<EntityForm>` with the new fields) in `web/components/registry/forms/namespace-form.test.tsx` extensions or a new `entity-edit-form.test.tsx`.
+- [ ] T100 [P] [US4] Component test for the extended edit form (re-exercise `<EntityForm>` with the new fields) in a new file `web/components/registry/forms/entity-edit-form.test.tsx` — keeps US4 surface cleanly separable from Spec 006's `namespace-form.test.tsx`.
 - [ ] T101 [P] [US4] A11y test for the edit + association editor in `web/tests/a11y/entity-edit.spec.ts`.
 - [ ] T102 [P] [US4] E2E Playwright test for the US4 walkthrough (`web/tests/e2e/entity-curation.spec.ts`) including the preservation-across-rediscovery acceptance scenario.
 
@@ -236,8 +241,8 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T106 [P] [US4] `.../ServiceAssociations/ListAssociationsEndpoint.cs` — `GET /api/entities/{entityId}/associations`.
 - [ ] T107 [P] [US4] `.../ServiceAssociations/AddAssociationEndpoint.cs` — `POST /api/entities/{entityId}/associations` with duplicate-triple 409 + ETag enforcement. Authorization: Owner-role-editor branch OR Admin/NamespaceAdmin.
 - [ ] T108 [P] [US4] `.../ServiceAssociations/RemoveAssociationEndpoint.cs` — `DELETE /api/entities/{entityId}/associations/{associationId}` with same auth pattern.
-- [ ] T109 [US4] Extend `IRegistryEntityStore` with `UpdateCuratedMetadataAsync`, `SetLifecycleStatusAsync` (used by archive + missing sweep), `AddAssociationAsync`, `RemoveAssociationAsync`. All preserve `azureSourced.*` and `azureSourcedHash` untouched.
-- [ ] T110 [US4] Register all five new endpoints in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`.
+- [ ] T109 [US4] Extend `IRegistryEntityStore` with `UpdateCuratedMetadataAsync(entityId, patch, ifMatch)`, `SetLifecycleStatusAsync(entityId, status, ifMatch)` (used by archive + missing sweep), `AddAssociationAsync(entityId, association, ifMatch)`, `RemoveAssociationAsync(entityId, associationId, ifMatch)`. All accept and enforce optimistic-concurrency ETag (`ifMatch`) and preserve `azureSourced.*` and `azureSourcedHash` untouched.
+- [ ] T110 [US4] Register all five new endpoints (`UpdateEntityMetadataEndpoint`, `ArchiveEntityEndpoint`, `ListAssociationsEndpoint`, `AddAssociationEndpoint`, `RemoveAssociationEndpoint`) in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T072, T087 — same file.**
 
 ### Implementation for User Story 4 — Frontend
 
@@ -253,9 +258,10 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 
 **Purpose**: Documentation, performance tuning, security review, the AI Search backfill, telemetry dashboards, and the quickstart validation pass.
 
-- [ ] T114 [P] Run the AI Search canonical-rebuild against dev to backfill the new fields onto historical Spec 006 documents (`iac/scripts/rebuild-search-index.sh dev`). Validate no entities lost.
+- [ ] T114 [P] Run the AI Search canonical-rebuild against dev to backfill the new fields onto historical Spec 006 documents (`iac/scripts/rebuild-search-index.sh dev`). Validate no entities lost. **Prerequisite for US2 acceptance testing on any environment with pre-existing Spec 006 entities** — see the Phase 4 environment-prerequisite note. Run order: ship Foundational (T011–T030) → run T114 → begin US2 acceptance.
 - [ ] T115 [P] Add a built-in App Insights workbook (or Azure Monitor dashboard) for discovery telemetry — runs/day, success rate, duration P50/P95, retry counts, failure-category breakdown — defined as IaC under `iac/modules/monitoring-dashboards/discovery.json` (or extend the existing dashboards module).
 - [ ] T116 [P] Performance validation: run a load test from the dev environment against a synthetic large namespace (use Spec 008's existing test-namespace seeder + new helper at `tools/SyntheticServiceBusSeeder/`). Confirm SC-005 (≤ 5 min) for 500/500/5000/5000 scale.
+- [ ] T116a [P] Performance smoke test for SC-007 ("user can locate any entity by name through catalog search in under 10 seconds") in `api/BusTerminal.Api.Tests/Performance/EntitySearchLatencyTests.cs` — against the dev AI Search index populated by T116's synthetic namespace, measure `GET /api/entities?q=...` P95 latency over ≥ 50 representative queries; assert P95 ≤ 10s. Tagged for nightly perf run, not blocking PR CI.
 - [ ] T117 [P] Run `iac/policies/run-policies.sh` against the dev plan in CI to confirm BT-IAC-001..007 all pass; commit any required allowlist additions with `justification` fields.
 - [ ] T118 [P] Update `web/lib/auth/role-permission-matrix.ts` to document the new "edit entity metadata" operation class derivation rule (R-15). Add a unit test confirming the matrix and the runtime `canEditEntityMetadata` agree.
 - [ ] T119 [P] Update CLAUDE.md MCP touchpoints if new patterns warrant: confirm the shadcn MCP was consulted for any primitive variant added in Phase 3/4/6 tasks.
@@ -265,6 +271,8 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 - [ ] T123 [P] Code review pass: scan all new files for accidentally-committed PII in test fixtures or logs (constitution — no PII in telemetry); the gitleaks CI scan should already catch this but a manual sweep is cheap.
 - [ ] T124 Update `speckit-artifacts/tech-stack.md` if Spec 009 introduced any durable convention (e.g., the W3C Trace Context propagation pattern over Service Bus message properties is worth a one-line note under §7 or a new sub-row under §4 — confirm with R-13).
 - [ ] T125 Final: tag and release. Open the PR to main via the existing CI gates (build, unit, lint, format, security scan, IaC plan, terraform-docs, BT-IAC-001..007).
+- [ ] T125a [P] Dev-tooling CLI `tools/DiscoveryLockReset` — small .NET console that takes `--namespace-id` + `--env` and clears the per-namespace `discovery-locks` document for debug/recovery. Referenced from `quickstart.md` "Useful one-liners". Not shipped to prod.
+- [ ] T125b [P] Dev-tooling CLI `tools/DiscoveryTelemetryTail` — small .NET console that streams `BusTerminal.Discovery` ActivitySource + Meter events from local OTLP for live debugging. Referenced from `quickstart.md` "Useful one-liners". Not shipped to prod.
 
 ---
 
@@ -379,10 +387,28 @@ Phase 7 (Polish) runs as a team effort once US1 ships; the canonical AI Search b
 | Phase | Tasks | Of which [P] | Estimated effort (engineer-days) |
 |---|---|---|---|
 | Phase 1 — Setup | 10 | 9 | 1–2 |
-| Phase 2 — Foundational | 20 | 14 | 3–5 |
-| Phase 3 — US1 (P1 / MVP) | 30 | 18 | 7–10 |
+| Phase 2 — Foundational | 22 (T011–T030 incl. T028a, T029a) | 16 | 3–5 |
+| Phase 3 — US1 (P1 / MVP) | 31 (incl. T053a) | 19 | 7–10 |
 | Phase 4 — US2 | 19 | 13 | 4–6 |
 | Phase 5 — US3 | 13 | 8 | 2–4 |
 | Phase 6 — US4 | 21 | 13 | 5–7 |
-| Phase 7 — Polish | 12 | 11 | 2–3 |
-| **Total** | **125** | **86** | **24–37** |
+| Phase 7 — Polish | 15 (incl. T116a, T125a, T125b) | 14 | 2–3 |
+| **Total** | **131** | **92** | **24–37** |
+
+### Post-analyze remediation log (2026-06-17)
+
+Edits applied after the `/speckit-analyze` pass:
+- **O1**: T030 reworded to create empty builder shell first; T047 (and T072/T087/T110) progressively populate it.
+- **O2**: Phase 4 environment-prerequisite callout added; T114 description annotated with the dependency.
+- **C1**: T029a added (`PublishedEntityIdComputer` utility, Foundational).
+- **C2**: T116a added (search-latency perf test for SC-007).
+- **C3**: T028a added (`useOwnedServices()` hook).
+- **C4**: T053 reworded with explicit partial-failure scope-tracking invariant; T037 extended with explicit partial-failure assertion.
+- **A1**: T100 pinned to a new file `entity-edit-form.test.tsx`.
+- **I1**: T109 wording updated to surface `ifMatch` on every store method.
+- **F1**: T047, T072, T087, T110 each annotated "Sequential — same file."
+- **S1**: T053a added (`FailureMessageSanitizer`).
+- **T1**: T125a + T125b added (dev-tooling CLIs referenced by quickstart).
+- **D1**: Skipped per recommendation — additive FR sub-clauses (FR-011a, FR-021a) are intentional and acceptable.
+
+All 11 surfaced findings addressed. Net delta: +6 new tasks (T028a, T029a, T053a, T116a, T125a, T125b); 9 existing tasks reworded; 1 phase-level note added.
