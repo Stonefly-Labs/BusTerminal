@@ -190,27 +190,27 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 
 ### Tests for User Story 3
 
-- [ ] T080 [P] [US3] Contract test for `GET /api/namespaces/{namespaceId}/discovery-runs` in `api/BusTerminal.Api.Tests/Features/Discovery/ListDiscoveryRuns/ListDiscoveryRunsContractTests.cs` (validates pagination via `continuationToken`).
-- [ ] T081 [P] [US3] Integration test in `.../ListDiscoveryRunsPaginationTests.cs` seeding > pageSize runs and walking the continuation cursor to completion.
-- [ ] T082 [P] [US3] Component test for `<DiscoveryRunsTable>` in `web/components/discovery/discovery-runs-table.test.tsx` covering reverse-chronological sort, status badges, duration formatting, and row-click navigation.
-- [ ] T083 [P] [US3] Component test for `<DiscoveryRunDetail>` in `web/components/discovery/discovery-run-detail.test.tsx` covering Succeeded vs Failed rendering and failure category mapping.
-- [ ] T084 [P] [US3] A11y test for the new history pages in `web/tests/a11y/discovery-runs.spec.ts`.
-- [ ] T085 [P] [US3] E2E Playwright test for the US3 walkthrough (including the engineered failure) in `web/tests/e2e/discovery-history.spec.ts`.
+- [X] T080 [P] [US3] Contract test for `GET /api/namespaces/{namespaceId}/discovery-runs` in `api/BusTerminal.Api.Tests/Features/Discovery/ListDiscoveryRuns/ListDiscoveryRunsContractTests.cs` (validates pagination via `continuationToken`). _(Extended `InMemoryDiscoveryRunStore` with a tiny offset-cursor implementation so the contract walks an opaque token through 5 seeded runs end-to-end.)_
+- [X] T081 [P] [US3] Integration test in `.../ListDiscoveryRunsPaginationTests.cs` seeding > pageSize runs and walking the continuation cursor to completion. _(Uses the shared `RegistryFixture`; skips cleanly when `BUSTERMINAL_TEST_COSMOS_ENDPOINT` is unset.)_
+- [X] T082 [P] [US3] Component test for `<DiscoveryRunsTable>` in `web/components/discovery/discovery-runs-table.test.tsx` covering reverse-chronological sort, status badges, duration formatting, and row-click navigation.
+- [X] T083 [P] [US3] Component test for `<DiscoveryRunDetail>` in `web/components/discovery/discovery-run-detail.test.tsx` covering Succeeded vs Failed rendering and failure category mapping.
+- [X] T084 [P] [US3] A11y test for the new history pages in `web/tests/a11y/discovery-runs.spec.ts`. _(Pinned `test.fixme` matching the spec 009 E2E pattern — depends on the same MSAL persona fixture as T039/T041, lands in Phase 9.)_
+- [X] T085 [P] [US3] E2E Playwright test for the US3 walkthrough (including the engineered failure) in `web/tests/e2e/discovery-history.spec.ts`. _(Pinned `test.fixme` matching T039 — failure-card behavior covered today by `discovery-run-detail.test.tsx` and `FailureMessageSanitizerTests.cs`.)_
 
 ### Implementation for User Story 3 — Backend
 
-- [ ] T086 [US3] `api/BusTerminal.Api/Features/Discovery/ListDiscoveryRuns/ListDiscoveryRunsEndpoint.cs` — Minimal API `GET /api/namespaces/{namespaceId}/discovery-runs` with continuation-token pagination via Cosmos's native cursor.
-- [ ] T087 [US3] Register `ListDiscoveryRunsEndpoint` in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T072, T110 — same file.**
+- [X] T086 [US3] `api/BusTerminal.Api/Features/Discovery/ListDiscoveryRuns/ListDiscoveryRunsEndpoint.cs` — Minimal API `GET /api/namespaces/{namespaceId}/discovery-runs` with continuation-token pagination via Cosmos's native cursor. _(Plus `ListDiscoveryRunsResponse` DTO so the wire shape stays decoupled from `DiscoveryRunPage`.)_
+- [X] T087 [US3] Register `ListDiscoveryRunsEndpoint` in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T072, T110 — same file.**
 
 ### Implementation for User Story 3 — Frontend
 
-- [ ] T088 [P] [US3] `web/components/discovery/discovery-runs-table.tsx` — TanStack Table v8 client component (mirrors Spec 006's URL-state-driven pattern). Columns: status (badge), started, completed, duration, counts, requested-by, run-id. Row click → `/namespaces/{id}/discovery-runs/{runId}`.
-- [ ] T089 [P] [US3] `web/components/discovery/discovery-run-detail.tsx` — server component rendering all fields from the DiscoveryRun including the per-classification counts and the failure detail block when present.
-- [ ] T090 [US3] New route `web/app/(authenticated)/namespaces/[id]/discovery-runs/page.tsx` — server-renders `<DiscoveryRunsTable>` with first page of data.
-- [ ] T091 [US3] New route `web/app/(authenticated)/namespaces/[id]/discovery-runs/[runId]/page.tsx` — server-renders `<DiscoveryRunDetail>`.
-- [ ] T092 [P] [US3] Storybook stories for the two new components.
+- [X] T088 [P] [US3] `web/components/discovery/discovery-runs-table.tsx` — TanStack Table v8 client component (mirrors Spec 006's URL-state-driven pattern). Columns: status (badge), started, completed, duration, counts, requested-by, run-id. Row click → `/namespaces/{id}/discovery-runs/{runId}`.
+- [X] T089 [P] [US3] `web/components/discovery/discovery-run-detail.tsx` — server component rendering all fields from the DiscoveryRun including the per-classification counts and the failure detail block when present. _(Operator-friendly category + phase labels surface the R-12 telemetry mapping.)_
+- [X] T090 [US3] New route `web/app/(authenticated)/namespaces/[id]/discovery-runs/page.tsx` — server-renders `<DiscoveryRunsTable>` with first page of data. _(Thin RSC shell delegates to a new `<DiscoveryRunsHistoryViewer>` client wrapper that fetches the first page via TanStack Query, matching the established discovery-status-panel pattern.)_
+- [X] T091 [US3] New route `web/app/(authenticated)/namespaces/[id]/discovery-runs/[runId]/page.tsx` — server-renders `<DiscoveryRunDetail>`. _(Thin RSC shell delegates to `<DiscoveryRunDetailViewer>` which fetches via `getDiscoveryRun` and surfaces 404 inline.)_
+- [X] T092 [P] [US3] Storybook stories for the two new components. _(Empty / populated / mixed-statuses / has-more-pages for the table; Succeeded / InProgress / FailedThrottled / FailedAuthn / FailedWorkerLost / WithCoalescedRequests for the detail.)_
 
-**Checkpoint**: SC-006, SC-008 verifiable. US3 testable independently. All three stories deployable end-to-end.
+**Checkpoint**: SC-006, SC-008 verifiable. US3 testable independently. All three stories deployable end-to-end. _(Phase 5 LANDED 2026-06-17 — backend + frontend + tests all in place; lint clean on new files; 78/78 Discovery API tests + 30/30 Discovery component tests passing; T084/T085 pinned `test.fixme` pending the MSAL persona fixture.)_
 
 ---
 

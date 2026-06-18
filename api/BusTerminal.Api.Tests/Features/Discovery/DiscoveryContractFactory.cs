@@ -172,12 +172,30 @@ public sealed class InMemoryDiscoveryRunStore : IDiscoveryRunStore
 
     public Task<DiscoveryRunPage> ListByNamespaceAsync(string namespaceId, int pageSize, string? continuationToken, CancellationToken cancellationToken)
     {
-        var items = _runs.Values
+        // Test-only offset cursor: tokens are decimal integers that point at
+        // the next item to return in the reverse-chronological sequence. The
+        // production CosmosDiscoveryRunStore hands back Cosmos-native opaque
+        // tokens; the contract here is "opaque string carries forward state".
+        var offset = 0;
+        if (!string.IsNullOrEmpty(continuationToken) && int.TryParse(continuationToken, out var parsed) && parsed > 0)
+        {
+            offset = parsed;
+        }
+
+        var ordered = _runs.Values
             .Where(r => r.NamespaceId == namespaceId)
             .OrderByDescending(r => r.StartedUtc)
+            .ToArray();
+
+        var page = ordered
+            .Skip(offset)
             .Take(pageSize)
             .ToArray();
-        return Task.FromResult(new DiscoveryRunPage(items, null));
+
+        var nextOffset = offset + page.Length;
+        string? next = nextOffset < ordered.Length ? nextOffset.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+
+        return Task.FromResult(new DiscoveryRunPage(page, next));
     }
 
     public Task<DiscoveryRun> UpdateStatusAsync(string runId, string namespaceId, DiscoveryRunStatusUpdate update, string? ifMatch, CancellationToken cancellationToken)
