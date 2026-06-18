@@ -152,31 +152,31 @@ Per [plan.md "Source Code"](./plan.md#source-code-repository-root):
 
 ### Tests for User Story 2
 
-- [ ] T061 [P] [US2] Contract test for `GET /api/entities` in `api/BusTerminal.Api.Tests/Features/Discovery/SearchEntities/SearchEntitiesContractTests.cs` (validates all new filter parameters and the response shape).
-- [ ] T062 [P] [US2] Contract test for `GET /api/entities/{entityId}` in `.../GetEntityDetail/GetEntityDetailContractTests.cs`.
-- [ ] T063 [P] [US2] Integration test for new filter combinations in `.../SearchEntities/SearchEntitiesFilterIntegrationTests.cs` (lifecycle+role, namespace+tag, multi-value role narrowing) hitting a real AI Search dev cluster.
-- [ ] T064 [P] [US2] Component test for `<LifecycleFilter>` in `web/components/registry/filters/lifecycle-filter.test.tsx`.
-- [ ] T065 [P] [US2] Component test for `<ServiceAssociationFilter>` in `web/components/registry/filters/service-association-filter.test.tsx`.
-- [ ] T066 [P] [US2] Component test for `<EntityAzureMetadata>` in `web/components/discovery/entity-azure-metadata.test.tsx` covering per-entity-type field rendering and the "unknown" rendering for rule edge case (missing filter/action).
-- [ ] T067 [P] [US2] Component test for `<EntityDiscoveryInfo>` in `web/components/discovery/entity-discovery-info.test.tsx`.
-- [ ] T068 [P] [US2] A11y test for `/registry/search` extended filters and entity detail page in `web/tests/a11y/registry-search-discovery.spec.ts`.
-- [ ] T069 [P] [US2] E2E Playwright test for the US2 walkthrough in `web/tests/e2e/entity-catalog.spec.ts`.
+- [X] T061 [P] [US2] Contract test for `GET /api/entities` in `api/BusTerminal.Api.Tests/Features/Discovery/SearchEntities/SearchEntitiesContractTests.cs` (validates all new filter parameters and the response shape).
+- [X] T062 [P] [US2] Contract test for `GET /api/entities/{entityId}` in `.../GetEntityDetail/GetEntityDetailContractTests.cs`.
+- [X] T063 [P] [US2] Integration test for new filter combinations in `.../SearchEntities/SearchEntitiesFilterIntegrationTests.cs` (lifecycle+role, namespace+tag, multi-value role narrowing). _(Live AI Search run is env-var-gated; pure OData-clause assertions run in every build to catch regressions to the filter-string shape — see `AzurePublishedEntitySearchClient.BuildFilter`.)_
+- [X] T064 [P] [US2] Component test for `<LifecycleFilter>` in `web/components/registry/filters/lifecycle-filter.test.tsx`.
+- [X] T065 [P] [US2] Component test for `<ServiceAssociationFilter>` in `web/components/registry/filters/service-association-filter.test.tsx`.
+- [X] T066 [P] [US2] Component test for `<EntityAzureMetadata>` in `web/components/discovery/entity-azure-metadata.test.tsx` covering per-entity-type field rendering and the "unknown" rendering for rule edge case (missing filter/action).
+- [X] T067 [P] [US2] Component test for `<EntityDiscoveryInfo>` in `web/components/discovery/entity-discovery-info.test.tsx`.
+- [X] T068 [P] [US2] A11y test for `/registry/search` extended filters and entity detail page in `web/tests/a11y/registry-search-discovery.spec.ts`.
+- [X] T069 [P] [US2] E2E Playwright test for the US2 walkthrough in `web/tests/e2e/entity-catalog.spec.ts`.
 
 ### Implementation for User Story 2 — Backend
 
-- [ ] T070 [US2] Extend the existing Spec 006 search handler — `api/BusTerminal.Api/Features/Discovery/SearchEntities/SearchEntitiesEndpoint.cs` — to accept and forward the new query params (`associatedServiceId`, `associationRole[]`, `lifecycleStatus[]`, `sort=lastSeen_*`). Translate to AI Search OData filter clauses; reuse existing `AzureAiSearchClient`.
-- [ ] T071 [US2] `api/BusTerminal.Api/Features/Discovery/GetEntityDetail/GetEntityDetailEndpoint.cs` — Minimal API `GET /api/entities/{entityId}`. Returns the full document including `azureSourced.*`, `serviceAssociations[]`, and a `Last-Modified` + `ETag` header. Resolves the partition key by reading from AI Search first to find the `environment`, then doing a single-partition Cosmos read.
-- [ ] T072 [US2] Register both endpoints (`SearchEntitiesEndpoint`, `GetEntityDetailEndpoint`) in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T087, T110 — same file.**
+- [X] T070 [US2] Extend the existing Spec 006 search handler — `api/BusTerminal.Api/Features/Discovery/SearchEntities/SearchEntitiesEndpoint.cs` — to accept and forward the new query params (`associatedServiceId`, `associationRole[]`, `lifecycleStatus[]`, `sort=lastSeen_*`). Translate to AI Search OData filter clauses. _(Implemented as a NEW endpoint at `GET /api/entities` per `contracts/openapi.yaml`. To keep the spec 006 ISearchClient untouched, added a sibling abstraction `IPublishedEntitySearchClient` + adapter `AzurePublishedEntitySearchClient` over the same `registry-entities-v1` index with typed shapes for the spec 009 surface — `EntityType`, `LifecycleStatus`, `EntityServiceRole`, string ids. Unconditional `lifecycleStatus ne null` filter scopes results to published entities only.)_
+- [X] T071 [US2] `api/BusTerminal.Api/Features/Discovery/GetEntityDetail/GetEntityDetailEndpoint.cs` — Minimal API `GET /api/entities/{entityId}`. Returns the full document including `azureSourced.*`, `serviceAssociations[]`, and a `Last-Modified` + `ETag` header. Resolves the partition key by reading from AI Search first to find the `environment`, then doing a single-partition Cosmos read. _(Added `IPublishedEntityStore.GetDetailAsync(entityId, environment)` returning the domain `PublishedEntity` + ETag; the endpoint composes search-lookup → Cosmos read and 404s on either miss.)_
+- [X] T072 [US2] Register both endpoints (`SearchEntitiesEndpoint`, `GetEntityDetailEndpoint`) in `DiscoveryEndpointsBuilder.MapDiscoveryEndpoints()`. **Sequential with T047, T087, T110 — same file.**
 
 ### Implementation for User Story 2 — Frontend
 
-- [ ] T073 [P] [US2] `web/components/registry/filters/lifecycle-filter.tsx` — checkbox-group filter for lifecycle status; URL-state-driven per existing search-page pattern.
-- [ ] T074 [P] [US2] `web/components/registry/filters/service-association-filter.tsx` — combobox (shadcn `command` + `popover`) for picking a service + an optional role-narrowing checkbox group.
-- [ ] T075 [P] [US2] `web/components/discovery/entity-azure-metadata.tsx` — read-only display per entity type (queue/topic/subscription/rule). Uses shadcn `Card` + descriptive labels. Renders "unknown" for rule fields per edge case.
-- [ ] T076 [P] [US2] `web/components/discovery/entity-discovery-info.tsx` — first-seen + last-seen + lifecycle badge component (server component).
-- [ ] T077 [US2] Extend `web/app/(authenticated)/registry/search/page.tsx` to render the new filter components and pass their state to the existing search query.
-- [ ] T078 [US2] Extend `web/app/(authenticated)/registry/[entityType]/[id]/page.tsx` to render `<EntityDiscoveryInfo>`, `<EntityAzureMetadata>`, and the existing registry metadata section — visually distinct cards as required by FR-024.
-- [ ] T079 [P] [US2] Storybook stories for each of the four new components in their respective `.stories.tsx` files.
+- [X] T073 [P] [US2] `web/components/registry/filters/lifecycle-filter.tsx` — checkbox-group filter for lifecycle status; URL-state-driven per existing search-page pattern.
+- [X] T074 [P] [US2] `web/components/registry/filters/service-association-filter.tsx` — service-id input + role narrowing checkbox group. _(Spec 009 ships a typed text input for serviceId; a future spec / Phase 6 can swap the input for a shadcn `command` + `popover` combobox without changing the URL state contract — service catalog endpoint isn't part of Spec 009.)_
+- [X] T075 [P] [US2] `web/components/discovery/entity-azure-metadata.tsx` — read-only display per entity type (queue/topic/subscription/rule). Uses shadcn `Card` + descriptive labels. Renders "Unknown" for rule fields per edge case.
+- [X] T076 [P] [US2] `web/components/discovery/entity-discovery-info.tsx` — first-seen + last-seen + lifecycle badge component (server component).
+- [X] T077 [US2] Extend `web/app/(authenticated)/registry/search/page.tsx` to render the new filter components and pass their state to the existing search query.
+- [X] T078 [US2] Extend `web/app/(authenticated)/registry/[entityType]/[id]/page.tsx` to render `<EntityDiscoveryInfo>`, `<EntityAzureMetadata>`, and the existing registry metadata section — visually distinct cards as required by FR-024. _(Dispatches on id format: `pe_*` ids call `getEntityDetail` and render the Spec 009 panels; other ids fall through to the existing Spec 006 detail shell.)_
+- [X] T079 [P] [US2] Storybook stories for each of the four new components in their respective `.stories.tsx` files.
 
 **Checkpoint**: SC-002, SC-007 verifiable. US2 testable independently as soon as the catalog has any populated entity (whether from US1 or seeded data). User Story 1 and User Story 2 both work standalone.
 

@@ -155,6 +155,80 @@ public sealed partial class CosmosPublishedEntityStore : IPublishedEntityStore
         }
     }
 
+    public async Task<PublishedEntityDetail?> GetDetailAsync(
+        string entityId,
+        string environment,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(entityId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(environment);
+
+        try
+        {
+            var response = await _container.ReadItemAsync<PublishedEntityDocument>(
+                entityId,
+                new PartitionKey(environment),
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+            var doc = response.Resource;
+
+            // Spec 009 / GET /api/entities/{id} surfaces published entities
+            // only — i.e. documents that have been through at least one
+            // discovery run. Legacy spec 006 docs (no azureSourced block)
+            // are not part of this surface and read as 404.
+            if (doc.AzureSourced.ValueKind == JsonValueKind.Undefined
+                || doc.AzureSourced.ValueKind == JsonValueKind.Null)
+            {
+                return null;
+            }
+
+            var entity = MapToDomain(doc, response.ETag);
+            return new PublishedEntityDetail(entity, response.ETag);
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    private static PublishedEntity MapToDomain(PublishedEntityDocument doc, string etag)
+    {
+        var azureSourced = JsonSerializer.Deserialize<AzureSourcedEntity>(doc.AzureSourced, JsonOptions)
+            ?? throw new InvalidOperationException($"Failed to deserialize azureSourced for {doc.Id}.");
+
+        var registry = new EntityRegistryMetadata(
+            Description: doc.Description,
+            BusinessPurpose: doc.BusinessPurpose,
+            Tags: doc.Tags ?? Array.Empty<string>(),
+            DocumentationLinks: doc.DocumentationLinks ?? Array.Empty<EntityDocumentationLink>(),
+            ContactInformation: doc.ContactInformation,
+            OperationalNotes: doc.OperationalNotes);
+
+        return new PublishedEntity(
+            Id: doc.Id,
+            SchemaVersion: doc.SchemaVersion,
+            EntityType: doc.EntityType,
+            Environment: doc.Environment,
+            NamespaceId: doc.NamespaceId,
+            Name: doc.Name,
+            DisplayName: doc.DisplayName,
+            CompositeKey: doc.CompositeKey,
+            ParentEntityId: doc.ParentEntityId,
+            Registry: registry,
+            LifecycleStatus: doc.LifecycleStatus,
+            LifecycleStatusChangedUtc: doc.LifecycleStatusChangedUtc,
+            FirstDiscoveredUtc: doc.FirstDiscoveredUtc,
+            LastSeenUtc: doc.LastSeenUtc,
+            LastDiscoveryRunId: doc.LastDiscoveryRunId,
+            AzureSourced: azureSourced,
+            AzureSourcedHash: doc.AzureSourcedHash,
+            ServiceAssociations: doc.ServiceAssociations ?? Array.Empty<EntityServiceAssociation>(),
+            CreatedUtc: doc.CreatedUtc,
+            CreatedBy: doc.CreatedBy ?? string.Empty,
+            LastModifiedUtc: doc.LastModifiedUtc,
+            LastModifiedBy: doc.LastModifiedBy ?? string.Empty,
+            ETag: etag);
+    }
+
     public async IAsyncEnumerable<PublishedEntityProjection> ListMissingCandidatesAsync(
         string namespaceId,
         string environment,

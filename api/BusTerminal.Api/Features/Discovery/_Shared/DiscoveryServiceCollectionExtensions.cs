@@ -1,8 +1,10 @@
 using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Discovery.Shared.Persistence;
+using BusTerminal.Api.Features.Discovery.Shared.Search;
 using BusTerminal.Api.Features.Discovery.Shared.Telemetry;
 using BusTerminal.Api.Features.Discovery.StartDiscovery;
 using BusTerminal.Api.Infrastructure.Credentials;
+using BusTerminal.Api.Infrastructure.Search;
 using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -25,6 +27,12 @@ public static class DiscoveryServiceCollectionExtensions
         services.AddSingleton<IPublishedEntityStore, CosmosPublishedEntityStore>();
         services.AddSingleton<IDiscoveryRunStore, CosmosDiscoveryRunStore>();
         services.AddSingleton<IDiscoveryLockStore, CosmosDiscoveryLockStore>();
+
+        // Spec 009 / T070 — published-entity catalog search adapter.
+        // Sits alongside the spec 006 ISearchClient over the same
+        // `registry-entities-v1` AI Search index but with typed shapes
+        // for the published-entity surface.
+        services.TryAddSingleton<IPublishedEntitySearchClient, AzurePublishedEntitySearchClient>();
 
         // R-15 authorization helper + the underlying owned-services resolver
         // (Phase 2 ships a NoOp implementation; a future spec wires the real

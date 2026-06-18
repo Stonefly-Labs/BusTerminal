@@ -1,4 +1,6 @@
 using BusTerminal.Api.Features.Discovery.GetDiscoveryRun;
+using BusTerminal.Api.Features.Discovery.GetEntityDetail;
+using BusTerminal.Api.Features.Discovery.SearchEntities;
 using BusTerminal.Api.Features.Discovery.StartDiscovery;
 
 namespace BusTerminal.Api.Features.Discovery.Shared;
@@ -6,7 +8,7 @@ namespace BusTerminal.Api.Features.Discovery.Shared;
 // Spec 009 / T030. Route-group entry point for the discovery slice. Phase
 // tasks progressively register endpoints here:
 //   Phase 3 / T047 — StartDiscovery + GetDiscoveryRun           ← LANDED
-//   Phase 4 / T072 — SearchEntities + GetEntityDetail
+//   Phase 4 / T072 — SearchEntities + GetEntityDetail            ← LANDED
 //   Phase 5 / T087 — ListDiscoveryRuns
 //   Phase 6 / T110 — UpdateEntityMetadata + ArchiveEntity + 3× ServiceAssociations
 //
@@ -21,6 +23,10 @@ public static class DiscoveryEndpointsBuilder
         // Phase 3 / US1.
         app.MapStartDiscoveryEndpoint();
         app.MapGetDiscoveryRunEndpoint();
+
+        // Phase 4 / US2.
+        app.MapSearchEntitiesEndpoint();
+        app.MapGetEntityDetailEndpoint();
 
         return app;
     }

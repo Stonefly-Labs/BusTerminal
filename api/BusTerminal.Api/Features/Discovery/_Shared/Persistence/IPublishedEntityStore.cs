@@ -40,7 +40,25 @@ public interface IPublishedEntityStore
         string environment,
         DateTimeOffset olderThan,
         CancellationToken cancellationToken);
+
+    // Full-detail read for the GET /api/entities/{id} surface. Returns the
+    // domain projection of the published entity document AND the Cosmos ETag
+    // (echoed via the response's HTTP ETag header so clients can supply it
+    // back on PATCH/POST/DELETE via `If-Match`). Returns null if the
+    // document is not found in the supplied partition.
+    Task<PublishedEntityDetail?> GetDetailAsync(
+        string entityId,
+        string environment,
+        CancellationToken cancellationToken);
 }
+
+// Spec 009 / T071. Detail projection returned by GetDetailAsync. The
+// PublishedEntity record carries every domain-level field; the ETag is
+// surfaced separately so the endpoint can set the HTTP `ETag` header
+// regardless of whether the JSON body includes it.
+public sealed record PublishedEntityDetail(
+    BusTerminal.Api.Features.Discovery.Shared.Domain.PublishedEntity Entity,
+    string ETag);
 
 // Spec 009 — input payload for the worker upsert. Encapsulates the fields
 // that need to land on Cosmos in a single transaction; using a record keeps

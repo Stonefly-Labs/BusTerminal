@@ -4,6 +4,7 @@ using Azure.ResourceManager;
 using BusTerminal.Api.Features.Discovery.Shared;
 using BusTerminal.Api.Features.Discovery.Shared.Domain;
 using BusTerminal.Api.Features.Discovery.Shared.Persistence;
+using BusTerminal.Api.Features.Discovery.Shared.Search;
 using BusTerminal.Api.Features.Namespaces.Shared;
 using BusTerminal.Api.Features.Registry.Shared;
 using BusTerminal.Api.Infrastructure.Identity;
@@ -28,6 +29,8 @@ public sealed class DiscoveryContractFactory : WebApplicationFactory<Program>
     public InMemoryAuditEventStore AuditStore { get; } = new();
     public InMemoryDiscoveryLockStore LockStore { get; } = new();
     public InMemoryDiscoveryRunStore RunStore { get; } = new();
+    public InMemoryPublishedEntitySearchClient PublishedEntitySearch { get; } = new();
+    public InMemoryPublishedEntityStore PublishedEntities { get; } = new();
     public SpyDiscoveryRequestPublisher Publisher { get; } = new();
     public InMemoryNamespaceValidationRunStore ValidationRunStore { get; } = new();
     public StubArmProbe ArmProbe { get; } = new();
@@ -90,7 +93,10 @@ public sealed class DiscoveryContractFactory : WebApplicationFactory<Program>
             services.RemoveAll<IDiscoveryRequestPublisher>();
             services.AddSingleton<IDiscoveryRequestPublisher>(Publisher);
             services.RemoveAll<IPublishedEntityStore>();
-            services.AddSingleton<IPublishedEntityStore>(new NoopPublishedEntityStore());
+            services.AddSingleton<IPublishedEntityStore>(PublishedEntities);
+
+            services.RemoveAll<IPublishedEntitySearchClient>();
+            services.AddSingleton<IPublishedEntitySearchClient>(PublishedEntitySearch);
         });
     }
 
@@ -221,13 +227,61 @@ public sealed class SpyDiscoveryRequestPublisher : IDiscoveryRequestPublisher
     }
 }
 
-public sealed class NoopPublishedEntityStore : IPublishedEntityStore
+public sealed class InMemoryPublishedEntityStore : IPublishedEntityStore
 {
-    public Task UpsertAzureSourcedAsync(DiscoveredEntityUpsert upsert, string? ifMatch, CancellationToken cancellationToken) => Task.CompletedTask;
-    public Task<PublishedEntityProjection?> GetForDiscoveryAsync(string entityId, string environment, CancellationToken cancellationToken) => Task.FromResult<PublishedEntityProjection?>(null);
-    public async IAsyncEnumerable<PublishedEntityProjection> ListMissingCandidatesAsync(string namespaceId, string environment, DateTimeOffset olderThan, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    private readonly ConcurrentDictionary<string, PublishedEntityDetail> _byId = new();
+
+    public IReadOnlyCollection<PublishedEntityDetail> All() => _byId.Values.ToArray();
+
+    public void Seed(PublishedEntityDetail detail) => _byId[detail.Entity.Id] = detail;
+
+    public Task UpsertAzureSourcedAsync(DiscoveredEntityUpsert upsert, string? ifMatch, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    public Task<PublishedEntityProjection?> GetForDiscoveryAsync(string entityId, string environment, CancellationToken cancellationToken)
+        => Task.FromResult<PublishedEntityProjection?>(null);
+
+    public async IAsyncEnumerable<PublishedEntityProjection> ListMissingCandidatesAsync(
+        string namespaceId,
+        string environment,
+        DateTimeOffset olderThan,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await Task.Yield();
         yield break;
+    }
+
+    public Task<PublishedEntityDetail?> GetDetailAsync(string entityId, string environment, CancellationToken cancellationToken)
+    {
+        if (_byId.TryGetValue(entityId, out var detail) && detail.Entity.Environment == environment)
+        {
+            return Task.FromResult<PublishedEntityDetail?>(detail);
+        }
+        return Task.FromResult<PublishedEntityDetail?>(null);
+    }
+}
+
+public sealed class InMemoryPublishedEntitySearchClient : IPublishedEntitySearchClient
+{
+    public PublishedEntitySearchResults NextResults { get; set; } = new(Array.Empty<PublishedEntitySearchHit>(), 0);
+    public PublishedEntitySearchRequest? LastRequest { get; private set; }
+    public bool ThrowOnSearch { get; set; }
+    public int ThrowStatus { get; set; } = 503;
+
+    public Task<PublishedEntitySearchResults> SearchAsync(PublishedEntitySearchRequest request, CancellationToken cancellationToken)
+    {
+        LastRequest = request;
+        if (ThrowOnSearch)
+        {
+            throw new Azure.RequestFailedException(ThrowStatus, "AI Search is unavailable", "ServiceUnavailable", innerException: null);
+        }
+        return Task.FromResult(NextResults);
+    }
+
+    public void Reset()
+    {
+        NextResults = new PublishedEntitySearchResults(Array.Empty<PublishedEntitySearchHit>(), 0);
+        LastRequest = null;
+        ThrowOnSearch = false;
     }
 }
