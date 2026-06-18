@@ -19,6 +19,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+import { DiscoverButton } from "@/components/discovery/discover-button";
+import { DiscoveryStatusPanel } from "@/components/discovery/discovery-status-panel";
+
 import { LifecycleStatusBadge } from "../inventory/lifecycle-status-badge";
 import { ValidationStatusBadge } from "../inventory/validation-status-badge";
 import { NamespaceAuditPanel } from "./namespace-audit-panel";
@@ -133,9 +136,13 @@ export function NamespaceDetails({ id }: NamespaceDetailsProps) {
             <Button asChild intent="outline">
               <Link href={`/namespaces/${details.id}/lifecycle` as never}>Lifecycle</Link>
             </Button>
+            <DiscoverButton namespaceId={details.id} />
           </div>
         ) : null}
       </header>
+
+      {/* Spec 009 / US1 / FR-025 — discovery status panel above metadata. */}
+      <DiscoveryStatusPanel namespaceId={details.id} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <NamespaceMetadataPanel namespace={details} />

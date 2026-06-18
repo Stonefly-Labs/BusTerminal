@@ -22,6 +22,10 @@
          ApiReachability checks. Authenticates via the existing workload
          UAMI's DefaultAzureCredential — no connection strings (FR-017). -->
     <PackageReference Include="Azure.ResourceManager.ServiceBus" Version="1.1.0" />
+    <!-- Spec 009 / Phase 3 T042 — internal Service Bus send-side for the
+         API's discovery-request publisher. AAD-only `__fullyQualifiedNamespace`
+         binding pattern (research §R-13); no SAS / connection strings. -->
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.18.2" />
     <!-- Spec 006 / Phase 1 T004 — Azure AI Search SDK; consumed by the
          AzureAiSearchClient adapter wired in Phase 2 T036. -->
     <PackageReference Include="Azure.Search.Documents" Version="12.0.0" />

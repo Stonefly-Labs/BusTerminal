@@ -15,11 +15,17 @@
 
 using Azure.Core;
 using Azure.Identity;
+using Azure.ResourceManager;
 using Azure.Search.Documents;
+using BusTerminal.Indexer.Discovery;
+using BusTerminal.Indexer.Discovery.Persistence;
+using BusTerminal.Indexer.Discovery.Providers;
+using BusTerminal.Indexer.Discovery.Telemetry;
 using BusTerminal.Indexer.Functions;
 using BusTerminal.Indexer.Indexing;
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Configuration;
@@ -62,6 +68,57 @@ builder.Services.AddSingleton(provider =>
 
 builder.Services.AddSingleton<ISearchDocumentMapper, SearchDocumentMapper>();
 builder.Services.AddSingleton<IPoisonHandler, PoisonHandler>();
+
+// Spec 009 / T055 — discovery slice wiring.
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<DiscoveryMeter>();
+builder.Services.AddSingleton<ArmClient>(sp =>
+{
+    var environment = sp.GetRequiredService<IHostEnvironment>();
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var credential = CreateCredential(environment, configuration[AzureClientIdKey]);
+    return new ArmClient(credential);
+});
+builder.Services.AddSingleton<IEntityDiscoveryProvider, AzureServiceBusEntityDiscoveryProvider>();
+builder.Services.AddSingleton<CosmosClient>(sp =>
+{
+    var environment = sp.GetRequiredService<IHostEnvironment>();
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var endpoint = configuration["Cosmos__accountEndpoint"]
+        ?? configuration["COSMOS_ACCOUNT_ENDPOINT"]
+        ?? throw new InvalidOperationException("Cosmos endpoint must be configured.");
+    var credential = CreateCredential(environment, configuration[AzureClientIdKey]);
+    return new CosmosClient(endpoint, credential);
+});
+builder.Services.AddSingleton<IPublishedEntityWriter>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var cosmos = sp.GetRequiredService<CosmosClient>();
+    var database = configuration["COSMOS_DATABASE_NAME"] ?? "canonical";
+    var containerName = configuration["COSMOS_REGISTRY_ENTITIES_CONTAINER"] ?? "registry-entities";
+    var container = cosmos.GetContainer(database, containerName);
+    var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<CosmosPublishedEntityWriter>>();
+    return new CosmosPublishedEntityWriter(container, logger);
+});
+builder.Services.AddSingleton<IDiscoveryRunUpdater>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var cosmos = sp.GetRequiredService<CosmosClient>();
+    var database = configuration["COSMOS_DATABASE_NAME"] ?? "canonical";
+    var runsContainer = configuration["COSMOS_DISCOVERY_RUNS_CONTAINER"] ?? "discovery-runs";
+    var container = cosmos.GetContainer(database, runsContainer);
+    return new CosmosDiscoveryRunUpdater(container);
+});
+builder.Services.AddSingleton<INamespaceContextResolver>(sp =>
+{
+    var configuration = sp.GetRequiredService<IConfiguration>();
+    var cosmos = sp.GetRequiredService<CosmosClient>();
+    var database = configuration["COSMOS_DATABASE_NAME"] ?? "canonical";
+    var containerName = configuration["COSMOS_REGISTRY_ENTITIES_CONTAINER"] ?? "registry-entities";
+    var container = cosmos.GetContainer(database, containerName);
+    return new CosmosNamespaceContextResolver(container);
+});
+builder.Services.AddSingleton<EntityDiscoveryOrchestrator>();
 
 builder.Build().Run();
 

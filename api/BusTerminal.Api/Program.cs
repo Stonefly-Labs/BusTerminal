@@ -59,7 +59,7 @@ builder.Services.AddNamespaceOnboardingFeature(builder.Configuration);
 // DiscoveryRun store + DiscoveryLock store + EntityMetadataEditorAuthorizer
 // + discovery telemetry. Endpoint surfaces are registered progressively by
 // Phase 3–6 tasks via MapDiscoveryEndpoints() below.
-builder.Services.AddDiscoveryFeature();
+builder.Services.AddDiscoveryFeature(builder.Configuration);
 
 builder.Services.AddOpenApi();
 builder.Services.AddRouting();
