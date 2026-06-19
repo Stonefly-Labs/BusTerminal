@@ -88,7 +88,7 @@ export function ServiceAssociationFilter({ className }: ServiceAssociationFilter
       </div>
       <fieldset className="flex flex-wrap items-center gap-1">
         <legend className="sr-only">Narrow by association role</legend>
-        <span className="me-1 text-xs font-medium uppercase tracking-wide text-foreground-subtle">
+        <span className="me-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">
           Roles:
         </span>
         {ENTITY_SERVICE_ROLES.map((role) => {

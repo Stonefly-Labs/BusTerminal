@@ -57,7 +57,7 @@ export function LifecycleFilter({ className }: LifecycleFilterProps) {
       aria-label="Filter by lifecycle status"
       className={cn("flex flex-wrap items-center gap-1", className)}
     >
-      <span className="me-1 text-xs font-medium uppercase tracking-wide text-foreground-subtle">
+      <span className="me-1 text-xs font-medium uppercase tracking-wide text-foreground-muted">
         Lifecycle:
       </span>
       {LIFECYCLE_STATUSES.map((status) => {

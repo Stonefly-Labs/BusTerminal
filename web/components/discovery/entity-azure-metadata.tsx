@@ -40,7 +40,7 @@ export function EntityAzureMetadata({ entity }: EntityAzureMetadataProps) {
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
           {fields.map(({ label, value, testId }) => (
             <div key={label} className="flex flex-col gap-0.5">
-              <dt className="text-xs font-medium uppercase tracking-wide text-foreground-subtle">
+              <dt className="text-xs font-medium uppercase tracking-wide text-foreground-muted">
                 {label}
               </dt>
               <dd

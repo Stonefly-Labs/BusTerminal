@@ -49,7 +49,13 @@ function StoryShell({ children }: { readonly children: React.ReactNode }) {
 const meta: Meta<typeof DiscoveryRunsTable> = {
   title: "Discovery/DiscoveryRunsTable",
   component: DiscoveryRunsTable,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+    // `<DiscoveryRunsTable>` calls `useRouter()` for row-click navigation;
+    // the storybook-runner play function trips the next/navigation mocks
+    // unless this is set. Matches the pattern used by the filter stories.
+    nextjs: { router: { asPath: "/namespaces/ns_demo/discovery-runs" } },
+  },
   decorators: [(Story) => <StoryShell>{Story()}</StoryShell>],
 };
 
