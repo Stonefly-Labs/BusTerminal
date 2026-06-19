@@ -104,6 +104,20 @@ module "monitoring" {
   tags = local.shared_tags
 }
 
+# Spec 009 / T115 — discovery telemetry workbook. Bound to the AI component
+# above; panels defined in iac/modules/monitoring-dashboards/discovery.json.
+module "discovery_dashboard" {
+  source = "../../modules/monitoring-dashboards"
+
+  resource_group_name     = azurerm_resource_group.this.name
+  location                = azurerm_resource_group.this.location
+  application_insights_id = module.monitoring.application_insights_id
+
+  display_name = "BusTerminal — Discovery telemetry (dev)"
+
+  tags = local.shared_tags
+}
+
 module "keyvault" {
   source = "../../modules/keyvault"
 

@@ -88,7 +88,7 @@ If a technology is **not** listed here, it is not approved by default. Introduci
 | Adapter pattern | **Pluggable observability adapter**. Default = no-op for OSS contributors; Application Insights browser adapter activated via env-gated connection string. |
 | Error reporting | Top-level error boundary forwards unhandled rendering errors (with React component stack) through the adapter. User sees an on-brand, accessible error surface. |
 | Web Vitals | LCP, INP, CLS, TTFB, FCP captured per page load and forwarded through the adapter. |
-| Tracing | Route navigations emit trace spans. **W3C Trace Context** (`traceparent`/`tracestate`) headers propagate on **every** UI-originated HTTP request — required regardless of adapter configuration, so frontend and backend correlate end-to-end. |
+| Tracing | Route navigations emit trace spans. **W3C Trace Context** (`traceparent`/`tracestate`) headers propagate on **every** UI-originated HTTP request — required regardless of adapter configuration, so frontend and backend correlate end-to-end. **Async hops also propagate W3C Trace Context** — Service Bus messages MUST carry `traceparent` on a well-known application property (Spec 009 / R-13 uses the `Diagnostic-Id` property the .NET SDK populates from the active `Activity`), and downstream workers MUST seed their root activity from that property so an HTTP request → queue → background worker trace stays end-to-end correlated in App Insights. |
 | Privacy | PII is **not** captured in trace attributes, error payloads, or Web Vitals events by default. Only correlation identifiers propagate unless an explicit opt-in is added by a future spec. |
 
 ---

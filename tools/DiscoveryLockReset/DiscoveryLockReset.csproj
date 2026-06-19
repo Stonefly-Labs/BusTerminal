@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>BusTerminal.Tools.DiscoveryLockReset</RootNamespace>
+    <AssemblyName>busterminal-discovery-lock-reset</AssemblyName>
+    <!-- Spec 009 / T125a: dev-tooling CLI. Quickstart "Useful one-liners"
+         references this binary; NOT shipped to prod, NOT included in any
+         release artifact, NOT mounted into containers. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
+</Project>

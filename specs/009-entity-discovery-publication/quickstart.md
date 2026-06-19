@@ -175,10 +175,12 @@ Then open `http://localhost:3000/registry/search?namespaceId=$NAMESPACE_ID` and 
 | Task | Command |
 |---|---|
 | Issue a fresh `traceparent` for manual API calls | `./scripts/new-traceparent.sh` (existing) |
-| Reset the discovery lock for a namespace (debug only) | `dotnet run --project tools/DiscoveryLockReset -- --namespace-id $NS_ID --env dev` |
+| Reset the discovery lock for a namespace (debug only) | `dotnet run --project tools/DiscoveryLockReset -- --endpoint $COSMOS_ENDPOINT --namespace-id $NS_ID` |
+| Inspect the discovery lock without modifying it | `dotnet run --project tools/DiscoveryLockReset -- --endpoint $COSMOS_ENDPOINT --namespace-id $NS_ID --read-only` |
 | Drain the local `discovery-requested` queue | Service Bus emulator's REST API or VS Code extension |
 | Re-run AI Search projection backfill | `iac/scripts/rebuild-search-index.sh dev` |
-| Tail discovery telemetry locally | `dotnet run --project tools/DiscoveryTelemetryTail -- --apiKey $LOCAL_APPINSIGHTS_KEY` |
+| Tail discovery telemetry to the console | `dotnet run --project tools/DiscoveryTelemetryTail` |
+| Forward discovery telemetry to a local OTLP collector | `dotnet run --project tools/DiscoveryTelemetryTail -- --mode otlp --otlp-endpoint http://localhost:4317` |
 
 ---
 
