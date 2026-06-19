@@ -52,15 +52,15 @@ and [`specs/009-entity-discovery-publication/data-model.md` §1.2-§1.3](../../.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_audit_container_name"></a> [audit\_container\_name](#input\_audit\_container\_name) | Name of the registry-audit container. Partition key /entityId. Append-only writes (FR-034). | `string` | `"registry-audit"` | no |
 | <a name="input_cosmos_account_name"></a> [cosmos\_account\_name](#input\_cosmos\_account\_name) | Name of the existing Cosmos DB account (output by the cosmos-account module). Required because `azurerm_cosmosdb_sql_container` references the account by name. | `string` | n/a | yes |
+| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting the Cosmos DB account. | `string` | n/a | yes |
+| <a name="input_audit_container_name"></a> [audit\_container\_name](#input\_audit\_container\_name) | Name of the registry-audit container. Partition key /entityId. Append-only writes (FR-034). | `string` | `"registry-audit"` | no |
 | <a name="input_cosmos_canonical_database_name"></a> [cosmos\_canonical\_database\_name](#input\_cosmos\_canonical\_database\_name) | Name of the existing 'canonical' database (output by cosmos-canonical-store). | `string` | `"canonical"` | no |
 | <a name="input_discovery_locks_container_name"></a> [discovery\_locks\_container\_name](#input\_discovery\_locks\_container\_name) | Name of the discovery-locks container (spec 009). Partition key /namespaceId. One document per registered namespace (id='lock'); used for FR-003 coalescing via Cosmos ETag-based atomic acquisition. | `string` | `"discovery-locks"` | no |
 | <a name="input_discovery_runs_container_name"></a> [discovery\_runs\_container\_name](#input\_discovery\_runs\_container\_name) | Name of the discovery-runs container (spec 009). Partition key /namespaceId. Append-only history of discovery runs; indefinite retention in v1. | `string` | `"discovery-runs"` | no |
 | <a name="input_entities_container_name"></a> [entities\_container\_name](#input\_entities\_container\_name) | Name of the registry-entities container. Partition key /environment. | `string` | `"registry-entities"` | no |
 | <a name="input_entity_default_ttl_seconds"></a> [entity\_default\_ttl\_seconds](#input\_entity\_default\_ttl\_seconds) | Default TTL on the registry-entities container. `-1` enables per-item TTL so the tombstone-then-delete pattern (research §10) can self-expire markers. Set to `0` (off) to disable per-item TTL — only do this in a future ops spec that replaces the tombstone approach. | `number` | `-1` | no |
 | <a name="input_leases_container_name"></a> [leases\_container\_name](#input\_leases\_container\_name) | Name of the Cosmos change-feed lease container for the indexer (research §17). Partition key /id, required by the change-feed trigger. | `string` | `"registry-entities-leases"` | no |
-| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting the Cosmos DB account. | `string` | n/a | yes |
 | <a name="input_validation_runs_container_name"></a> [validation\_runs\_container\_name](#input\_validation\_runs\_container\_name) | Name of the namespace-validation-runs container (spec 008). Partition key /namespaceId. Append-only writes; indefinite retention in v1. | `string` | `"namespace-validation-runs"` | no |
 
 ## Outputs

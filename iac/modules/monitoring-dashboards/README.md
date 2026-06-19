@@ -68,25 +68,6 @@ The workbook intentionally does NOT auto-load from a portal export — every
 panel review is captured in code review.
 
 <!-- BEGIN_TF_DOCS -->
-## Requirements
-
-| Name | Version |
-| ---- | ------- |
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.11.0 |
-| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | ~> 4.0 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.6 |
-
-## Providers
-
-| Name | Version |
-| ---- | ------- |
-| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | ~> 4.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | ~> 3.6 |
-
-## Modules
-
-No modules.
-
 ## Resources
 
 | Name | Type |
@@ -99,9 +80,9 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_application_insights_id"></a> [application\_insights\_id](#input\_application\_insights\_id) | Resource ID of the Application Insights component the workbook targets. Source ID lower-cases per ARM convention. | `string` | n/a | yes |
-| <a name="input_display_name"></a> [display\_name](#input\_display\_name) | Display name shown in the Azure portal. | `string` | `"BusTerminal — Discovery telemetry"` | no |
 | <a name="input_location"></a> [location](#input\_location) | Azure region for the workbook resource. | `string` | n/a | yes |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting the Application Insights workbook. | `string` | n/a | yes |
+| <a name="input_display_name"></a> [display\_name](#input\_display\_name) | Display name shown in the Azure portal. | `string` | `"BusTerminal — Discovery telemetry"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to the workbook resource. | `map(string)` | `{}` | no |
 
 ## Outputs

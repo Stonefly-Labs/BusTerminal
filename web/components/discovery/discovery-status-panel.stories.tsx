@@ -3,6 +3,7 @@
  * succeeded, failed states.
  */
 
+import { useEffect, useMemo } from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -13,11 +14,15 @@ interface StoryArgs {
 }
 
 function StoryShell({ state }: StoryArgs) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  w.__BT_DISCOVERY_PANEL_STATE__ = state;
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__BT_DISCOVERY_PANEL_STATE__ = state;
+  }, [state]);
 
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = useMemo(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+    [],
+  );
   return (
     <QueryClientProvider client={client}>
       <div className="p-6">
