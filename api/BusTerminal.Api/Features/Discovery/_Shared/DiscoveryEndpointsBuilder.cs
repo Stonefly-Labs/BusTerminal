@@ -1,8 +1,11 @@
+using BusTerminal.Api.Features.Discovery.ArchiveEntity;
 using BusTerminal.Api.Features.Discovery.GetDiscoveryRun;
 using BusTerminal.Api.Features.Discovery.GetEntityDetail;
 using BusTerminal.Api.Features.Discovery.ListDiscoveryRuns;
 using BusTerminal.Api.Features.Discovery.SearchEntities;
+using BusTerminal.Api.Features.Discovery.ServiceAssociations;
 using BusTerminal.Api.Features.Discovery.StartDiscovery;
+using BusTerminal.Api.Features.Discovery.UpdateEntityMetadata;
 
 namespace BusTerminal.Api.Features.Discovery.Shared;
 
@@ -11,7 +14,7 @@ namespace BusTerminal.Api.Features.Discovery.Shared;
 //   Phase 3 / T047 — StartDiscovery + GetDiscoveryRun           ← LANDED
 //   Phase 4 / T072 — SearchEntities + GetEntityDetail            ← LANDED
 //   Phase 5 / T087 — ListDiscoveryRuns                           ← LANDED
-//   Phase 6 / T110 — UpdateEntityMetadata + ArchiveEntity + 3× ServiceAssociations
+//   Phase 6 / T110 — UpdateEntityMetadata + ArchiveEntity + 3× ServiceAssociations ← LANDED
 //
 // Per-endpoint mappers (e.g. StartDiscoveryEndpoint.MapStartDiscoveryEndpoint)
 // keep their own routes; this file is the assembly point.
@@ -31,6 +34,13 @@ public static class DiscoveryEndpointsBuilder
 
         // Phase 5 / US3.
         app.MapListDiscoveryRunsEndpoint();
+
+        // Phase 6 / US4.
+        app.MapUpdateEntityMetadataEndpoint();
+        app.MapArchiveEntityEndpoint();
+        app.MapListAssociationsEndpoint();
+        app.MapAddAssociationEndpoint();
+        app.MapRemoveAssociationEndpoint();
 
         return app;
     }

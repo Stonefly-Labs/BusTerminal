@@ -3,6 +3,7 @@ using BusTerminal.Api.Features.Discovery.Shared.Persistence;
 using BusTerminal.Api.Features.Discovery.Shared.Search;
 using BusTerminal.Api.Features.Discovery.Shared.Telemetry;
 using BusTerminal.Api.Features.Discovery.StartDiscovery;
+using BusTerminal.Api.Features.Discovery.UpdateEntityMetadata;
 using BusTerminal.Api.Infrastructure.Credentials;
 using BusTerminal.Api.Infrastructure.Search;
 using FluentValidation;
@@ -55,6 +56,9 @@ public static class DiscoveryServiceCollectionExtensions
         services.AddScoped<IDiscoveryRunCoalescer, DiscoveryRunCoalescer>();
         services.AddScoped<IStartDiscoveryNamespaceGate, StartDiscoveryNamespaceGate>();
         services.AddScoped<IValidator<StartDiscoveryRequest>, StartDiscoveryValidator>();
+
+        // Spec 009 / Phase 6 — curation endpoints.
+        services.AddScoped<IValidator<UpdateEntityMetadataRequest>, UpdateEntityMetadataValidator>();
 
         if (configuration is not null)
         {

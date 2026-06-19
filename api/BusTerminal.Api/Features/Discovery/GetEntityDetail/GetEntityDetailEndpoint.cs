@@ -1,3 +1,4 @@
+using BusTerminal.Api.Features.Discovery.Shared;
 using BusTerminal.Api.Features.Discovery.Shared.Persistence;
 using BusTerminal.Api.Features.Discovery.Shared.Search;
 using Microsoft.AspNetCore.Http;
@@ -78,7 +79,7 @@ public static class GetEntityDetailEndpoint
         context.Response.Headers[HeaderNames.LastModified] =
             detail.Entity.LastModifiedUtc.ToString("R");
 
-        return Results.Ok(detail.Entity);
+        return Results.Ok(PublishedEntityResponse.From(detail.Entity));
     }
 
     private static IResult NotFound(HttpContext context, string entityId)

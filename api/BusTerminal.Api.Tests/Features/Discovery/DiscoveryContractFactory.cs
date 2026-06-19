@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Security.Claims;
 using Azure.ResourceManager;
+using BusTerminal.Api.Authorization;
 using BusTerminal.Api.Features.Discovery.Shared;
 using BusTerminal.Api.Features.Discovery.Shared.Domain;
 using BusTerminal.Api.Features.Discovery.Shared.Persistence;
@@ -32,6 +34,7 @@ public sealed class DiscoveryContractFactory : WebApplicationFactory<Program>
     public InMemoryPublishedEntitySearchClient PublishedEntitySearch { get; } = new();
     public InMemoryPublishedEntityStore PublishedEntities { get; } = new();
     public SpyDiscoveryRequestPublisher Publisher { get; } = new();
+    public StubOwnedServicesResolver OwnedServices { get; } = new();
     public InMemoryNamespaceValidationRunStore ValidationRunStore { get; } = new();
     public StubArmProbe ArmProbe { get; } = new();
     public StubGraphPicker GraphPicker { get; } = new();
@@ -97,6 +100,9 @@ public sealed class DiscoveryContractFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IPublishedEntitySearchClient>();
             services.AddSingleton<IPublishedEntitySearchClient>(PublishedEntitySearch);
+
+            services.RemoveAll<IOwnedServicesResolver>();
+            services.AddSingleton<IOwnedServicesResolver>(OwnedServices);
         });
     }
 
@@ -245,9 +251,23 @@ public sealed class SpyDiscoveryRequestPublisher : IDiscoveryRequestPublisher
     }
 }
 
+public sealed class StubOwnedServicesResolver : IOwnedServicesResolver
+{
+    public HashSet<string> Owned { get; } = new(StringComparer.Ordinal);
+
+    public Task<IReadOnlySet<string>> GetOwnedServiceIdsAsync(ClaimsPrincipal principal, CancellationToken cancellationToken)
+    {
+        IReadOnlySet<string> snapshot = new HashSet<string>(Owned, StringComparer.Ordinal);
+        return Task.FromResult(snapshot);
+    }
+
+    public void Reset() => Owned.Clear();
+}
+
 public sealed class InMemoryPublishedEntityStore : IPublishedEntityStore
 {
     private readonly ConcurrentDictionary<string, PublishedEntityDetail> _byId = new();
+    private int _etagCounter;
 
     public IReadOnlyCollection<PublishedEntityDetail> All() => _byId.Values.ToArray();
 
@@ -276,6 +296,123 @@ public sealed class InMemoryPublishedEntityStore : IPublishedEntityStore
             return Task.FromResult<PublishedEntityDetail?>(detail);
         }
         return Task.FromResult<PublishedEntityDetail?>(null);
+    }
+
+    public Task<PublishedEntityDetail> UpdateCuratedMetadataAsync(
+        string entityId,
+        string environment,
+        CuratedMetadataPatch patch,
+        string ifMatchEtag,
+        string modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        var detail = RequireDetail(entityId, environment, ifMatchEtag);
+        var current = detail.Entity.Registry;
+        var next = current with
+        {
+            Description = patch.Description.IsSet ? patch.Description.Value : current.Description,
+            BusinessPurpose = patch.BusinessPurpose.IsSet ? patch.BusinessPurpose.Value : current.BusinessPurpose,
+            Tags = patch.Tags.IsSet ? (patch.Tags.Value ?? Array.Empty<string>()) : current.Tags,
+            DocumentationLinks = patch.DocumentationLinks.IsSet
+                ? (patch.DocumentationLinks.Value ?? Array.Empty<EntityDocumentationLink>())
+                : current.DocumentationLinks,
+            ContactInformation = patch.ContactInformation.IsSet ? patch.ContactInformation.Value : current.ContactInformation,
+            OperationalNotes = patch.OperationalNotes.IsSet ? patch.OperationalNotes.Value : current.OperationalNotes,
+        };
+        return Task.FromResult(WriteBack(detail, detail.Entity with
+        {
+            Registry = next,
+            LastModifiedUtc = DateTimeOffset.UtcNow,
+            LastModifiedBy = modifiedBy,
+        }));
+    }
+
+    public Task<PublishedEntityDetail> SetLifecycleStatusAsync(
+        string entityId,
+        string environment,
+        BusTerminal.Api.Features.Discovery.Shared.Domain.LifecycleStatus status,
+        string ifMatchEtag,
+        string modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        var detail = RequireDetail(entityId, environment, ifMatchEtag);
+        var now = DateTimeOffset.UtcNow;
+        return Task.FromResult(WriteBack(detail, detail.Entity with
+        {
+            LifecycleStatus = status,
+            LifecycleStatusChangedUtc = now,
+            LastModifiedUtc = now,
+            LastModifiedBy = modifiedBy,
+        }));
+    }
+
+    public Task<EntityServiceAssociationCreated> AddAssociationAsync(
+        string entityId,
+        string environment,
+        EntityServiceAssociation association,
+        string ifMatchEtag,
+        string modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        var detail = RequireDetail(entityId, environment, ifMatchEtag);
+        var existing = detail.Entity.ServiceAssociations ?? Array.Empty<EntityServiceAssociation>();
+        if (existing.Any(a => string.Equals(a.ServiceId, association.ServiceId, StringComparison.Ordinal) && a.Role == association.Role))
+        {
+            throw new DuplicateServiceAssociationException(entityId, association.ServiceId, association.Role.ToString());
+        }
+        var next = existing.Append(association).ToArray();
+        var stored = WriteBack(detail, detail.Entity with
+        {
+            ServiceAssociations = next,
+            LastModifiedUtc = DateTimeOffset.UtcNow,
+            LastModifiedBy = modifiedBy,
+        });
+        return Task.FromResult(new EntityServiceAssociationCreated(association, stored));
+    }
+
+    public Task<PublishedEntityDetail> RemoveAssociationAsync(
+        string entityId,
+        string environment,
+        string associationId,
+        string ifMatchEtag,
+        string modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        var detail = RequireDetail(entityId, environment, ifMatchEtag);
+        var existing = detail.Entity.ServiceAssociations ?? Array.Empty<EntityServiceAssociation>();
+        var without = existing.Where(a => !string.Equals(a.AssociationId, associationId, StringComparison.Ordinal)).ToArray();
+        if (without.Length == existing.Count)
+        {
+            throw new ServiceAssociationNotFoundException(entityId, associationId);
+        }
+        return Task.FromResult(WriteBack(detail, detail.Entity with
+        {
+            ServiceAssociations = without,
+            LastModifiedUtc = DateTimeOffset.UtcNow,
+            LastModifiedBy = modifiedBy,
+        }));
+    }
+
+    private PublishedEntityDetail RequireDetail(string entityId, string environment, string ifMatchEtag)
+    {
+        if (!_byId.TryGetValue(entityId, out var detail) || detail.Entity.Environment != environment)
+        {
+            throw new PublishedEntityNotFoundException(entityId, environment);
+        }
+        if (!string.Equals(detail.ETag, ifMatchEtag, StringComparison.Ordinal))
+        {
+            throw new PublishedEntityConcurrencyConflictException(entityId, ifMatchEtag);
+        }
+        return detail;
+    }
+
+    private PublishedEntityDetail WriteBack(PublishedEntityDetail prior, PublishedEntity updated)
+    {
+        var newEtag = $"\"etag-{Interlocked.Increment(ref _etagCounter)}\"";
+        var updatedWithEtag = updated with { ETag = newEtag };
+        var stored = new PublishedEntityDetail(updatedWithEtag, newEtag);
+        _byId[prior.Entity.Id] = stored;
+        return stored;
     }
 }
 
