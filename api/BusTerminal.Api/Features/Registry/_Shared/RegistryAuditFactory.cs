@@ -35,7 +35,20 @@ internal static class RegistryAuditFactory
                 : principal.ObjectId.ToString("D"),
             DisplayName: principal?.DisplayName ?? string.Empty);
 
-        var correlationId = Activity.Current?.TraceId.ToHexString() ?? string.Empty;
+        // Spec 006 / FR-042 — correlationId connects audit events to OTel
+        // traces in App Insights. In production with the AspNetCore OTel
+        // instrumentation active (auto-wired by `UseAzureMonitor`), the
+        // ambient Activity always carries a valid trace id. In test mode
+        // (no AppInsights connection string → no auto-instrumentation) or
+        // background-job paths without an inbound HTTP request,
+        // `Activity.Current` can be null. Falling back to an empty string
+        // was the source of a flaky audit-shape test and a defect for any
+        // background-emitted audit event. A fresh Guid keeps audit events
+        // self-correlatable (every event has a non-empty correlationId);
+        // when an Activity IS present, real cross-system trace linkage
+        // continues to work.
+        var correlationId = Activity.Current?.TraceId.ToHexString()
+            ?? Guid.NewGuid().ToString("N");
 
         var summary = parentIsDeprecated
             ? DeprecatedParentPrefix + changeSummary
