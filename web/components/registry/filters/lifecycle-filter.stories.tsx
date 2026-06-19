@@ -13,7 +13,15 @@ import { LifecycleFilter } from "./lifecycle-filter";
 const meta: Meta<typeof LifecycleFilter> = {
   title: "Discovery/Filters/LifecycleFilter",
   component: LifecycleFilter,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+    // `<LifecycleFilter>` uses `useRouter`/`useSearchParams` from
+    // `next/navigation`. Setting `appDirectory: true` switches the
+    // `@storybook/nextjs` framework from the Pages-Router mock to the
+    // App-Router mock (`createNavigation`), which is what the play
+    // function's interaction code needs to see.
+    nextjs: { appDirectory: true },
+  },
 };
 
 export default meta;

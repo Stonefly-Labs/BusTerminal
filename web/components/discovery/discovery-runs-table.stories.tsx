@@ -51,10 +51,13 @@ const meta: Meta<typeof DiscoveryRunsTable> = {
   component: DiscoveryRunsTable,
   parameters: {
     layout: "padded",
-    // `<DiscoveryRunsTable>` calls `useRouter()` for row-click navigation;
-    // the storybook-runner play function trips the next/navigation mocks
-    // unless this is set. Matches the pattern used by the filter stories.
-    nextjs: { router: { asPath: "/namespaces/ns_demo/discovery-runs" } },
+    // `<DiscoveryRunsTable>` calls `useRouter()` from `next/navigation`
+    // (App Router). `appDirectory: true` flips the @storybook/nextjs
+    // framework from the legacy pages-router mock to the App-Router
+    // mock (`createNavigation`). Without it, the play function's
+    // interactions surface "router mocks not created yet" because the
+    // legacy mock doesn't satisfy `useRouter` from `next/navigation`.
+    nextjs: { appDirectory: true },
   },
   decorators: [(Story) => <StoryShell>{Story()}</StoryShell>],
 };

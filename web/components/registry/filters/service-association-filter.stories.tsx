@@ -9,7 +9,11 @@ import { ServiceAssociationFilter } from "./service-association-filter";
 const meta: Meta<typeof ServiceAssociationFilter> = {
   title: "Discovery/Filters/ServiceAssociationFilter",
   component: ServiceAssociationFilter,
-  parameters: { layout: "padded" },
+  parameters: {
+    layout: "padded",
+    // App-Router mock — see lifecycle-filter.stories.tsx for the rationale.
+    nextjs: { appDirectory: true },
+  },
 };
 
 export default meta;
