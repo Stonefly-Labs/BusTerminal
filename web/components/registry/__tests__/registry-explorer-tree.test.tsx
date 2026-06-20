@@ -12,6 +12,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import type { RegistryEntity } from "@/lib/registry/types";
 
+const acquireTokenMock = vi.fn(async () => "test-token");
+
+vi.mock("@/hooks/use-acquire-token", () => ({
+  useAcquireToken: () => acquireTokenMock,
+}));
+
 vi.mock("@/lib/registry/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/registry/api")>("@/lib/registry/api");
   return {
@@ -95,6 +101,20 @@ describe("RegistryExplorerTree", () => {
     await waitFor(() => {
       expect(screen.getByText("orders-in")).toBeInTheDocument();
       expect(screen.getByText("orders-events")).toBeInTheDocument();
+    });
+  });
+
+  it("attaches the acquired bearer token to the list call", async () => {
+    // Regression guard: the registry API client never acquires its own token,
+    // so the explorer must resolve one via useAcquireToken and pass it as
+    // accessToken. Without this the call 401s under real Entra auth.
+    vi.mocked(listEntities).mockResolvedValueOnce({ items: [], continuationToken: null });
+    renderTree({ environment: "dev" });
+    await waitFor(() => {
+      expect(listEntities).toHaveBeenCalledWith(
+        expect.objectContaining({ environment: "dev", entityType: "Namespace" }),
+        expect.objectContaining({ accessToken: "test-token" }),
+      );
     });
   });
 

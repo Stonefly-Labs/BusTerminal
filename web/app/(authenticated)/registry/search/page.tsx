@@ -23,9 +23,15 @@ import {
   RegistrySearchResultsTable,
   type RegistrySearchResultRow,
 } from "@/components/registry/registry-search-results-table";
-import { listEnvironments, searchEntities, RegistryApiError } from "@/lib/registry/api";
+import {
+  listEnvironments,
+  resolveApiOptions,
+  searchEntities,
+  RegistryApiError,
+} from "@/lib/registry/api";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
 import type { RegistryEntityType } from "@/lib/registry/types";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -41,23 +47,30 @@ export default function RegistrySearchPage() {
   const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
   const pageSize = Math.max(1, Number(searchParams.get("pageSize") ?? DEFAULT_PAGE_SIZE));
 
+  const getToken = useAcquireToken();
+
   const environmentsQuery = useQuery({
     queryKey: registryQueryKeys.environments.list(),
-    queryFn: () => listEnvironments(),
+    // The registry API client never acquires its own token — resolve one here
+    // so the call is authenticated under real Entra auth.
+    queryFn: async () => listEnvironments(await resolveApiOptions(undefined, getToken)),
     staleTime: 60_000,
   });
 
   const searchQuery = useQuery({
     queryKey: registryQueryKeys.search.query(q, { entityType, environment, status, page, pageSize }),
-    queryFn: () =>
-      searchEntities({
-        query: q,
-        ...(entityType ? { entityType } : {}),
-        ...(environment ? { environment } : {}),
-        ...(status ? { status } : {}),
-        top: pageSize,
-        skip: (page - 1) * pageSize,
-      }),
+    queryFn: async () =>
+      searchEntities(
+        {
+          query: q,
+          ...(entityType ? { entityType } : {}),
+          ...(environment ? { environment } : {}),
+          ...(status ? { status } : {}),
+          top: pageSize,
+          skip: (page - 1) * pageSize,
+        },
+        await resolveApiOptions(undefined, getToken),
+      ),
     enabled: q.length > 0,
   });
 

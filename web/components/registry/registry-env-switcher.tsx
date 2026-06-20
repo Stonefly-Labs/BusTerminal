@@ -24,8 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listEnvironments, type RegistryApiOptions } from "@/lib/registry/api";
+import {
+  listEnvironments,
+  resolveApiOptions,
+  type RegistryApiOptions,
+} from "@/lib/registry/api";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 
 const STORAGE_KEY = "busterminal.registry.lastEnvironment";
 
@@ -38,10 +43,15 @@ export function RegistryEnvSwitcher({ apiOptions }: RegistryEnvSwitcherProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlEnv = searchParams.get("environment") ?? undefined;
+  const getToken = useAcquireToken();
 
   const environmentsQuery = useQuery({
     queryKey: registryQueryKeys.environments.list(),
-    queryFn: () => listEnvironments(apiOptions),
+    // The registry API client only attaches a bearer token when the caller
+    // supplies one; it never acquires its own. Under real Entra auth that
+    // means an unauthenticated 401 unless we resolve a token here. (Mock-auth
+    // E2E masks this via the X-Mock-Roles header.)
+    queryFn: async () => listEnvironments(await resolveApiOptions(apiOptions, getToken)),
     staleTime: 60_000,
   });
 

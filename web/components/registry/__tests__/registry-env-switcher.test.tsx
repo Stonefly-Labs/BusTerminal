@@ -16,6 +16,12 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/registry",
 }));
 
+const acquireTokenMock = vi.fn(async () => "test-token");
+
+vi.mock("@/hooks/use-acquire-token", () => ({
+  useAcquireToken: () => acquireTokenMock,
+}));
+
 vi.mock("@/lib/registry/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/registry/api")>("@/lib/registry/api");
   return {
@@ -76,6 +82,19 @@ describe("RegistryEnvSwitcher", () => {
     });
     const lastCall = routerReplace.mock.calls[routerReplace.mock.calls.length - 1]?.[0] as string;
     expect(lastCall).toContain("environment=prod");
+  });
+
+  it("attaches the acquired bearer token to the environments call", async () => {
+    // Regression guard: the env switcher must resolve a token via
+    // useAcquireToken and pass it as accessToken, else it 401s under real
+    // Entra auth and the registry has no selectable environment.
+    vi.mocked(listEnvironments).mockResolvedValueOnce(["dev"]);
+    renderSwitcher();
+    await waitFor(() => {
+      expect(listEnvironments).toHaveBeenCalledWith(
+        expect.objectContaining({ accessToken: "test-token" }),
+      );
+    });
   });
 
   it("renders nothing if no environments are configured", async () => {
