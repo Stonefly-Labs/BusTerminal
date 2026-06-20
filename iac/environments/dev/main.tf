@@ -384,6 +384,33 @@ module "backend_app" {
     # dependency cycle (frontend already depends on backend for
     # `NEXT_PUBLIC_API_BASE_URL`).
     Cors__AllowedOrigins__0 = "https://${local.frontend_app_name}.${module.container_apps_env.default_domain}"
+
+    # Spec 004 / FR-018 — Cosmos canonical store options bound from the
+    # `Cosmos:` section in CosmosOptions.cs. The api Container App needs
+    # `Cosmos__Endpoint` at minimum (no default; validator fails fast
+    # otherwise) for any persistence-touching route. AAD via
+    # DefaultAzureCredential resolves through the workload UAMI client id
+    # already injected as AZURE_CLIENT_ID above. The remaining `Cosmos__*`
+    # fields default to sensible values in the .NET options class but are
+    # set explicitly here to match the actual deployed container names so
+    # the api stays in sync with the IaC source of truth.
+    Cosmos__Endpoint                 = module.cosmos_account.account_endpoint
+    Cosmos__Database                 = module.cosmos_canonical_store.database_name
+    Cosmos__Containers__Resources    = module.cosmos_canonical_store.resources_container_name
+    Cosmos__Containers__ChangeEvents = module.cosmos_canonical_store.change_events_container_name
+
+    # Spec 006 / 008 / 009 — registry slice's Cosmos options
+    # (CosmosRegistryOptions.cs, section `CosmosRegistry:`). Spec 009 adds
+    # the discovery-runs + discovery-locks containers; setting them
+    # explicitly here ensures the api uses the IaC-provisioned names
+    # rather than the options-class defaults if those ever drift.
+    CosmosRegistry__Database                = module.cosmos_canonical_store.database_name
+    CosmosRegistry__EntitiesContainer       = module.cosmos_registry_store.entities_container_name
+    CosmosRegistry__AuditContainer          = module.cosmos_registry_store.audit_container_name
+    CosmosRegistry__LeasesContainer         = module.cosmos_registry_store.leases_container_name
+    CosmosRegistry__ValidationRunsContainer = module.cosmos_registry_store.validation_runs_container_name
+    CosmosRegistry__DiscoveryRunsContainer  = module.cosmos_registry_store.discovery_runs_container_name
+    CosmosRegistry__DiscoveryLocksContainer = module.cosmos_registry_store.discovery_locks_container_name
   }
 
   secret_env_vars = {
