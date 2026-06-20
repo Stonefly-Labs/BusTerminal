@@ -449,9 +449,15 @@ module "frontend_app" {
     NEXT_PUBLIC_API_BASE_URL       = module.backend_app.fqdn_url
     NEXT_PUBLIC_AZURE_AD_TENANT_ID = var.entra_tenant_id
     NEXT_PUBLIC_AZURE_AD_CLIENT_ID = var.entra_web_client_id
-    NEXT_PUBLIC_API_SCOPE          = "api://${var.entra_api_client_id}/.default"
-    AZURE_KEY_VAULT_URI            = module.keyvault.uri
-    AZURE_CLIENT_ID                = module.workload_identity.client_id
+    # Spec 003 — interactive SPA flow MUST request the explicit delegated
+    # scope (`access_as_user`) the api app exposes. `.default` works only
+    # for client-credentials (app-only) flows and silently produces tokens
+    # the api's JwtBearer pipeline rejects with 401. The probe-job below
+    # legitimately uses `.default` because it runs as a workload MI doing
+    # an app-only call — do NOT copy-paste this value into that callsite.
+    NEXT_PUBLIC_API_SCOPE = "api://${var.entra_api_client_id}/access_as_user"
+    AZURE_KEY_VAULT_URI   = module.keyvault.uri
+    AZURE_CLIENT_ID       = module.workload_identity.client_id
   }
 
   secret_env_vars = {
