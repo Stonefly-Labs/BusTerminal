@@ -12,9 +12,14 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { listEntities, type RegistryApiOptions } from "@/lib/registry/api";
+import {
+  listEntities,
+  resolveApiOptions,
+  type RegistryApiOptions,
+} from "@/lib/registry/api";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
 import type { RegistryEntity, RegistryEntityType } from "@/lib/registry/types";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 
 import { RegistryTreeNode } from "./registry-tree-node";
 import { RegistryEmptyState } from "./registry-empty-state";
@@ -47,13 +52,21 @@ export function RegistryExplorerTree({
     });
   };
 
+  const getToken = useAcquireToken();
+
   const rootsQuery = useQuery({
     queryKey: registryQueryKeys.entities.list({
       environment,
       entityType: "Namespace",
     }),
-    queryFn: () =>
-      listEntities({ environment, entityType: "Namespace", pageSize: 200 }, apiOptions),
+    // Resolve a bearer token unless the caller supplied one — the registry
+    // API client never acquires its own (see registry-env-switcher for the
+    // full rationale).
+    queryFn: async () =>
+      listEntities(
+        { environment, entityType: "Namespace", pageSize: 200 },
+        await resolveApiOptions(apiOptions, getToken),
+      ),
     enabled: !!environment,
   });
 
@@ -125,11 +138,15 @@ function TreeBranch({
   const childTypes = CHILD_TYPES[entity.entityType] ?? [];
   const canExpand = childTypes.length > 0;
   const isExpanded = expanded.has(entity.id);
+  const getToken = useAcquireToken();
 
   const childrenQuery = useQuery({
     queryKey: registryQueryKeys.entities.list({ environment, parentId: entity.id }),
-    queryFn: () =>
-      listEntities({ environment, parentId: entity.id, pageSize: 200 }, apiOptions),
+    queryFn: async () =>
+      listEntities(
+        { environment, parentId: entity.id, pageSize: 200 },
+        await resolveApiOptions(apiOptions, getToken),
+      ),
     enabled: canExpand && isExpanded,
   });
 

@@ -106,6 +106,25 @@ function baseUrlFor(options: RegistryApiOptions): string {
   return options.baseUrl ?? DEFAULT_BASE_URL;
 }
 
+/**
+ * Resolve the `RegistryApiOptions` to use for a read call, ensuring a bearer
+ * token is attached. This client never acquires its own token — callers must
+ * supply one (FR-037 AuthN-only). Client components pass `useAcquireToken`'s
+ * resolver as `getToken`; if `apiOptions` already carries an `accessToken`
+ * (e.g. an RSC caller or a test) it is used as-is and `getToken` is skipped.
+ *
+ * Kept here (not in the `use-acquire-token` hook) so this module stays
+ * RSC-safe — it takes a plain token getter rather than importing the hook.
+ */
+export async function resolveApiOptions(
+  apiOptions: RegistryApiOptions | undefined,
+  getToken: () => Promise<string | null>,
+): Promise<RegistryApiOptions> {
+  if (apiOptions?.accessToken) return apiOptions;
+  const token = await getToken();
+  return token ? { ...apiOptions, accessToken: token } : (apiOptions ?? {});
+}
+
 // `exactOptionalPropertyTypes` distinguishes "key absent" from "key:
 // undefined" — strip undefined values so HttpFetchOptions.signal stays
 // typed as AbortSignal | null without leaking undefined into it.
