@@ -259,6 +259,11 @@ jobs:
         if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
+          # Authenticate the action's tfsec-binary download from GitHub
+          # releases. Without a token the download is unauthenticated and
+          # intermittently 403s on the shared-runner IP's rate limit, failing
+          # the job spuriously (unrelated to any actual finding).
+          github_token: ${{ github.token }}
           working_directory: iac
           soft_fail: false
 
