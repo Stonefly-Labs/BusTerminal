@@ -57,7 +57,7 @@ jobs:
           tofu_version: ${{ steps.tofu_version.outputs.version }}
 
       - name: Azure login (OIDC federated)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -150,7 +150,7 @@ jobs:
       # disabled on the ACR by design (per BT-IAC security stance). A
       # second `azure/login` requests a fresh JWT just before push.
       - name: Azure login (refresh before ACR push)
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
