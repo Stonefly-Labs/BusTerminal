@@ -255,17 +255,29 @@ jobs:
           soft_fail: false
 
       # Spec 005 / US6 / T118 — tfsec on the iac/ tree.
+      #
+      # We install a pinned tfsec binary directly from the GitHub release
+      # asset rather than using `aquasecurity/tfsec-action`. That action's
+      # entrypoint resolves the release via the api.github.com releases API,
+      # which is IP-rate-limited on shared runners and intermittently 403s
+      # (its `github_token` input did not reliably prevent this). Release
+      # *assets* are served from a CDN (objects.githubusercontent.com) with
+      # no such limit, so a direct download is deterministic. tfsec is in
+      # maintenance (folded into Trivy); v1.28.13 is the final release.
+      - name: Install tfsec (pinned, direct release-asset download)
+        if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
+        env:
+          TFSEC_VERSION: v1.28.13
+        run: |
+          set -euo pipefail
+          curl -sSLo /usr/local/bin/tfsec \
+            "https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64"
+          chmod +x /usr/local/bin/tfsec
+          tfsec --version
+
       - name: tfsec (Terraform / OpenTofu scan)
         if: steps.plan.outputs.exit_code == '0' || steps.plan.outputs.exit_code == '2'
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          # Authenticate the action's tfsec-binary download from GitHub
-          # releases. Without a token the download is unauthenticated and
-          # intermittently 403s on the shared-runner IP's rate limit, failing
-          # the job spuriously (unrelated to any actual finding).
-          github_token: ${{ github.token }}
-          working_directory: iac
-          soft_fail: false
+        run: tfsec iac --no-color
 
       # Spec 005 / US6 / T118 — upload the policy gate artifacts so the
       # approval-gate job (below) can consume requires-manual-approval.flag
