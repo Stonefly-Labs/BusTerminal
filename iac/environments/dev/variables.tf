@@ -91,6 +91,19 @@ variable "entra_web_client_id" {
   type        = string
 }
 
+variable "pipeline_identity_client_id" {
+  description = <<-EOT
+    Client ID of the dev pipeline managed identity (`mi-busterminal-pipeline-dev`).
+    When set, the dedicated app-only `Smoke.Invoke` role on the backend API is
+    assigned to this identity so the authenticated post-deploy smoke
+    (`cd-dev.yml`) can mint an API token. The CD / IaC-apply workflows pass it
+    from the `AZURE_CLIENT_ID` deployment variable. Empty (default) disables the
+    assignment — e.g. local plans that don't supply it.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Additional tags merged onto every resource provisioned for this environment."
   type        = map(string)

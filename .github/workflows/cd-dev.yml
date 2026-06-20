@@ -36,6 +36,9 @@ jobs:
       TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
       TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
       TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      # Pipeline MI client ID — grants it the app-only `Smoke.Invoke` role on
+      # the API so the authenticated post-deploy smoke can mint an API token.
+      TF_VAR_pipeline_identity_client_id: ${{ vars.AZURE_CLIENT_ID }}
       # JSON-encoded list of Entra object IDs for humans with standing
       # Secrets Officer access on the env KV. Pipeline MI excluded — it
       # gets its grant from a tofu self-assignment in the composition.

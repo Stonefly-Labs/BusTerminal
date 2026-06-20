@@ -933,3 +933,51 @@ module "app_registration_roles" {
     }
   }
 }
+
+# ---------------------------------------------------------------------------
+# Authenticated post-deploy smoke (cd-dev.yml) — app-only API access role.
+#
+# The smoke step acquires an app-only API token *as the dev pipeline managed
+# identity* (`az account get-access-token --resource api://<api>`) and calls
+# GET /whoami expecting 200. Entra only mints a `.default` app token for a
+# custom API when the calling identity holds at least one Application app role
+# on that API — so we declare a dedicated, authorization-free role and grant it
+# to the pipeline identity.
+#
+# `Smoke.Invoke` confers NO platform authorization: the backend's role parser
+# does not map it to any operation class, so /whoami returns 200 with empty
+# EffectiveRoles. This keeps the deployment identity least-privileged on the
+# API surface — it is deliberately NOT granted BusTerminal.Reader/Operator/etc.
+#
+# The pipeline MI already OWNS the `bt-dev-api` app registration, so it can
+# create this role and the assignment with no tenant-wide Graph permission and
+# no admin consent. Supersedes the manual `az rest` step previously documented
+# in docs/deploying-environments.md §5.
+#
+# Declared standalone (not via module.app_registration_roles) because that
+# module is the spec-003/008 platform-role contract (4–5 BusTerminal.* roles);
+# the smoke role is an orthogonal, app-only concern.
+resource "azuread_application_app_role" "pipeline_smoke" {
+  application_id       = data.azuread_application.api.id
+  role_id              = "f0e9d8c7-b6a5-4321-9f8e-7d6c5b4a3210"
+  allowed_member_types = ["Application"]
+  display_name         = "Smoke Invoke"
+  description          = "App-only role allowing the dev deployment pipeline identity to acquire an API token for the authenticated post-deploy smoke. Confers no platform authorization."
+  value                = "Smoke.Invoke"
+}
+
+# Resolve the pipeline MI's service principal so we can grant it the role.
+# Gated on `pipeline_identity_client_id` (workflows pass AZURE_CLIENT_ID);
+# empty disables the lookup + assignment for local plans that don't set it.
+data "azuread_service_principal" "pipeline" {
+  count     = var.pipeline_identity_client_id == "" ? 0 : 1
+  client_id = var.pipeline_identity_client_id
+}
+
+resource "azuread_app_role_assignment" "pipeline_smoke" {
+  count = var.pipeline_identity_client_id == "" ? 0 : 1
+
+  app_role_id         = azuread_application_app_role.pipeline_smoke.role_id
+  principal_object_id = data.azuread_service_principal.pipeline[0].object_id
+  resource_object_id  = data.azuread_service_principal.api.object_id
+}
