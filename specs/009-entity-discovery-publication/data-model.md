@@ -353,9 +353,9 @@ public sealed record CoalescedRequest(DateTimeOffset RequestedUtc, string Reques
 
 ### Cosmos indexes
 
-- `registry-entities`: existing indexing policy retained. Explicit included paths: `/id`, `/environment`, `/namespaceId`, `/entityType`, `/lifecycleStatus`, `/compositeKey`, `/associatedServiceIds/*`, `/lastSeenUtc`. All other paths default-excluded.
-- `discovery-runs`: included `/id`, `/namespaceId`, `/status`, `/startedUtc`. Composite index on `(/namespaceId, /startedUtc DESC)` for the discovery-history list view.
-- `discovery-locks`: included `/id`, `/namespaceId`. Tiny container; default policy fine.
+- `registry-entities`: existing indexing policy retained. Explicit included paths: `/environment`, `/namespaceId`, `/entityType`, `/lifecycleStatus`, `/compositeKey`, `/associatedServiceIds/*`, `/lastSeenUtc`. All other paths default-excluded. (The system `id` property is implicitly indexed by Cosmos and MUST NOT appear in custom paths — it's rejected with "overrides system property 'id'".)
+- `discovery-runs`: included `/namespaceId`, `/status`, `/startedUtc`. Composite index on `(/namespaceId, /startedUtc DESC)` for the discovery-history list view. Point lookups by id use the implicit system index.
+- `discovery-locks`: included `/namespaceId`. Tiny container; point lookups by id use the implicit system index.
 
 ### Hot query paths
 
