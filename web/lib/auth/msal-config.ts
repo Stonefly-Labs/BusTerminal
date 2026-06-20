@@ -15,10 +15,14 @@ const ENV_CLIENT_ID = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID;
 export function buildMsalConfig(): Configuration {
   const tenantId = ENV_TENANT_ID && ENV_TENANT_ID.length > 0 ? ENV_TENANT_ID : DEFAULT_TENANT_ID;
   const clientId = ENV_CLIENT_ID && ENV_CLIENT_ID.length > 0 ? ENV_CLIENT_ID : DEFAULT_CLIENT_ID;
+  // `navigateToLoginRequestUrl` (default `true`) was removed from
+  // BrowserAuthOptions in msal-browser v5 — it now lives in a
+  // `handleRedirectPromise({ navigateToLoginRequestUrl })` option, which
+  // msal-react calls with the default. We relied on the default, so there is
+  // nothing to carry over here.
   const auth: Configuration["auth"] = {
     clientId,
     authority: `https://login.microsoftonline.com/${tenantId}`,
-    navigateToLoginRequestUrl: true,
   };
   if (typeof window !== "undefined") {
     auth.redirectUri = window.location.origin;
@@ -26,9 +30,10 @@ export function buildMsalConfig(): Configuration {
   }
   return {
     auth,
+    // `storeAuthStateInCookie` was removed from CacheOptions in msal-browser
+    // v5 (IE11-era legacy); the default behaviour is unchanged for our flow.
     cache: {
       cacheLocation: "sessionStorage",
-      storeAuthStateInCookie: false,
     },
   };
 }

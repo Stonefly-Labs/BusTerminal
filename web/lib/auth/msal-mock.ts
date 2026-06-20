@@ -109,13 +109,14 @@ const MOCK_CONFIG: Configuration = {
   auth: {
     clientId: MOCK_CLIENT_ID,
     authority: `https://login.microsoftonline.com/${MOCK_TENANT_ID}`,
-    navigateToLoginRequestUrl: false,
+    // `navigateToLoginRequestUrl` / `storeAuthStateInCookie` were removed in
+    // msal-browser v5. This mock stubs redirect handling outright, so neither
+    // affected behaviour here.
   },
   cache: {
     // Match the real config so anything else reading sessionStorage MSAL
     // keys (none in our SPA, but defensively) sees consistent shape.
     cacheLocation: "sessionStorage",
-    storeAuthStateInCookie: false,
   },
 };
 
