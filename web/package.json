@@ -30,7 +30,7 @@
     "audit:review-records": "node scripts/audit-review-records.mjs"
   },
   "dependencies": {
-    "@azure/msal-browser": "^4",
+    "@azure/msal-browser": "^5",
     "@azure/msal-react": "^5",
     "@hookform/resolvers": "^3.9.1",
     "@microsoft/applicationinsights-react-js": "^17.3.6",
