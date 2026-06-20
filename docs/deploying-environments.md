@@ -139,35 +139,36 @@ A push to `main` runs `cd-dev.yml` with the following ordered steps:
 ## 5. Granting the pipeline identity access to the backend API
 
 The authenticated smoke step (T072) requires the `dev` pipeline managed
-identity to be authorized as a client of the backend API. This is a one-time
-configuration per environment:
+identity to be authorized as a client of the backend API so it can mint an
+app-only API token (`az account get-access-token --resource api://<api>`) and
+call `GET /whoami`.
 
-1. In Entra ID → app registrations → **backend API registration** →
-   **Expose an API**, ensure `access_as_user` is defined (default).
-2. Create an app role on the backend registration (e.g.,
-   `Smoke.Invoke`, type `Application`, value `Smoke.Invoke`).
-3. Grant the pipeline managed identity (the service principal whose object ID
-   matches `principalId` on `mi-busterminal-pipeline-dev`) that app role
-   via Microsoft Graph:
+**This is now managed by IaC — no manual steps.** The `dev` composition
+declares a dedicated app-only role `Smoke.Invoke` on the backend API
+registration and assigns it to the pipeline managed identity:
 
-```sh
-PIPELINE_SP_OBJECT_ID=$(az ad sp show --id <pipeline-mi-client-id> --query id -o tsv)
-BACKEND_SP_OBJECT_ID=$(az ad sp show --id <backend-api-client-id> --query id -o tsv)
-APP_ROLE_ID=$(az ad sp show --id <backend-api-client-id> --query "appRoles[?value=='Smoke.Invoke'].id" -o tsv)
+- `azuread_application_app_role.pipeline_smoke` — the app-only role
+  (`allowed_member_types = ["Application"]`, value `Smoke.Invoke`).
+- `azuread_app_role_assignment.pipeline_smoke` — grants it to
+  `mi-busterminal-pipeline-dev` (resolved from
+  `TF_VAR_pipeline_identity_client_id`, wired from the `AZURE_CLIENT_ID`
+  deployment variable in `cd-dev.yml` / `iac-apply-dev.yml`).
 
-az rest --method POST \
-  --uri "https://graph.microsoft.com/v1.0/servicePrincipals/${PIPELINE_SP_OBJECT_ID}/appRoleAssignments" \
-  --headers "Content-Type=application/json" \
-  --body "{
-    \"principalId\": \"${PIPELINE_SP_OBJECT_ID}\",
-    \"resourceId\": \"${BACKEND_SP_OBJECT_ID}\",
-    \"appRoleId\": \"${APP_ROLE_ID}\"
-  }"
-```
+Both resources are created by the pipeline's own `tofu apply` — the pipeline
+MI **owns** the `bt-dev-api` app registration, so no tenant-wide Graph
+permission or admin consent is required. (Contrast with the Microsoft Graph
+*application permissions* in §A.2, which DO require manual admin consent.)
 
-Until this grant is in place, the authenticated smoke step is `continue-on-error`
-and reports a warning rather than failing the deploy. The unauthenticated
-smoke step still validates the security posture.
+`Smoke.Invoke` deliberately confers **no platform authorization** — the
+backend's role parser does not map it to any operation class, so `/whoami`
+returns 200 with an empty `effectiveRoles`. The pipeline identity is not
+granted any `BusTerminal.*` role.
+
+The authenticated smoke step is `continue-on-error` so the first deploy after
+this lands (and any window where the role assignment has not yet propagated,
+~1–2 min) reports a warning rather than failing. Once the assignment is live
+and confirmed green, it can be promoted to a hard gate by removing
+`continue-on-error` on the `smoke_auth` step in `cd-dev.yml`.
 
 ---
 
