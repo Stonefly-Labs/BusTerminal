@@ -190,9 +190,11 @@ resource "azurerm_cosmosdb_sql_container" "discovery_runs" {
   indexing_policy {
     indexing_mode = "consistent"
 
-    included_path {
-      path = "/id/?"
-    }
+    # NOTE: do NOT add an `included_path` for `/id/?` — Cosmos auto-indexes
+    # the system `id` property and rejects any custom index that targets it
+    # ("The specified path '/id/?' could not be accepted because it
+    # overrides system property 'id'"). Point lookups by id remain
+    # supported via the implicit system index.
     included_path {
       path = "/namespaceId/?"
     }
@@ -247,9 +249,9 @@ resource "azurerm_cosmosdb_sql_container" "discovery_locks" {
 
   indexing_policy {
     indexing_mode = "consistent"
-    included_path {
-      path = "/id/?"
-    }
+    # `/id/?` intentionally omitted — see discovery_runs above; Cosmos
+    # rejects custom indexes on the system `id` property. Point lookups
+    # by id remain supported via the implicit system index.
     included_path {
       path = "/namespaceId/?"
     }
