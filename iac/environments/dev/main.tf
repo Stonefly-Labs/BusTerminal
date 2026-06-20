@@ -104,6 +104,20 @@ module "monitoring" {
   tags = local.shared_tags
 }
 
+# Spec 009 / T115 — discovery telemetry workbook. Bound to the AI component
+# above; panels defined in iac/modules/monitoring-dashboards/discovery.json.
+module "discovery_dashboard" {
+  source = "../../modules/monitoring-dashboards"
+
+  resource_group_name     = azurerm_resource_group.this.name
+  location                = azurerm_resource_group.this.location
+  application_insights_id = module.monitoring.application_insights_id
+
+  display_name = "BusTerminal — Discovery telemetry (dev)"
+
+  tags = local.shared_tags
+}
+
 module "keyvault" {
   source = "../../modules/keyvault"
 
@@ -667,6 +681,13 @@ module "service_bus" {
   private_endpoint_subnet_id = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.subnet_private_endpoints_id : null
   private_dns_zone_id        = (var.service_bus_sku == "Premium" && var.private_endpoints_enabled) ? module.networking.private_dns_zone_ids["privatelink.servicebus.windows.net"] : null
 
+  # Spec 009 / T007 — opt into the internal `discovery-requested` queue on
+  # this namespace. The BusTerminal API publishes discovery requests here;
+  # the BusTerminal.Indexer Functions worker drains them (see Phase 3 US1
+  # tasks). Defaults inside the module match `data-model.md §1.3`
+  # (PT5M lock, max-delivery 3, dead-letter on expiration).
+  enable_discovery_queue = true
+
   tags = local.shared_tags
 }
 
@@ -690,6 +711,12 @@ module "cosmos_registry_store" {
   cosmos_account_name            = module.cosmos_account.account_name
   resource_group_name            = azurerm_resource_group.this.name
   cosmos_canonical_database_name = module.cosmos_canonical_store.database_name
+
+  # Spec 009 / T007 — discovery-runs + discovery-locks containers are
+  # provisioned via the module's defaults (`discovery-runs`,
+  # `discovery-locks`). No new variables passed here; the module's
+  # built-in indexing policies (composite (/namespaceId, /startedUtc DESC)
+  # on runs; minimal on locks) cover the spec 009 hot paths.
 }
 
 module "ai_search_registry_index" {

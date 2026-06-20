@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>BusTerminal.Tools.DiscoveryTelemetryTail</RootNamespace>
+    <AssemblyName>busterminal-discovery-telemetry-tail</AssemblyName>
+    <!-- Spec 009 / T125b: dev-tooling CLI. Quickstart "Useful one-liners"
+         references this binary; NOT shipped to prod, NOT included in any
+         release artifact, NOT mounted into containers. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+  </ItemGroup>
+
+</Project>

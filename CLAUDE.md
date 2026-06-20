@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/008-namespace-onboarding/plan.md`.
+`specs/009-entity-discovery-publication/plan.md`.
 <!-- SPECKIT END -->
 
 # Tools
@@ -114,7 +114,8 @@ These are the rules most likely to bite if forgotten — keep them top of mind.
 - **No additional UI libraries** without explicit approval — no alternative component libraries, heavy chart suites, graph/topology libraries, drag-and-drop libraries, rich-text editors, or code-editor components.
 - **MCP servers are dev-time only.** Next.js MCP, shadcn/ui MCP, Microsoft Learn MCP, context7 MCP are workflow aids for humans and agents. The **product** must NEVER depend on an MCP server at runtime. Use phrasing like *"Coding agents must consult…"*, not *"BusTerminal integrates with…"*.
 - **Managed Identity preferred over secrets** for service-to-service auth.
-- **W3C Trace Context propagation is mandatory** on UI-originated HTTP requests so frontend traces correlate with backend OpenTelemetry traces in Azure Monitor.
+- **W3C Trace Context propagation is mandatory** on UI-originated HTTP requests so frontend traces correlate with backend OpenTelemetry traces in Azure Monitor. **Async hops also propagate** — Service Bus messages carry `traceparent` on the `Diagnostic-Id` property (the .NET SDK populates it from the active `Activity`); workers seed their root activity from that property so traces stay end-to-end.
+- **RHF + Zod 4: skip `zodResolver`.** The repo pins `@hookform/resolvers@3.x` (Zod-3 era) and `zod@4.x`; the v3 resolver throws inside the form lifecycle when Zod-4 raises an issue, surfacing as an unhandled rejection. Use RHF's built-in `register` validators (`required`, `minLength`, `pattern`) or a manual `handleSubmit` guard until `@hookform/resolvers@4` is approved for upgrade.
 - **No PII in telemetry by default.** Only correlation identifiers propagate unless an explicit opt-in is added by a future spec.
 - **CSS logical properties only.** No hardcoded `left`/`right`. RTL-safe by construction even though v1 content is English-only.
 - **Dark mode is primary**, light mode is a fully-supported peer (not a skin).

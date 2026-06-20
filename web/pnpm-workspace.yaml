@@ -11,3 +11,10 @@ overrides:
   shell-quote: '>=1.8.4'
   # GHSA-gv7w-rqvm-qjhr — esbuild high CVE in Storybook's chain.
   esbuild: '>=0.28.1'
+  # GHSA-vmh5-mc38-953g / -vxpw-j846-p89q / -hm92-r4w5-c3mj — undici
+  # TLS-cert-validation / SOCKS5 high-severity CVEs. Pulled in transitively
+  # via jsdom (vitest). Test-only dep, never bundled into the product.
+  # Pinned to the 7.x patched range — undici 8.x reorganized the internal
+  # module layout and jsdom@29 still imports the old path
+  # (`undici/lib/handler/wrap-handler.js`), which 404s under 8.x.
+  undici: '>=7.28.0 <8'

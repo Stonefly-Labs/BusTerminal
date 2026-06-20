@@ -1,15 +1,22 @@
 "use client";
 
 /**
- * Spec 006 / T111. /registry/search route. Reads search state from the URL
- * (`?q=…&entityType=…&environment=…&status=…&page=…&pageSize=…`) so the
- * surface is shareable and back/forward-friendly. Delegates rendering to the
- * search input + filters + results table client components.
+ * Spec 006 / T111 + Spec 009 / T077. /registry/search route. Reads search
+ * state from the URL (`?q=…&entityType=…&environment=…&status=…&page=…
+ * &pageSize=…&lifecycleStatus=…&associatedServiceId=…&associationRole=…`)
+ * so the surface is shareable and back/forward-friendly.
+ *
+ * Spec 009 adds three new filter components: <LifecycleFilter>,
+ * <ServiceAssociationFilter>, plus passing the new filter state into the
+ * existing search query so namespace administrators and operators can
+ * narrow to discovered-entity subsets without leaving the page.
  */
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
+import { LifecycleFilter } from "@/components/registry/filters/lifecycle-filter";
+import { ServiceAssociationFilter } from "@/components/registry/filters/service-association-filter";
 import { RegistrySearchFilters } from "@/components/registry/registry-search-filters";
 import { RegistrySearchInput } from "@/components/registry/registry-search-input";
 import {
@@ -102,6 +109,11 @@ export default function RegistrySearchPage() {
       />
 
       <RegistrySearchFilters environments={environmentsQuery.data ?? []} />
+
+      <div className="flex flex-col gap-2 border-t border-border-default pt-3">
+        <LifecycleFilter />
+        <ServiceAssociationFilter />
+      </div>
 
       <RegistrySearchResultsTable
         results={rows}

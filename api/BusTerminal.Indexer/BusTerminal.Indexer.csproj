@@ -28,6 +28,13 @@
     <!-- Shared with BusTerminal.Api — managed identity via DefaultAzureCredential. -->
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
 
+    <!-- Spec 009 / Phase 3 T049 + T054 — ARM SDK for streaming Service Bus
+         entities, plus the Functions Service Bus trigger extension binding
+         that drains the internal `discovery-requested` queue. AAD-only mode
+         via `__fullyQualifiedNamespace` config. -->
+    <PackageReference Include="Azure.ResourceManager.ServiceBus" Version="1.1.0" />
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.ServiceBus" Version="5.22.0" />
+
     <!-- Cosmos SDK is pulled in to register a shared CosmosClient via the
          spec-004 CosmosClientFactory pattern (T044). -->
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />

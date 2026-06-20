@@ -66,3 +66,34 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# Spec 009 / T004 — internal `discovery-requested` queue gating + tuning.
+# The platform's own Service Bus namespace carries a single internal queue
+# used by the discovery worker (BusTerminal.Indexer) to drain
+# discovery-run requests from the API. Disabled by default so the module
+# stays composable for future tenants that do not need the discovery
+# slice; the dev env opt-ins via `enable_discovery_queue = true`.
+
+variable "enable_discovery_queue" {
+  description = "Spec 009 — create the internal `discovery-requested` queue on this namespace. The API enqueues discovery requests here and the BusTerminal.Indexer Functions worker drains them. Disabled by default; the env composition opts in."
+  type        = bool
+  default     = false
+}
+
+variable "discovery_queue_name" {
+  description = "Spec 009 — name of the internal discovery queue. Bound to `ServiceBusOptions.DiscoveryQueueName` at the app layer."
+  type        = string
+  default     = "discovery-requested"
+}
+
+variable "discovery_queue_lock_duration" {
+  description = "Spec 009 / data-model.md §1.3 — ISO-8601 lock duration on the discovery queue. ~5 min matches the SC-005 ceiling so a single discovery message's lock cannot expire while the worker is still draining the namespace."
+  type        = string
+  default     = "PT5M"
+}
+
+variable "discovery_queue_max_delivery_count" {
+  description = "Spec 009 / FR-021a — max delivery count before Service Bus dead-letters a discovery message. 3 matches the bounded exponential-backoff retry policy enforced inside the worker (retry inside the message; surface to DLQ only after the worker exhausts its retries)."
+  type        = number
+  default     = 3
+}

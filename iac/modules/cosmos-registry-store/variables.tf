@@ -40,6 +40,24 @@ variable "entity_default_ttl_seconds" {
   default     = -1
 }
 
+# Spec 009 / T005 — new containers for discovery runs and the per-namespace
+# discovery lock. PK `/namespaceId` on both; append-only writes on
+# `discovery-runs` after terminal status; single-doc-per-namespace on
+# `discovery-locks` (id is the literal string "lock"). Indexing policy lives
+# inline in `main.tf` per data-model.md §5.
+
+variable "discovery_runs_container_name" {
+  description = "Name of the discovery-runs container (spec 009). Partition key /namespaceId. Append-only history of discovery runs; indefinite retention in v1."
+  type        = string
+  default     = "discovery-runs"
+}
+
+variable "discovery_locks_container_name" {
+  description = "Name of the discovery-locks container (spec 009). Partition key /namespaceId. One document per registered namespace (id='lock'); used for FR-003 coalescing via Cosmos ETag-based atomic acquisition."
+  type        = string
+  default     = "discovery-locks"
+}
+
 # Spec 008 / T007 — new container for namespace validation run history.
 # Partition key `/namespaceId`; append-only writes; indefinite retention in
 # v1 (no TTL) per `specs/008-namespace-onboarding/contracts/outputs-contract.md

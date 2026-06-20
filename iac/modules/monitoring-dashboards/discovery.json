@@ -1,0 +1,145 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# BusTerminal — Discovery telemetry\n\nDashboard for the Spec 009 discovery worker. All metrics sourced from `BusTerminal.Discovery` ActivitySource + Meter (see R-12).\n\n**Time range** is controlled by the workbook-level picker. **Namespace** can be filtered via the parameter below to scope every panel."
+      },
+      "name": "title"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "timeRange",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 86400000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000 },
+                { "durationMs": 14400000 },
+                { "durationMs": 43200000 },
+                { "durationMs": 86400000 },
+                { "durationMs": 172800000 },
+                { "durationMs": 604800000 }
+              ]
+            }
+          },
+          {
+            "id": "namespaceId",
+            "version": "KqlParameterItem/1.0",
+            "name": "NamespaceId",
+            "type": 1,
+            "isRequired": false,
+            "description": "Filter every panel to a single namespace. Leave blank to see all."
+          }
+        ]
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Runs / day\n\nTotal discovery runs grouped by status."
+      },
+      "name": "runs-per-day-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customEvents\n| where name == \"discovery.run.completed\"\n| where isempty('{NamespaceId}') or tostring(customDimensions.namespace_id) == '{NamespaceId}'\n| extend status = tostring(customDimensions.status)\n| summarize Runs = count() by bin(timestamp, 1d), status\n| render columnchart",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "runs-per-day"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Success rate\n\nSucceeded ÷ (Succeeded + Failed). Excludes still-running."
+      },
+      "name": "success-rate-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customEvents\n| where name == \"discovery.run.completed\"\n| where isempty('{NamespaceId}') or tostring(customDimensions.namespace_id) == '{NamespaceId}'\n| extend status = tostring(customDimensions.status)\n| summarize Total = count(), Succeeded = countif(status == \"Succeeded\") by bin(timestamp, 1h)\n| extend SuccessRate = todouble(Succeeded) / todouble(Total)\n| project timestamp, SuccessRate\n| render timechart",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "success-rate"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Duration P50 / P95\n\nDiscovery run duration percentiles in seconds."
+      },
+      "name": "duration-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"discovery.run.duration\"\n| where isempty('{NamespaceId}') or tostring(customDimensions.namespace_id) == '{NamespaceId}'\n| summarize P50 = percentile(value, 50), P95 = percentile(value, 95), P99 = percentile(value, 99) by bin(timestamp, 1h)\n| render timechart",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "duration"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Retry counts\n\nRetries emitted by the worker's ARM client. Surface unusual spikes — usually throttling."
+      },
+      "name": "retries-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customMetrics\n| where name == \"discovery.arm.retries\"\n| where isempty('{NamespaceId}') or tostring(customDimensions.namespace_id) == '{NamespaceId}'\n| summarize Retries = sum(value) by bin(timestamp, 1h), tostring(customDimensions.phase)\n| render columnchart",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "retries"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Failure category breakdown\n\nFailed runs broken down by `DiscoveryFailureCategory` (Authn | Authz | NotFound | Throttled | Transport | Internal | WorkerLost | Unknown)."
+      },
+      "name": "failure-cat-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "customEvents\n| where name == \"discovery.run.completed\"\n| where isempty('{NamespaceId}') or tostring(customDimensions.namespace_id) == '{NamespaceId}'\n| where tostring(customDimensions.status) == \"Failed\"\n| summarize Count = count() by tostring(customDimensions.failure_category)\n| render piechart",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.insights/components"
+      },
+      "name": "failure-cat"
+    }
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

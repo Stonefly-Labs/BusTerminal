@@ -83,6 +83,41 @@ resource "azurerm_role_assignment" "workload_sb_data_receiver" {
   description          = "Spec 005 FR-033 — workload UAMI receive-only data plane."
 }
 
+# Spec 009 / T004 — internal `discovery-requested` queue. Created on the
+# platform's own Service Bus namespace when `enable_discovery_queue = true`.
+# The API publishes a single message per discovery request; the
+# BusTerminal.Indexer Functions worker receives via a ServiceBusTrigger
+# bound to `__fullyQualifiedNamespace` (AAD, no SAS) and drains it.
+#
+# Tuning rationale (data-model.md §1.3, research §13, FR-021a):
+#   - lock_duration ~5min matches SC-005 — a single message's lock cannot
+#     expire before the worker is done crawling even a large namespace
+#   - max_delivery_count = 3 mirrors the worker's bounded exp-backoff so
+#     genuinely retriable failures (429/503/transient transport) get
+#     three attempts before the message dead-letters
+#   - dead_lettering_on_message_expiration enabled so a stuck message is
+#     surfaced to ops rather than disappearing silently
+#   - duplicate detection disabled (the API-level DiscoveryRunCoalescer
+#     dedupes against the per-namespace lock; Service Bus dedup would
+#     race against the lock's "steal after expiry" branch)
+#   - sessions disabled (no per-namespace FIFO requirement; coalescing
+#     handles concurrency at the API layer)
+resource "azurerm_servicebus_queue" "discovery_requested" {
+  count = var.enable_discovery_queue ? 1 : 0
+
+  name         = var.discovery_queue_name
+  namespace_id = module.namespace.resource_id
+
+  lock_duration                        = var.discovery_queue_lock_duration
+  max_delivery_count                   = var.discovery_queue_max_delivery_count
+  dead_lettering_on_message_expiration = true
+  requires_session                     = false
+  requires_duplicate_detection         = false
+  partitioning_enabled                 = false
+  default_message_ttl                  = "P14D"
+  max_size_in_megabytes                = 1024
+}
+
 # Conditional private endpoint via the project's PE wrapper (research §11).
 # The env composition is responsible for ensuring PE inputs are only passed
 # when sku=Premium (precondition above enforces it).

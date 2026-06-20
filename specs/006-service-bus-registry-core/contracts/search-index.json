@@ -24,7 +24,28 @@
     { "name": "parentId",            "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": false, "retrievable": true },
     { "name": "updatedAtUtc",        "type": "Edm.DateTimeOffset", "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
     { "name": "createdAtUtc",        "type": "Edm.DateTimeOffset", "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
-    { "name": "brokerKind",          "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true }
+    { "name": "brokerKind",          "type": "Edm.String",         "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true },
+
+    { "name": "lifecycleStatus",       "type": "Edm.String",               "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true },
+    { "name": "associatedServiceIds",  "type": "Collection(Edm.String)",   "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true },
+    { "name": "associationRoles",      "type": "Collection(Edm.String)",   "searchable": false, "filterable": true,  "sortable": false, "facetable": true,  "retrievable": true },
+    { "name": "firstDiscoveredUtc",    "type": "Edm.DateTimeOffset",       "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
+    { "name": "lastSeenUtc",           "type": "Edm.DateTimeOffset",       "searchable": false, "filterable": true,  "sortable": true,  "facetable": false, "retrievable": true },
+    {
+      "name": "azureSourced",
+      "type": "Edm.ComplexType",
+      "fields": [
+        { "name": "azureResourceId",   "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "status",            "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "lockDuration",      "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "maxDeliveryCount",  "type": "Edm.Int32",          "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "defaultTimeToLive", "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "maxSizeInMegabytes","type": "Edm.Int32",          "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "filterType",        "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "filterExpression",  "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true },
+        { "name": "actionExpression",  "type": "Edm.String",         "searchable": false, "filterable": false, "sortable": false, "facetable": false, "retrievable": true }
+      ]
+    }
   ],
   "suggesters": [],
   "scoringProfiles": [],

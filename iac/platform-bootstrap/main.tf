@@ -231,6 +231,17 @@ resource "azurerm_role_assignment" "pipeline_role_admin" {
   #       grants; this allowlist permits namespace-scope and resource-group-
   #       scope grants only via the existing scope-evaluation gates.
   #
+  # Spec 009 / T008 audit (2026-06-17): no new role-definition GUIDs required.
+  # Service Bus Data Sender/Receiver (already in the allowlist below) cover
+  # the API → discovery queue publish + worker → discovery queue receive
+  # paths. The new Cosmos containers (`discovery-runs`, `discovery-locks`)
+  # ride on Cosmos's own native RBAC surface (the workload UAMI's database-
+  # scoped `Cosmos DB Built-in Data Contributor` grant in
+  # `iac/environments/dev/main.tf` covers them). The AI Search index
+  # extension is a non-breaking schema patch — workload `Search Index Data
+  # Contributor` (already allowlisted) covers reads/writes. No additions to
+  # the GUID list below are needed for spec 009.
+  #
   # Spec 006 indexer storage — AzureWebJobsStorage AAD access:
   #   b7e6dc6d-f1e8-4753-8033-0f276bb0955b  Storage Blob Data Owner
   #     → granted to the workload identity on the indexer's

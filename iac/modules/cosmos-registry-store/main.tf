@@ -169,3 +169,92 @@ resource "azurerm_cosmosdb_sql_container" "namespace_validation_runs" {
     prevent_destroy = true
   }
 }
+
+# Spec 009 / T005 / data-model.md §1.2 + §5. Append-only history of every
+# discovery run. Partition key `/namespaceId` aligns every run for one
+# namespace into a single logical partition (matches the natural query
+# "give me the most recent N runs for namespace X"). Indexing is scoped to
+# the fields the history list + detail view query: `id`, `namespaceId`,
+# `status`, `startedUtc`. Composite index on `(/namespaceId,
+# /startedUtc DESC)` powers the reverse-chronological history list
+# (`ListDiscoveryRunsEndpoint`). Throughput inherits the account's
+# serverless mode (see header comment).
+resource "azurerm_cosmosdb_sql_container" "discovery_runs" {
+  name                  = var.discovery_runs_container_name
+  resource_group_name   = var.resource_group_name
+  account_name          = var.cosmos_account_name
+  database_name         = var.cosmos_canonical_database_name
+  partition_key_paths   = ["/namespaceId"]
+  partition_key_version = 2
+
+  indexing_policy {
+    indexing_mode = "consistent"
+
+    included_path {
+      path = "/id/?"
+    }
+    included_path {
+      path = "/namespaceId/?"
+    }
+    included_path {
+      path = "/status/?"
+    }
+    included_path {
+      path = "/startedUtc/?"
+    }
+
+    excluded_path {
+      path = "/*"
+    }
+
+    # Reverse-chronological history list — the most common query pattern.
+    composite_index {
+      index {
+        path  = "/namespaceId"
+        order = "Ascending"
+      }
+      index {
+        path  = "/startedUtc"
+        order = "Descending"
+      }
+    }
+  }
+
+  # Operator-visible discovery history. A replace would erase every recorded
+  # run; force operator-driven destruction through a deliberate ops process
+  # per BT-IAC-007.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+# Spec 009 / T005 / data-model.md §1.3. Per-namespace coalescing lock for
+# FR-003. One document per registered namespace (deterministic id="lock"
+# inside the partition); the API acquires via Cosmos ETag-based optimistic
+# concurrency before publishing to the `discovery-requested` queue. Tiny
+# container; default indexing is fine — every read is a single-partition
+# point lookup by (namespaceId, "lock"). The container is recoverable in
+# principle (the lock is in-flight coordination state, not durable history),
+# so prevent_destroy is OFF — operators may safely replace it during
+# emergency recovery via the dev-tooling CLI (`tools/DiscoveryLockReset`).
+resource "azurerm_cosmosdb_sql_container" "discovery_locks" {
+  name                  = var.discovery_locks_container_name
+  resource_group_name   = var.resource_group_name
+  account_name          = var.cosmos_account_name
+  database_name         = var.cosmos_canonical_database_name
+  partition_key_paths   = ["/namespaceId"]
+  partition_key_version = 2
+
+  indexing_policy {
+    indexing_mode = "consistent"
+    included_path {
+      path = "/id/?"
+    }
+    included_path {
+      path = "/namespaceId/?"
+    }
+    excluded_path {
+      path = "/*"
+    }
+  }
+}

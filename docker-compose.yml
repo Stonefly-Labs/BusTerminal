@@ -1,3 +1,22 @@
+## Spec 009 — Local-stack additions
+#
+# Spec 009 adds the entity-discovery slice. It introduces two new Cosmos
+# containers (`discovery-runs`, `discovery-locks`) on the existing canonical
+# database, and one internal Service Bus queue (`discovery-requested`).
+#
+# Cosmos: the new containers are created on-demand by the API/Indexer at
+# startup (see `scripts/seed-discovery-emulator.sh` for verification + a
+# pointer to the Phase 2 T025 DI wiring that performs the create). No
+# docker-compose change required — the existing cosmos-emulator service
+# below covers the new containers transparently.
+#
+# Service Bus: NO Service Bus emulator is wired into this compose file
+# (none of the existing slices needed one, and the Microsoft Service Bus
+# emulator requires a companion SQL Edge container — non-trivial weight for
+# a docker-compose default). Phase 3 / US1 worker integration tests use a
+# recorded ARM HTTP fixture for ARM traffic and unit-test the queue publish
+# path. End-to-end US1 verification (API → queue → worker) requires the
+# dev Azure environment.
 services:
   # Azure Cosmos DB Linux emulator for local integration tests against the canonical store
   # introduced by spec 004. AAD-RBAC against the emulator is on Microsoft's roadmap but not

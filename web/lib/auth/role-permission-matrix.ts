@@ -31,7 +31,8 @@ export type OperationClass =
   | "MutateDomain"
   | "OperatePlatform"
   | "Administer"
-  | "DeveloperTooling";
+  | "DeveloperTooling"
+  | "EditEntityMetadata";
 
 export const OPERATION_CLASSES: readonly OperationClass[] = [
   "Read",
@@ -39,6 +40,7 @@ export const OPERATION_CLASSES: readonly OperationClass[] = [
   "OperatePlatform",
   "Administer",
   "DeveloperTooling",
+  "EditEntityMetadata",
 ];
 
 const MATRIX: Readonly<Record<OperationClass, readonly PlatformRole[]>> = {
@@ -60,6 +62,14 @@ const MATRIX: Readonly<Record<OperationClass, readonly PlatformRole[]>> = {
   OperatePlatform: ["BusTerminal.Operator", "BusTerminal.Admin"],
   Administer: ["BusTerminal.Admin"],
   DeveloperTooling: ["BusTerminal.Developer", "BusTerminal.Admin"],
+  // Spec 009 / R-15 — "edit entity metadata" (PATCH /api/entities/{id} and
+  // siblings) is a CONTEXTUAL operation. Two of its three allow-branches
+  // are role-only and live here; the third (Service Owner of an Owner-role
+  // association) is data-dependent and lives in `canEditEntityMetadata`
+  // (web/lib/discovery/permissions.ts) which short-circuits the static
+  // matrix when an Owner-role association covers the caller's owned
+  // services. Server-side enforcement: `EntityMetadataEditorAuthorizer`.
+  EditEntityMetadata: ["BusTerminal.Admin", "BusTerminal.NamespaceAdministrator"],
 };
 
 export function authorizedRoles(operationClass: OperationClass): readonly PlatformRole[] {
