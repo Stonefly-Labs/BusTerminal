@@ -368,7 +368,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Download policy gate artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: policy-gate-${{ github.run_id }}
           path: ./policy-gate
