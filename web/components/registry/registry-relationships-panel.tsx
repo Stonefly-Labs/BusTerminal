@@ -26,6 +26,7 @@ import {
 
 import { cn } from "@/lib/design-system/cn";
 import { listEntities, RegistryApiError } from "@/lib/registry/api";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
 import type { RegistryEntity, RegistryEntityType } from "@/lib/registry/types";
 
@@ -43,6 +44,7 @@ export function RegistryRelationshipsPanel({
   className,
 }: RegistryRelationshipsPanelProps) {
   const router = useRouter();
+  const getToken = useAcquireToken();
   const isLeaf = LEAF_TYPES.has(entity.entityType);
 
   const childrenQuery = useQuery({
@@ -50,12 +52,19 @@ export function RegistryRelationshipsPanel({
       environment: entity.environment,
       parentId: entity.id,
     }),
-    queryFn: () =>
-      listEntities({
-        environment: entity.environment,
-        parentId: entity.id,
-        pageSize: 200,
-      }),
+    // The registry API client never acquires its own token — resolve one here
+    // so the call is authenticated under real Entra auth.
+    queryFn: async () => {
+      const token = await getToken();
+      return listEntities(
+        {
+          environment: entity.environment,
+          parentId: entity.id,
+          pageSize: 200,
+        },
+        token ? { accessToken: token } : {},
+      );
+    },
     enabled: !isLeaf,
   });
 

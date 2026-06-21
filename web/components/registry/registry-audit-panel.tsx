@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/design-system/cn";
 import { listAuditForEntity, RegistryApiError } from "@/lib/registry/api";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
 import type { AuditEvent, AuditFieldChange } from "@/lib/registry/types";
 
@@ -34,9 +35,15 @@ export function RegistryAuditPanel({
   limit = 50,
   className,
 }: RegistryAuditPanelProps) {
+  const getToken = useAcquireToken();
   const auditQuery = useQuery({
     queryKey: registryQueryKeys.audit.forEntity(entityId, limit),
-    queryFn: () => listAuditForEntity(entityId, limit),
+    // The registry API client never acquires its own token — resolve one here
+    // so the call is authenticated under real Entra auth.
+    queryFn: async () => {
+      const token = await getToken();
+      return listAuditForEntity(entityId, limit, token ? { accessToken: token } : {});
+    },
     enabled: !!entityId,
   });
 

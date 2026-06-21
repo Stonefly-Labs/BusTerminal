@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { listEntities } from "@/lib/registry/api";
+import { useAcquireToken } from "@/hooks/use-acquire-token";
 import { registryQueryKeys } from "@/lib/registry/query-keys";
 import type { RegistryEntity, RegistryEntityType } from "@/lib/registry/types";
 
@@ -37,9 +38,17 @@ export function ParentPicker({
   onChange,
   disabled = false,
 }: ParentPickerProps) {
+  const getToken = useAcquireToken();
   const parentsQuery = useQuery({
     queryKey: registryQueryKeys.entities.list({ environment, entityType: parentType }),
-    queryFn: () => listEntities({ environment, entityType: parentType, pageSize: 200 }),
+    // Registry API client needs a token passed in (it never acquires its own).
+    queryFn: async () => {
+      const token = await getToken();
+      return listEntities(
+        { environment, entityType: parentType, pageSize: 200 },
+        token ? { accessToken: token } : {},
+      );
+    },
     enabled: !!environment,
   });
 
