@@ -80,6 +80,7 @@ function PublishedEntityEdit({ id }: { id: string }) {
 
 function RegistryEntityEdit({ id }: { id: string }) {
   const router = useRouter();
+  const getToken = useAcquireToken();
   const params = useParams();
   const rawEntityType = params.entityType;
   const entityTypeParam =
@@ -91,7 +92,11 @@ function RegistryEntityEdit({ id }: { id: string }) {
 
   const detailQuery = useQuery({
     queryKey: registryQueryKeys.entities.detail(id),
-    queryFn: () => getEntity(id),
+    // Registry API client needs a token passed in (it never acquires its own).
+    queryFn: async () => {
+      const token = await getToken();
+      return getEntity(id, token ? { accessToken: token } : {});
+    },
     enabled: !!id,
   });
 

@@ -176,9 +176,16 @@ function Field({ label, value }: { label: string; value: string | null | undefin
 }
 
 function RegistryEntityDetail({ id }: { id: string }) {
+  const getToken = useAcquireToken();
   const detailQuery = useQuery({
     queryKey: registryQueryKeys.entities.detail(id),
-    queryFn: () => getEntity(id),
+    // The registry API client never acquires its own token — resolve one here
+    // and pass it, else the call 401s under real Entra auth (same fix as the
+    // explorer/env-switcher; the pe_ branch above already does this).
+    queryFn: async () => {
+      const token = await getToken();
+      return getEntity(id, token ? { accessToken: token } : {});
+    },
     enabled: !!id,
   });
 
