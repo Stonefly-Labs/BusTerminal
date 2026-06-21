@@ -45,6 +45,15 @@ terraform {
 }
 
 provider "azurerm" {
+  # The pipeline identity is Contributor and every resource provider this
+  # composition uses is already registered on the subscription. Skip the
+  # provider's per-run "list/register all resource providers" pass: it speeds
+  # up init and avoids an intermittent ARM flake — "populating Resource
+  # Provider cache: listing Resource Providers: unexpected end of JSON input" —
+  # that fails plan/apply for reasons unrelated to the diff. (azurerm v4 syntax;
+  # replaces the deprecated skip_provider_registration = true.)
+  resource_provider_registrations = "none"
+
   subscription_id = var.subscription_id
 
   # Spec 006 indexer storage — keys are disabled on the new
