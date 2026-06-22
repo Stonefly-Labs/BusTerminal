@@ -89,7 +89,7 @@
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.9",
     "eslint-plugin-tailwindcss": "^3.18.3",
     "http-server": "^14.1.1",
     "jsdom": "^29.1.1",
