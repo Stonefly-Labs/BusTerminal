@@ -37,7 +37,7 @@
 
     <!-- Cosmos SDK is pulled in to register a shared CosmosClient via the
          spec-004 CosmosClientFactory pattern (T044). -->
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
     <!-- See BusTerminal.Api.csproj — Cosmos SDK 3.x needs Newtonsoft.Json at runtime
          for system types even when documents serialize via STJ. -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />

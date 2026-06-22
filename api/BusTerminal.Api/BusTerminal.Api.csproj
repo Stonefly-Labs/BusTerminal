@@ -35,7 +35,7 @@
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
     <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
          which pins Microsoft.Kiota.* 1.21.1 (GHSA-7j59-v9qr-6fq9). Forcing Graph.Core
