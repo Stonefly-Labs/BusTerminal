@@ -266,6 +266,14 @@ data "azuread_service_principal" "api" {
   client_id = var.entra_api_client_id
 }
 
+# Microsoft Graph SP in this tenant — the `resource_object_id` target for the
+# workload MI's app-only Graph app-role assignments (see `workload_identity`
+# below). Resolved from the well-known Graph app id so the tenant-specific
+# object id is never hardcoded.
+data "azuread_service_principal" "msgraph" {
+  client_id = "00000003-0000-0000-c000-000000000000"
+}
+
 module "workload_identity" {
   source = "../../modules/workload-identity"
 
@@ -306,6 +314,18 @@ module "workload_identity" {
 
   assigned_api_app_roles = {
     reader = module.app_registration_roles.role_ids.reader
+  }
+
+  # App-only Microsoft Graph access for the workload MI. Required because the
+  # API authenticates as this managed identity, not the API app registration —
+  # admin-consent on the app registration (module.graph_permissions below) does
+  # NOT grant the MI anything. Keep in lockstep with graph_permissions and the
+  # inventory doc. Omitting these → Graph 403 → owner-picker 502 (spec 008).
+  graph_service_principal_object_id = data.azuread_service_principal.msgraph.object_id
+
+  assigned_graph_app_roles = {
+    user-read-all  = "df021288-bdef-4463-88db-98f22de89214" # User.Read.All  (Application) — spec 003
+    group-read-all = "5b567255-7703-4780-807c-7be8301ae99b" # Group.Read.All (Application) — spec 008
   }
 
   tags = local.shared_tags

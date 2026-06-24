@@ -130,3 +130,58 @@ variable "assigned_api_app_roles" {
     error_message = "Every assigned_api_app_roles value must be a UUID role_id."
   }
 }
+
+variable "graph_service_principal_object_id" {
+  description = <<-EOT
+    Object ID (NOT app/client id) of the Microsoft Graph service principal in
+    this tenant — the `resource_object_id` for the workload MI's app-only Graph
+    app-role assignments. Required when `assigned_graph_app_roles` is non-empty.
+    Resolve it from the well-known Graph app id rather than hardcoding the
+    tenant-specific object id, e.g.
+
+      data "azuread_service_principal" "msgraph" {
+        client_id = "00000003-0000-0000-c000-000000000000"
+      }
+
+    Why this lives on the MI and not the API app registration: app-only Graph
+    permissions are effective for the principal that actually authenticates.
+    The BusTerminal API runs as this user-assigned MANAGED IDENTITY, so its SP
+    must hold the Graph app roles directly. Admin-consent on the API app
+    registration (see `iac/modules/graph-permissions`) only authorizes that
+    app registration's SP under client-credentials — a DIFFERENT principal —
+    so it does nothing for the MI. Without the assignments below, Graph returns
+    403 (spec 008 owner-picker regression, 2026-06-24).
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.graph_service_principal_object_id == null || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.graph_service_principal_object_id))
+    error_message = "graph_service_principal_object_id, when provided, must be a UUID."
+  }
+}
+
+variable "assigned_graph_app_roles" {
+  description = <<-EOT
+    Map of Microsoft Graph app-role nickname (e.g. `user-read-all`) → app role
+    id UUID. Each entry produces one `azuread_app_role_assignment` granting the
+    workload MI app-only Graph access; the role surfaces in the `roles` claim
+    of the MI's Graph token. Requires `graph_service_principal_object_id`.
+
+    Role ids come from the Graph SP's `appRoles` (stable across tenants), e.g.
+    `User.Read.All` = df021288-bdef-4463-88db-98f22de89214,
+    `Group.Read.All` = 5b567255-7703-4780-807c-7be8301ae99b. Keep this set in
+    lockstep with the inventory at
+    `specs/003-auth-and-identity/contracts/graph-permissions-inventory.md`.
+  EOT
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for v in values(var.assigned_graph_app_roles) :
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", v))
+    ])
+    error_message = "Every assigned_graph_app_roles value must be a UUID role_id."
+  }
+}
