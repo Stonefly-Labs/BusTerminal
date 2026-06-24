@@ -65,6 +65,29 @@ variable "ai_search_index_name" {
   type        = string
 }
 
+variable "service_bus_fqdn" {
+  description = <<-EOT
+    Fully-qualified namespace of the platform Service Bus
+    (`<name>.servicebus.windows.net`). Injected as
+    `ServiceBus__fullyQualifiedNamespace` — the AAD (identity-based)
+    connection the spec 009 DiscoveryRequested ServiceBusTrigger binds via
+    `Connection = "ServiceBus"`. The workload UAMI holds Azure Service Bus
+    Data Receiver on this namespace (granted in the service-bus module).
+  EOT
+  type        = string
+}
+
+variable "discovery_queue_name" {
+  description = <<-EOT
+    Name of the internal `discovery-requested` queue. Injected as
+    `Discovery__ServiceBus__QueueName`, which the DiscoveryRequested trigger
+    resolves via its `%Discovery:ServiceBus:QueueName%` binding expression.
+    Required — when unset the function fails indexing and the host disables
+    it, so the queue is never drained (spec 009 discovery regression).
+  EOT
+  type        = string
+}
+
 variable "app_insights_connection_string_kv_secret_uri" {
   description = "Key Vault secret URI exposing the App Insights connection string. Mirrors the spec-005 hybrid AI ingestion pattern."
   type        = string
