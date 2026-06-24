@@ -94,6 +94,22 @@ resource "azurerm_container_app" "indexer" {
         value = "dotnet-isolated"
       }
 
+      # Spec 009 — discovery worker Service Bus trigger. The DiscoveryRequested
+      # function binds `[ServiceBusTrigger("%Discovery:ServiceBus:QueueName%",
+      # Connection = "ServiceBus")]`: the queue name resolves from
+      # `Discovery:ServiceBus:QueueName` and the AAD connection from
+      # `ServiceBus__fullyQualifiedNamespace`. Without BOTH the function fails
+      # indexing ("does not resolve to a value") and the host disables it, so
+      # the discovery-requested queue is never drained.
+      env {
+        name  = "ServiceBus__fullyQualifiedNamespace"
+        value = var.service_bus_fqdn
+      }
+      env {
+        name  = "Discovery__ServiceBus__QueueName"
+        value = var.discovery_queue_name
+      }
+
       # AzureWebJobsStorage — AAD-only. The Functions runtime expects
       # this connection at startup even when the only trigger (Cosmos
       # change-feed) doesn't need it. Without it the runtime reports
