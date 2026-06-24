@@ -34,7 +34,7 @@
     "@azure/msal-react": "^5",
     "@hookform/resolvers": "^3.9.1",
     "@microsoft/applicationinsights-react-js": "^17.3.6",
-    "@microsoft/applicationinsights-web": "^3.4.1",
+    "@microsoft/applicationinsights-web": "^3.4.2",
     "@radix-ui/react-checkbox": "^1.1.6",
     "@radix-ui/react-context-menu": "^2.2.7",
     "@radix-ui/react-dialog": "^1.1.7",
