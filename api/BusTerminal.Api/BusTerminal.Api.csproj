@@ -34,7 +34,7 @@
          AddValidatorsFromAssemblyContaining<RegistryEntityValidator>(). -->
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
     <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
