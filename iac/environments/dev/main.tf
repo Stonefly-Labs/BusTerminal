@@ -870,7 +870,8 @@ module "indexer_container_app" {
   source = "../../modules/functions-container-app"
 
   name                          = "ca-${var.naming_prefix}-indexer"
-  resource_group_name           = azurerm_resource_group.this.name
+  resource_group_id             = azurerm_resource_group.this.id
+  location                      = azurerm_resource_group.this.location
   container_apps_environment_id = module.container_apps_env.id
 
   workload_uami_id        = module.workload_identity.id

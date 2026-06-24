@@ -5,8 +5,13 @@ variable "name" {
   type        = string
 }
 
-variable "resource_group_name" {
-  description = "Resource group hosting the Container App."
+variable "resource_group_id" {
+  description = "Resource id of the resource group hosting the Container App. Used as the azapi `parent_id`."
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region for the Container App (azapi requires an explicit location; container apps are regional)."
   type        = string
 }
 
