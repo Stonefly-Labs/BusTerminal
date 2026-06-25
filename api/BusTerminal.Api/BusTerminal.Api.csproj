@@ -16,6 +16,14 @@
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.5.1" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
     <PackageReference Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.5.0" />
+    <!-- Issue #113 — public Azure resource detectors. UseAzureMonitor bundles
+         these internally but also pulls in the AzureVMResourceDetector, which
+         probes IMDS (169.254.169.254) and hangs ~65s on Container Apps. We
+         Clear() the distro's detectors and re-add only the Container Apps /
+         App Service ones from this package, omitting the VM/IMDS probe.
+         Pinned to match the resolved OpenTelemetry 1.15.3 (dep range
+         [1.15.3, 2.0.0)); the package ships beta-only. -->
+    <PackageReference Include="OpenTelemetry.Resources.Azure" Version="1.15.1-beta.1" />
     <!-- Spec 008 / Phase 1 T001 — ARM SDK for Service Bus namespace probing
          (research §1). Consumed by ArmNamespaceProbe for the validation
          runner's Existence / Accessibility / RequiredPermissions /
