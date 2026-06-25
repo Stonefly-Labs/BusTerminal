@@ -85,9 +85,11 @@ public static class OpenTelemetryExtensions
             //
             // The distro's detectors are internal and can't be disabled
             // individually, so we reset the resource and re-add only the
-            // detectors that apply to Container Apps (via the public
-            // OpenTelemetry.Resources.Azure package), omitting the VM/IMDS
-            // probe. AzureContainerAppsDetector preserves the prior cloud role
+            // Container Apps detector (via the public OpenTelemetry.Resources.
+            // Azure package), omitting the VM/IMDS probe. The AppService
+            // detector is not re-added — it keys off WEBSITE_SITE_NAME, which
+            // is never set on Container Apps, so it's a no-op for us.
+            // AzureContainerAppsDetector preserves the prior cloud role
             // name (service.name = CONTAINER_APP_NAME), replica
             // (service.instance.id) and revision (service.version) — all read
             // from environment variables, no network calls. Registered AFTER
@@ -103,7 +105,6 @@ public static class OpenTelemetryExtensions
                 {
                     new("telemetry.distro.name", "Azure.Monitor.OpenTelemetry.AspNetCore"),
                 })
-                .AddAzureAppServiceDetector()
                 .AddAzureContainerAppsDetector());
         }
         else
