@@ -18,8 +18,19 @@
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.0.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.5" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.CosmosDB" Version="4.13.0" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" Version="2.0.0" />
-    <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.22.0" />
+
+    <!-- Issue #118 — OpenTelemetry for Azure Functions (replaces the classic
+         App Insights worker SDK, which Microsoft now buckets as legacy). The
+         host emits OTel when host.json sets telemetryMode=OpenTelemetry; these
+         packages light up the worker-process pipeline. UseAzureMonitorExporter
+         (from Azure.Monitor.OpenTelemetry.Exporter) ships traces/logs/metrics
+         to appi-bt-dev via APPLICATIONINSIGHTS_CONNECTION_STRING. The exporter
+         does NOT auto-bundle the AzureVMResourceDetector, so the indexer avoids
+         the IMDS probe that bit the API in #113. OTel stack pinned to 1.15.3 to
+         match the API (Azure.Monitor.OpenTelemetry.AspNetCore 1.5.0). -->
+    <PackageReference Include="Microsoft.Azure.Functions.Worker.OpenTelemetry" Version="1.2.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.1" />
 
     <!-- Spec 006 / Phase 1 T004 — search adapter (Phase 2 T036 uses the same package
          from the API project). -->

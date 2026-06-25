@@ -1,16 +1,11 @@
 {
   "version": "2.0",
+  "telemetryMode": "OpenTelemetry",
   "logging": {
     "logLevel": {
       "default": "Information",
       "Function.RegistryEntityIndexer": "Information",
       "Microsoft.Azure.WebJobs.Hosting": "Warning"
-    },
-    "applicationInsights": {
-      "samplingSettings": {
-        "isEnabled": true,
-        "excludedTypes": "Request"
-      }
     }
   },
   "extensions": {

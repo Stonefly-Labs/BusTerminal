@@ -6,7 +6,7 @@
 //     DefaultAzureCredential in dev so az/VSCode auth keeps working)
 //   - ISearchDocumentMapper → SearchDocumentMapper (singleton)
 //   - IPoisonHandler → PoisonHandler (singleton)
-//   - Application Insights with cloud role name `busterminal-indexer`
+//   - OpenTelemetry (Functions worker) with cloud role name `busterminal-indexer`
 //
 // The Cosmos change-feed trigger does NOT need a CosmosClient registered in
 // DI — the binding reads its own connection (Cosmos__accountEndpoint +
@@ -15,6 +15,7 @@
 
 using Azure.Core;
 using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.ResourceManager;
 using Azure.Search.Documents;
 using BusTerminal.Indexer.Discovery;
@@ -23,29 +24,46 @@ using BusTerminal.Indexer.Discovery.Providers;
 using BusTerminal.Indexer.Discovery.Telemetry;
 using BusTerminal.Indexer.Functions;
 using BusTerminal.Indexer.Indexing;
-using Microsoft.ApplicationInsights.Channel;
-using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
+using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
 
 const string IndexerRoleName = "busterminal-indexer";
 const string AzureClientIdKey = "AZURE_CLIENT_ID";
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
-// Application Insights + OTel-style cloud role name. The Functions worker
-// extension package wires the App Insights TelemetryClient against the
-// connection string in `APPLICATIONINSIGHTS_CONNECTION_STRING`; the role-name
-// initializer below stamps every item with `busterminal-indexer` so traces
-// segregate from the API role (`busterminal-api`).
-builder.Services
-    .AddApplicationInsightsTelemetryWorkerService()
-    .ConfigureFunctionsApplicationInsights();
-builder.Services.AddSingleton<ITelemetryInitializer>(_ => new CloudRoleNameInitializer(IndexerRoleName));
+// Issue #118 — OpenTelemetry for Azure Functions (replaces the classic App
+// Insights worker SDK). host.json sets telemetryMode=OpenTelemetry so the
+// Functions host emits OTel; UseFunctionsWorkerDefaults lights up the
+// worker-process pipeline (invocation spans + ILogger→OTel) and
+// UseAzureMonitorExporter ships traces/logs/metrics to appi-bt-dev via
+// `APPLICATIONINSIGHTS_CONNECTION_STRING`.
+//
+//   - ConfigureResource(AddService) sets service.name = `busterminal-indexer`,
+//     which App Insights surfaces as the cloud role name — segregating the
+//     indexer's telemetry from the API role (`busterminal-api`). This replaces
+//     the classic CloudRoleNameInitializer.
+//   - AddSource/AddMeter subscribe the discovery ActivitySource + Meter
+//     (spec 009) so their spans/metrics flow through the new pipeline; the
+//     exporter wires the transport but does not auto-subscribe first-party
+//     sources.
+//
+// Unlike the API's Azure.Monitor.OpenTelemetry.AspNetCore distro (#113), the
+// bare exporter does NOT register the AzureVMResourceDetector, so the indexer
+// sidesteps the IMDS (169.254.169.254) probe that hangs on Container Apps.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(IndexerRoleName))
+    .WithTracing(tracing => tracing.AddSource(DiscoveryActivitySource.Name))
+    .WithMetrics(metrics => metrics.AddMeter(DiscoveryMeter.Name))
+    .UseFunctionsWorkerDefaults()
+    .UseAzureMonitorExporter();
 
 // Configuration-backed helper that resolves the AI Search index name + the
 // Cosmos container names at startup so the trigger and the SearchClient pull
@@ -138,23 +156,4 @@ static TokenCredential CreateCredential(IHostEnvironment environment, string? us
             ManagedIdentityId.FromUserAssignedClientId(userAssignedClientId));
     }
     return new DefaultAzureCredential();
-}
-
-internal sealed class CloudRoleNameInitializer : ITelemetryInitializer
-{
-    private readonly string _roleName;
-
-    public CloudRoleNameInitializer(string roleName)
-    {
-        _roleName = roleName;
-    }
-
-    public void Initialize(ITelemetry telemetry)
-    {
-        ArgumentNullException.ThrowIfNull(telemetry);
-        if (string.IsNullOrEmpty(telemetry.Context.Cloud.RoleName))
-        {
-            telemetry.Context.Cloud.RoleName = _roleName;
-        }
-    }
 }
