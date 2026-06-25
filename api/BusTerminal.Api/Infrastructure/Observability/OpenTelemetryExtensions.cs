@@ -4,6 +4,7 @@ using BusTerminal.Api.Features.Discovery.Shared.Telemetry;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
@@ -71,6 +72,29 @@ public static class OpenTelemetryExtensions
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             otel.UseAzureMonitor(o => o.ConnectionString = connectionString);
+
+            // Issue #113 — UseAzureMonitor unconditionally registers the
+            // AzureVMResourceDetector, which probes the Azure Instance Metadata
+            // Service (http://169.254.169.254/metadata/instance) to enrich
+            // telemetry with VM attributes. IMDS exists on Azure VMs/VMSS but
+            // NOT on Container Apps (our hosting model), so the probe hangs on a
+            // TCP connect for ~65s before failing with TaskCanceledException —
+            // polluting every cold start's traces with a 65s failed dependency
+            // span and delaying first telemetry export. The distro's detectors
+            // are internal and can't be disabled individually, so reset the
+            // resource and re-establish a stable cloud role name ourselves.
+            // This ConfigureResource is registered AFTER UseAzureMonitor, so at
+            // build time Clear() drops the detectors the distro queued —
+            // including the VM/IMDS probe — before any of them run.
+            otel.ConfigureResource(resource => resource
+                .Clear()
+                .AddTelemetrySdk()
+                .AddAttributes(new KeyValuePair<string, object>[]
+                {
+                    new("service.name", "busterminal-api"),
+                    new("service.environment", environment.EnvironmentName),
+                    new("telemetry.distro.name", "Azure.Monitor.OpenTelemetry.AspNetCore"),
+                }));
         }
         else
         {
