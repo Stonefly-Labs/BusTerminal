@@ -14,6 +14,7 @@
 // the only outbound SDK client we own.
 
 using Azure.Core;
+using Azure.Core.Pipeline;
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.ResourceManager;
@@ -24,6 +25,7 @@ using BusTerminal.Indexer.Discovery.Providers;
 using BusTerminal.Indexer.Discovery.Telemetry;
 using BusTerminal.Indexer.Functions;
 using BusTerminal.Indexer.Indexing;
+using BusTerminal.Indexer.Indexing.Telemetry;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
@@ -61,7 +63,9 @@ var builder = FunctionsApplication.CreateBuilder(args);
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(IndexerRoleName))
     .WithTracing(tracing => tracing.AddSource(DiscoveryActivitySource.Name))
-    .WithMetrics(metrics => metrics.AddMeter(DiscoveryMeter.Name))
+    .WithMetrics(metrics => metrics
+        .AddMeter(DiscoveryMeter.Name)
+        .AddMeter(IndexerMeter.Name))
     .UseFunctionsWorkerDefaults()
     .UseAzureMonitorExporter();
 
@@ -87,6 +91,10 @@ builder.Services.AddSingleton(provider =>
 builder.Services.AddSingleton<ISearchDocumentMapper, SearchDocumentMapper>();
 builder.Services.AddSingleton<IPoisonHandler, PoisonHandler>();
 
+// Issue #118 — indexing hot-path metrics (documents indexed, batch size, AI
+// Search latency, typed failures). Subscribed in the OTel pipeline above.
+builder.Services.AddSingleton<IndexerMeter>();
+
 // Spec 009 / T055 — discovery slice wiring.
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<DiscoveryMeter>();
@@ -95,7 +103,15 @@ builder.Services.AddSingleton<ArmClient>(sp =>
     var environment = sp.GetRequiredService<IHostEnvironment>();
     var configuration = sp.GetRequiredService<IConfiguration>();
     var credential = CreateCredential(environment, configuration[AzureClientIdKey]);
-    return new ArmClient(credential);
+
+    // Issue #118 — attach the per-retry metrics policy so the ARM SDK's own
+    // re-attempts surface as discovery.arm.retries (throttling visibility on
+    // the Service Bus crawl). PerRetry runs inside the SDK's retry loop.
+    var options = new ArmClientOptions();
+    options.AddPolicy(
+        new ArmRetryMetricsPolicy(sp.GetRequiredService<DiscoveryMeter>()),
+        HttpPipelinePosition.PerRetry);
+    return new ArmClient(credential, defaultSubscriptionId: null, options);
 });
 builder.Services.AddSingleton<IEntityDiscoveryProvider, AzureServiceBusEntityDiscoveryProvider>();
 builder.Services.AddSingleton<CosmosClient>(sp =>
