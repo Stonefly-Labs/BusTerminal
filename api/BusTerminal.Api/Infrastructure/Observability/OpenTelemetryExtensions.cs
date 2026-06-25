@@ -73,28 +73,38 @@ public static class OpenTelemetryExtensions
         {
             otel.UseAzureMonitor(o => o.ConnectionString = connectionString);
 
-            // Issue #113 — UseAzureMonitor unconditionally registers the
-            // AzureVMResourceDetector, which probes the Azure Instance Metadata
+            // Issue #113 — UseAzureMonitor unconditionally registers three
+            // resource detectors: AppService, AzureVM, and AzureContainerApps.
+            // The AzureVMResourceDetector probes the Azure Instance Metadata
             // Service (http://169.254.169.254/metadata/instance) to enrich
             // telemetry with VM attributes. IMDS exists on Azure VMs/VMSS but
             // NOT on Container Apps (our hosting model), so the probe hangs on a
             // TCP connect for ~65s before failing with TaskCanceledException —
             // polluting every cold start's traces with a 65s failed dependency
-            // span and delaying first telemetry export. The distro's detectors
-            // are internal and can't be disabled individually, so reset the
-            // resource and re-establish a stable cloud role name ourselves.
-            // This ConfigureResource is registered AFTER UseAzureMonitor, so at
-            // build time Clear() drops the detectors the distro queued —
-            // including the VM/IMDS probe — before any of them run.
+            // span and delaying first telemetry export.
+            //
+            // The distro's detectors are internal and can't be disabled
+            // individually, so we reset the resource and re-add only the
+            // detectors that apply to Container Apps (via the public
+            // OpenTelemetry.Resources.Azure package), omitting the VM/IMDS
+            // probe. AzureContainerAppsDetector preserves the prior cloud role
+            // name (service.name = CONTAINER_APP_NAME), replica
+            // (service.instance.id) and revision (service.version) — all read
+            // from environment variables, no network calls. Registered AFTER
+            // UseAzureMonitor so at build time Clear() drops the distro's queued
+            // detectors before any of them run; AddTelemetrySdk /
+            // AddEnvironmentVariableDetector then restore the OTel defaults that
+            // Clear() also removed (so OTEL_RESOURCE_ATTRIBUTES still applies).
             otel.ConfigureResource(resource => resource
                 .Clear()
                 .AddTelemetrySdk()
+                .AddEnvironmentVariableDetector()
                 .AddAttributes(new KeyValuePair<string, object>[]
                 {
-                    new("service.name", "busterminal-api"),
-                    new("service.environment", environment.EnvironmentName),
                     new("telemetry.distro.name", "Azure.Monitor.OpenTelemetry.AspNetCore"),
-                }));
+                })
+                .AddAzureAppServiceDetector()
+                .AddAzureContainerAppsDetector());
         }
         else
         {
