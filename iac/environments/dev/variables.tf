@@ -255,6 +255,27 @@ variable "ai_search_location" {
   default     = null
 }
 
+# Dev cost control — Premium ACR was ~$50/mo of the dev environment's idle
+# spend and dev uses none of Premium's features (no PE, no geo-replication,
+# no zone redundancy requirement). Test/prod templates keep the module's
+# Premium default for PE support.
+variable "acr_sku" {
+  description = "ACR SKU for the dev registry. Basic per dev cost profile; the module (and test/prod) default to Premium."
+  type        = string
+  default     = "Basic"
+
+  validation {
+    condition     = contains(["Basic", "Standard", "Premium"], var.acr_sku)
+    error_message = "acr_sku must be one of: Basic, Standard, Premium."
+  }
+}
+
+variable "acr_zone_redundancy_enabled" {
+  description = "Zone redundancy on the dev registry. Must be false unless acr_sku = Premium. Changing it forces a registry REPLACE (images rebuilt by cd-dev)."
+  type        = bool
+  default     = false
+}
+
 variable "service_bus_sku" {
   description = "Service Bus namespace SKU. Dev defaults Standard; test/prod default Premium (required for private endpoints). Basic is rejected at module level."
   type        = string

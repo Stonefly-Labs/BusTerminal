@@ -12,6 +12,12 @@ module "registry" {
   sku                           = var.sku
   admin_enabled                 = false
   public_network_access_enabled = var.public_network_access_enabled
+  zone_redundancy_enabled       = var.zone_redundancy_enabled
+
+  # The AVM defaults `retention_policy_in_days = 7` (untagged-manifest purge),
+  # which — like zone redundancy — is Premium-only: azurerm errors at plan
+  # time on any other SKU unless it is unset (null).
+  retention_policy_in_days = var.sku == "Premium" ? var.retention_policy_in_days : null
 
   # Static key (`audit`) so `for_each` inside the AVM diagnostic-setting
   # resource can enumerate at plan time even when `workspace_resource_id`

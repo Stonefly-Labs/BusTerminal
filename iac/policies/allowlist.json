@@ -19,5 +19,10 @@
   ],
   "BT-IAC-005": [],
   "BT-IAC-006": [],
-  "BT-IAC-007": []
+  "BT-IAC-007": [
+    {
+      "resource_address": "module.container_registry.module.registry.azurerm_container_registry.this",
+      "justification": "TEMPORARY (2026-07-01, dev cost control): one-time Premium→Basic downgrade of the dev ACR. zoneRedundancy is immutable so the SKU flip forces a replace. Images are rebuildable — cd-dev repushes on its next run; the AcrPull role assignment is replaced in the same apply (scope forces replacement). REMOVE this entry in a follow-up commit once the migration has applied, so future accidental ACR destroys are blocked again."
+    }
+  ]
 }
