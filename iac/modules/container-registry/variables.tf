@@ -19,6 +19,29 @@ variable "sku" {
   default     = "Premium"
 }
 
+variable "zone_redundancy_enabled" {
+  description = <<-EOT
+    Zone redundancy for the registry. The wrapped AVM module defaults this to
+    TRUE, which silently requires Premium SKU — surfacing it here lets
+    non-Premium environments (dev cost control) turn it off. Changing this on
+    an existing registry FORCES A REPLACE (images are lost; CD rebuilds them),
+    so flips must ride the BT-IAC-007 approval path.
+  EOT
+  type        = bool
+  default     = true
+
+  validation {
+    condition     = !var.zone_redundancy_enabled || var.sku == "Premium"
+    error_message = "zone_redundancy_enabled requires sku=\"Premium\"."
+  }
+}
+
+variable "retention_policy_in_days" {
+  description = "Untagged-manifest retention purge window (Premium-only; the wrapped AVM defaults 7). Automatically nulled for non-Premium SKUs — azurerm rejects the policy on Basic/Standard."
+  type        = number
+  default     = 7
+}
+
 variable "log_analytics_workspace_id" {
   description = "Log Analytics Workspace ID for diagnostic settings. Required — every ACR we provision routes diagnostics to the solution LAW per constitutional policy."
   type        = string

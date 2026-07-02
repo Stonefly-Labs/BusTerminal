@@ -32,8 +32,10 @@ artifacts; PE-warm in dev per Q2c, locked-down in test/prod.
 | <a name="input_private_dns_zone_id"></a> [private\_dns\_zone\_id](#input\_private\_dns\_zone\_id) | Private DNS zone ID for `privatelink.azurecr.io`. Required when private\_endpoint\_subnet\_id is set. | `string` | `null` | no |
 | <a name="input_private_endpoint_subnet_id"></a> [private\_endpoint\_subnet\_id](#input\_private\_endpoint\_subnet\_id) | Subnet ID for the container-registry private endpoint. When set, provisions a PE bound to the `registry` subresource. Requires Premium SKU (default). | `string` | `null` | no |
 | <a name="input_public_network_access_enabled"></a> [public\_network\_access\_enabled](#input\_public\_network\_access\_enabled) | Allow public network access. Defaults to true; flip to false when private endpoints land. | `bool` | `true` | no |
+| <a name="input_retention_policy_in_days"></a> [retention\_policy\_in\_days](#input\_retention\_policy\_in\_days) | Untagged-manifest retention purge window (Premium-only; the wrapped AVM defaults 7). Automatically nulled for non-Premium SKUs — azurerm rejects the policy on Basic/Standard. | `number` | `7` | no |
 | <a name="input_sku"></a> [sku](#input\_sku) | ACR SKU. Defaults to Premium so geo-replication / private endpoints can be enabled in later slices. | `string` | `"Premium"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to the registry. | `map(string)` | `{}` | no |
+| <a name="input_zone_redundancy_enabled"></a> [zone\_redundancy\_enabled](#input\_zone\_redundancy\_enabled) | Zone redundancy for the registry. The wrapped AVM module defaults this to<br/>TRUE, which silently requires Premium SKU — surfacing it here lets<br/>non-Premium environments (dev cost control) turn it off. Changing this on<br/>an existing registry FORCES A REPLACE (images are lost; CD rebuilds them),<br/>so flips must ride the BT-IAC-007 approval path. | `bool` | `true` | no |
 
 ## Outputs
 

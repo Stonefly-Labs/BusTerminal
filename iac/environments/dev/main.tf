@@ -246,7 +246,8 @@ module "container_registry" {
   name                          = local.container_registry_name
   resource_group_name           = azurerm_resource_group.this.name
   location                      = azurerm_resource_group.this.location
-  sku                           = "Premium"
+  sku                           = var.acr_sku
+  zone_redundancy_enabled       = var.acr_zone_redundancy_enabled
   public_network_access_enabled = true
   log_analytics_workspace_id    = module.monitoring.log_analytics_workspace_id
 

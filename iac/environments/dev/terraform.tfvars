@@ -62,6 +62,16 @@ ai_search_sku = "basic"
 # remove the line) to colocate with the env once eastus2 has capacity.
 ai_search_location = "westus3"
 
+# Dev cost control (2026-07-01) — the original Premium registry (with the
+# AVM's default zone redundancy) cost ~$50/mo for features dev doesn't use.
+# NOTE: the Premium→Basic + ZR-off flip REPLACED the registry (zoneRedundancy
+# is immutable): images were wiped and rebuilt by the next cd-dev run.
+# Basic's 10 GiB fills over time from per-deploy :sha tags — when near the
+# limit, purge old manifests (az acr manifest list-metadata / delete) or bump
+# to Standard (in-place upgrade).
+acr_sku                     = "Basic"
+acr_zone_redundancy_enabled = false
+
 service_bus_sku = "Standard"
 # service_bus_capacity is intentionally omitted — required only when sku=Premium.
 
