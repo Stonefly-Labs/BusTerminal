@@ -95,7 +95,32 @@ public static class StartDiscoveryEndpoint
                 RequestedBy: requestedBy,
                 RequestedUtc: coalesce.StartedUtc,
                 CorrelationId: correlationId);
-            await publisher.PublishAsync(envelope, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await publisher.PublishAsync(envelope, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Issue #116 — the run + lock are already durable; if the
+                // message never made it onto the queue, no worker will ever
+                // process the run and every later request would coalesce onto
+                // it. Compensate (mark Failed + release lock) so the next
+                // request re-publishes, and surface the failure instead of a
+                // phantom 202/Queued. Compensation uses CancellationToken.None
+                // so a client disconnect can't leave the wedge in place.
+                await coalescer.AbandonQueuedRunAsync(
+                    namespaceId.ToString("D"), coalesce.DiscoveryRunId,
+                    $"Failed to enqueue discovery request: {ex.Message}",
+                    CancellationToken.None).ConfigureAwait(false);
+                span?.SetStatus(ActivityStatusCode.Error, "discovery-requested publish failed");
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
+                return Problem(StatusCodes.Status502BadGateway, "DiscoveryEnqueueFailed",
+                    "The discovery request could not be enqueued. No run was started; retry the request.",
+                    context.Request.Path);
+            }
         }
 
         var response = new StartDiscoveryResponse(

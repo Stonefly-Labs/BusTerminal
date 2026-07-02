@@ -65,6 +65,9 @@ public enum DiscoveryFailureCategory
 public enum DiscoveryPhase
 {
     LockAcquire,
+    // API-side publish of the discovery-requested message (issue #116) —
+    // the only phase that can fail before a worker ever sees the run.
+    Enqueue,
     FetchQueues,
     FetchTopics,
     FetchSubscriptions,

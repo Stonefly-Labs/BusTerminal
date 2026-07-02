@@ -24,7 +24,7 @@ composition; this module does not provision them directly.
 
 | Name | Type |
 | ---- | ---- |
-| [azurerm_container_app.indexer](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app) | resource |
+| [azapi_resource.indexer](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) | resource |
 
 ## Inputs
 
@@ -40,9 +40,12 @@ composition; this module does not provision them directly.
 | <a name="input_cosmos_database_name"></a> [cosmos\_database\_name](#input\_cosmos\_database\_name) | Cosmos database name (typically `canonical`). | `string` | n/a | yes |
 | <a name="input_cosmos_entities_container_name"></a> [cosmos\_entities\_container\_name](#input\_cosmos\_entities\_container\_name) | Cosmos container name holding registry entities. | `string` | n/a | yes |
 | <a name="input_cosmos_leases_container_name"></a> [cosmos\_leases\_container\_name](#input\_cosmos\_leases\_container\_name) | Cosmos container name holding change-feed lease state. | `string` | n/a | yes |
+| <a name="input_discovery_queue_name"></a> [discovery\_queue\_name](#input\_discovery\_queue\_name) | Name of the internal `discovery-requested` queue. Injected as<br/>`Discovery__ServiceBus__QueueName`, which the DiscoveryRequested trigger<br/>resolves via its `%Discovery:ServiceBus:QueueName%` binding expression.<br/>Required — when unset the function fails indexing and the host disables<br/>it, so the queue is never drained (spec 009 discovery regression). | `string` | n/a | yes |
+| <a name="input_location"></a> [location](#input\_location) | Azure region for the Container App (azapi requires an explicit location; container apps are regional). | `string` | n/a | yes |
 | <a name="input_name"></a> [name](#input\_name) | Container App name. | `string` | n/a | yes |
 | <a name="input_registry_login_server"></a> [registry\_login\_server](#input\_registry\_login\_server) | ACR login server (from spec 005). | `string` | n/a | yes |
-| <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | Resource group hosting the Container App. | `string` | n/a | yes |
+| <a name="input_resource_group_id"></a> [resource\_group\_id](#input\_resource\_group\_id) | Resource id of the resource group hosting the Container App. Used as the azapi `parent_id`. | `string` | n/a | yes |
+| <a name="input_service_bus_fqdn"></a> [service\_bus\_fqdn](#input\_service\_bus\_fqdn) | Fully-qualified namespace of the platform Service Bus<br/>(`<name>.servicebus.windows.net`). Injected as<br/>`ServiceBus__fullyQualifiedNamespace` — the AAD (identity-based)<br/>connection the spec 009 DiscoveryRequested ServiceBusTrigger binds via<br/>`Connection = "ServiceBus"`. The workload UAMI holds Azure Service Bus<br/>Data Receiver on this namespace (granted in the service-bus module). | `string` | n/a | yes |
 | <a name="input_workload_uami_client_id"></a> [workload\_uami\_client\_id](#input\_workload\_uami\_client\_id) | Workload UAMI client id. Injected as `AZURE_CLIENT_ID` and `Cosmos__clientId`. | `string` | n/a | yes |
 | <a name="input_workload_uami_id"></a> [workload\_uami\_id](#input\_workload\_uami\_id) | Workload user-assigned managed identity resource id (from spec 005). | `string` | n/a | yes |
 | <a name="input_cpu"></a> [cpu](#input\_cpu) | vCPU per replica. | `number` | `0.5` | no |
@@ -55,7 +58,7 @@ composition; this module does not provision them directly.
 
 | Name | Description |
 | ---- | ----------- |
-| <a name="output_container_app_fqdn"></a> [container\_app\_fqdn](#output\_container\_app\_fqdn) | Internal FQDN on the CAE default domain. No public ingress is configured in this slice (the indexer has no inbound HTTP surface). |
+| <a name="output_container_app_fqdn"></a> [container\_app\_fqdn](#output\_container\_app\_fqdn) | Internal FQDN on the CAE default domain. No public ingress is configured in this slice (the indexer has no inbound HTTP surface), so this resolves to an empty string. |
 | <a name="output_container_app_id"></a> [container\_app\_id](#output\_container\_app\_id) | Container App ARM resource id. Consumed by the env composition for diagnostic settings. |
 | <a name="output_container_app_name"></a> [container\_app\_name](#output\_container\_app\_name) | Container App resource name. Useful for `az containerapp ...` follow-up commands. |
 <!-- END_TF_DOCS -->

@@ -18,6 +18,33 @@
       },
       "registered_skills": [],
       "installed_at": "2026-05-14T21:13:33.487842+00:00"
+    },
+    "ralph": {
+      "version": "1.1.2",
+      "source": "local",
+      "manifest_hash": "sha256:cd95f114acb5a84ba954d8c637b411997669e92abef09cf581f12f2a451c1a9b",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "agy": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ],
+        "claude": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ],
+        "codex": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ],
+        "zed": [
+          "speckit.ralph.run",
+          "speckit.ralph.iterate"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-06-24T00:08:32.503372+00:00"
     }
   }
 }

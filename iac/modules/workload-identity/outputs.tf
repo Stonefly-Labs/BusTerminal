@@ -22,3 +22,8 @@ output "assigned_api_app_role_ids" {
   description = "Map of API app role nickname → role_id assigned to this workload MI. Empty when the workload does not call the API."
   value       = { for k, r in azuread_app_role_assignment.api_roles : k => r.app_role_id }
 }
+
+output "assigned_graph_app_role_ids" {
+  description = "Map of Microsoft Graph app-role nickname → role_id assigned directly to this workload MI's service principal. Empty when the workload makes no app-only Graph calls."
+  value       = { for k, r in azuread_app_role_assignment.graph_roles : k => r.app_role_id }
+}

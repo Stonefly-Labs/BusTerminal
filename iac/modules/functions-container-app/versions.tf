@@ -1,16 +1,19 @@
-# Spec 006 / Phase 1 T010 — provider pins for the functions-container-app module.
-# Uses azurerm v4 which exposes the kind="functionapp" path on
-# azurerm_container_app for the v2 native Functions-on-CAE hosting model
-# (research §4). Falls back to azapi if the pinned azurerm version turns out
-# to lack the `kind` argument (decision deferred to T015 implementation).
+# Spec 006 / Phase 1 T010 (revised) — provider pins for the
+# functions-container-app module. The v2 native Azure Functions hosting model
+# requires the `kind = "functionapp"` envelope field on
+# Microsoft.App/containerApps, which azurerm v4 does NOT expose (its Function
+# App resources target App Service plans). The module therefore provisions the
+# indexer via azapi. `azurerm` is intentionally NOT declared here — this module
+# has no azurerm resources, and tflint flags unused provider declarations
+# (same pattern as iac/modules/ai-search-index).
 
 terraform {
   required_version = ">= 1.11.0"
 
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.0"
     }
   }
 }

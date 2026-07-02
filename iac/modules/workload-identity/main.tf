@@ -82,3 +82,18 @@ resource "azuread_app_role_assignment" "api_roles" {
   principal_object_id = module.identity.principal_id
   resource_object_id  = var.api_service_principal_object_id
 }
+
+# App-only Microsoft Graph permissions for the workload MI. These MUST be
+# direct app-role assignments on the MI's service principal — admin-consent on
+# the API app registration (iac/modules/graph-permissions) authorizes a
+# different principal (the app registration's SP under client-credentials) and
+# does nothing for the MI the workload actually runs as. Missing assignments
+# here surface as Graph 403 → API 502 (spec 008 owner-picker). See the
+# `graph_service_principal_object_id` variable docs for the full rationale.
+resource "azuread_app_role_assignment" "graph_roles" {
+  for_each = var.assigned_graph_app_roles
+
+  app_role_id         = each.value
+  principal_object_id = module.identity.principal_id
+  resource_object_id  = var.graph_service_principal_object_id
+}

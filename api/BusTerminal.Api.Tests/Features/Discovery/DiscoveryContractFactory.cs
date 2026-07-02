@@ -244,8 +244,15 @@ public sealed class SpyDiscoveryRequestPublisher : IDiscoveryRequestPublisher
 {
     public List<DiscoveryRequestEnvelope> Published { get; } = new();
 
+    // Issue #116 — simulate a Service Bus outage on the send path.
+    public Exception? ThrowOnPublish { get; set; }
+
     public Task PublishAsync(DiscoveryRequestEnvelope envelope, CancellationToken cancellationToken)
     {
+        if (ThrowOnPublish is not null)
+        {
+            throw ThrowOnPublish;
+        }
         Published.Add(envelope);
         return Task.CompletedTask;
     }

@@ -266,6 +266,14 @@ data "azuread_service_principal" "api" {
   client_id = var.entra_api_client_id
 }
 
+# Microsoft Graph SP in this tenant — the `resource_object_id` target for the
+# workload MI's app-only Graph app-role assignments (see `workload_identity`
+# below). Resolved from the well-known Graph app id so the tenant-specific
+# object id is never hardcoded.
+data "azuread_service_principal" "msgraph" {
+  client_id = "00000003-0000-0000-c000-000000000000"
+}
+
 module "workload_identity" {
   source = "../../modules/workload-identity"
 
@@ -306,6 +314,18 @@ module "workload_identity" {
 
   assigned_api_app_roles = {
     reader = module.app_registration_roles.role_ids.reader
+  }
+
+  # App-only Microsoft Graph access for the workload MI. Required because the
+  # API authenticates as this managed identity, not the API app registration —
+  # admin-consent on the app registration (module.graph_permissions below) does
+  # NOT grant the MI anything. Keep in lockstep with graph_permissions and the
+  # inventory doc. Omitting these → Graph 403 → owner-picker 502 (spec 008).
+  graph_service_principal_object_id = data.azuread_service_principal.msgraph.object_id
+
+  assigned_graph_app_roles = {
+    user-read-all  = "df021288-bdef-4463-88db-98f22de89214" # User.Read.All  (Application) — spec 003
+    group-read-all = "5b567255-7703-4780-807c-7be8301ae99b" # Group.Read.All (Application) — spec 008
   }
 
   tags = local.shared_tags
@@ -411,6 +431,17 @@ module "backend_app" {
     CosmosRegistry__ValidationRunsContainer = module.cosmos_registry_store.validation_runs_container_name
     CosmosRegistry__DiscoveryRunsContainer  = module.cosmos_registry_store.discovery_runs_container_name
     CosmosRegistry__DiscoveryLocksContainer = module.cosmos_registry_store.discovery_locks_container_name
+
+    # Spec 009 — discovery request publisher (DiscoveryServiceBusOptions,
+    # section `Discovery:ServiceBus`). The API publishes one message per
+    # discovery request to the internal `discovery-requested` queue on the
+    # platform Service Bus namespace via the workload UAMI (AAD, no SAS).
+    # The publisher THROWS at construction when FullyQualifiedNamespace is
+    # empty, which (combined with the coalescer persisting the run+lock first)
+    # leaves a wedged `Queued` run that blocks all later clicks. The UAMI
+    # holds Azure Service Bus Data Sender on the namespace (service-bus module).
+    Discovery__ServiceBus__FullyQualifiedNamespace = module.service_bus.fqdn
+    Discovery__ServiceBus__QueueName               = module.service_bus.discovery_queue_name
   }
 
   secret_env_vars = {
@@ -839,7 +870,8 @@ module "indexer_container_app" {
   source = "../../modules/functions-container-app"
 
   name                          = "ca-${var.naming_prefix}-indexer"
-  resource_group_name           = azurerm_resource_group.this.name
+  resource_group_id             = azurerm_resource_group.this.id
+  location                      = azurerm_resource_group.this.location
   container_apps_environment_id = module.container_apps_env.id
 
   workload_uami_id        = module.workload_identity.id
@@ -860,6 +892,12 @@ module "indexer_container_app" {
 
   ai_search_endpoint   = module.ai_search.endpoint
   ai_search_index_name = module.ai_search_registry_index.index_name
+
+  # Spec 009 — Service Bus trigger wiring for the DiscoveryRequested worker.
+  # Without these the function fails indexing and the host disables it, so the
+  # discovery-requested queue is never drained.
+  service_bus_fqdn     = module.service_bus.fqdn
+  discovery_queue_name = module.service_bus.discovery_queue_name
 
   app_insights_connection_string_kv_secret_uri = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
 

@@ -5,8 +5,13 @@ variable "name" {
   type        = string
 }
 
-variable "resource_group_name" {
-  description = "Resource group hosting the Container App."
+variable "resource_group_id" {
+  description = "Resource id of the resource group hosting the Container App. Used as the azapi `parent_id`."
+  type        = string
+}
+
+variable "location" {
+  description = "Azure region for the Container App (azapi requires an explicit location; container apps are regional)."
   type        = string
 }
 
@@ -62,6 +67,29 @@ variable "ai_search_endpoint" {
 
 variable "ai_search_index_name" {
   description = "AI Search index name (typically `registry-entities-v1`)."
+  type        = string
+}
+
+variable "service_bus_fqdn" {
+  description = <<-EOT
+    Fully-qualified namespace of the platform Service Bus
+    (`<name>.servicebus.windows.net`). Injected as
+    `ServiceBus__fullyQualifiedNamespace` — the AAD (identity-based)
+    connection the spec 009 DiscoveryRequested ServiceBusTrigger binds via
+    `Connection = "ServiceBus"`. The workload UAMI holds Azure Service Bus
+    Data Receiver on this namespace (granted in the service-bus module).
+  EOT
+  type        = string
+}
+
+variable "discovery_queue_name" {
+  description = <<-EOT
+    Name of the internal `discovery-requested` queue. Injected as
+    `Discovery__ServiceBus__QueueName`, which the DiscoveryRequested trigger
+    resolves via its `%Discovery:ServiceBus:QueueName%` binding expression.
+    Required — when unset the function fails indexing and the host disables
+    it, so the queue is never drained (spec 009 discovery regression).
+  EOT
   type        = string
 }
 

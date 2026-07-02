@@ -24,6 +24,7 @@ public sealed class StartDiscoveryContractTests : IClassFixture<DiscoveryContrac
         _factory.LockStore.GetType();
         _factory.RunStore.GetType();
         _factory.Publisher.Published.Clear();
+        _factory.Publisher.ThrowOnPublish = null;
     }
 
     // ── T031 — contract shape ────────────────────────────────────────────
@@ -98,6 +99,63 @@ public sealed class StartDiscoveryContractTests : IClassFixture<DiscoveryContrac
         // Publisher only gets the first envelope — the coalesced second request
         // does NOT re-enqueue (the worker is already processing).
         _factory.Publisher.Published.Should().HaveCount(1);
+    }
+
+    // ── Issue #116 — publish-failure compensation ────────────────────────
+
+    [Fact]
+    public async Task StartDiscovery_PublishFailure_Returns502Problem()
+    {
+        var nsId = await SeedNamespaceAsync();
+        _factory.Publisher.ThrowOnPublish = new InvalidOperationException("Service Bus unreachable");
+        using var client = AdminClient();
+
+        var response = await client.PostAsync($"/api/namespaces/{nsId:D}/discover", content: null);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+        var body = await ReadJson(response);
+        body.GetProperty("code").GetString().Should().Be("DiscoveryEnqueueFailed");
+    }
+
+    [Fact]
+    public async Task StartDiscovery_PublishFailure_MarksRunFailedAtEnqueuePhase()
+    {
+        var nsId = await SeedNamespaceAsync();
+        _factory.Publisher.ThrowOnPublish = new InvalidOperationException("Service Bus unreachable");
+        using var client = AdminClient();
+
+        await client.PostAsync($"/api/namespaces/{nsId:D}/discover", content: null);
+
+        var run = _factory.RunStore.All().Single(r => r.NamespaceId == nsId.ToString("D"));
+        run.Status.Should().Be(BusTerminal.Api.Features.Discovery.Shared.Domain.DiscoveryRunStatus.Failed);
+        run.Failure.Should().NotBeNull();
+        run.Failure!.Category.Should().Be(BusTerminal.Api.Features.Discovery.Shared.Domain.DiscoveryFailureCategory.Transport);
+        run.Failure.OccurredAtPhase.Should().Be(BusTerminal.Api.Features.Discovery.Shared.Domain.DiscoveryPhase.Enqueue);
+    }
+
+    [Fact]
+    public async Task StartDiscovery_PublishFailure_DoesNotWedge_NextRequestStartsFreshRunAndPublishes()
+    {
+        // The regression at the heart of issue #116: a failed publish used to
+        // leave the lock held + the run Queued, so every later request
+        // coalesced onto a run no worker would ever process.
+        var nsId = await SeedNamespaceAsync();
+        _factory.Publisher.ThrowOnPublish = new InvalidOperationException("Service Bus unreachable");
+        using var client = AdminClient();
+
+        var first = await client.PostAsync($"/api/namespaces/{nsId:D}/discover", content: null);
+        first.StatusCode.Should().Be(HttpStatusCode.BadGateway);
+
+        _factory.Publisher.ThrowOnPublish = null;
+        var second = await client.PostAsync($"/api/namespaces/{nsId:D}/discover", content: null);
+
+        second.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var secondBody = await ReadJson(second);
+        secondBody.GetProperty("coalescedFromExisting").GetBoolean().Should().BeFalse();
+        secondBody.GetProperty("status").GetString().Should().Be("Queued");
+        _factory.Publisher.Published.Should().HaveCount(1);
+        _factory.Publisher.Published[0].DiscoveryRunId.Should().Be(
+            secondBody.GetProperty("discoveryRunId").GetString());
     }
 
     // ── T034 — FR-027 authorization ──────────────────────────────────────
