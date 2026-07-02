@@ -351,5 +351,5 @@ public enum DiscoveryFailureCategory
 
 public enum DiscoveryPhase
 {
-    LockAcquire, FetchQueues, FetchTopics, FetchSubscriptions, FetchRules, Persist, ResultWrite,
+    LockAcquire, Enqueue, FetchQueues, FetchTopics, FetchSubscriptions, FetchRules, Persist, ResultWrite,
 }

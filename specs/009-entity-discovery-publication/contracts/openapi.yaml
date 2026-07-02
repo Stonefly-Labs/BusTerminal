@@ -56,6 +56,15 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '502':
+          description: >
+            The discovery request could not be enqueued to the internal queue
+            (issue #116). No run remains pending — the just-created run record
+            is marked Failed at phase Enqueue and the coalescing lock is
+            released — so the request is safe to retry immediately.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /api/discovery-runs/{discoveryRunId}:
     get:
@@ -400,7 +409,7 @@ components:
 
     DiscoveryPhase:
       type: string
-      enum: [LockAcquire, FetchQueues, FetchTopics, FetchSubscriptions, FetchRules, Persist, ResultWrite]
+      enum: [LockAcquire, Enqueue, FetchQueues, FetchTopics, FetchSubscriptions, FetchRules, Persist, ResultWrite]
 
     StartDiscoveryResponse:
       type: object

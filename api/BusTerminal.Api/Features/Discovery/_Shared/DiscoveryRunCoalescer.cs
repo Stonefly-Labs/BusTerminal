@@ -24,6 +24,16 @@ public interface IDiscoveryRunCoalescer
         string requestedBy,
         string correlationId,
         CancellationToken cancellationToken);
+
+    // Issue #116 — compensation for a publish failure after EnsureRunAsync
+    // returned a fresh run. Marks the run Failed (Transport/Enqueue) and
+    // releases the per-namespace lock so the next request starts a new run
+    // instead of coalescing onto a run no worker will ever process.
+    Task AbandonQueuedRunAsync(
+        string namespaceId,
+        string runId,
+        string reason,
+        CancellationToken cancellationToken);
 }
 
 public sealed record CoalescerResult(
@@ -137,6 +147,48 @@ public sealed partial class DiscoveryRunCoalescer : IDiscoveryRunCoalescer
         }
     }
 
+    public async Task AbandonQueuedRunAsync(
+        string namespaceId,
+        string runId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(namespaceId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+
+        // Both steps are best-effort: even if marking the run Failed loses a
+        // race, the lock release is what prevents the wedge (a stuck Queued
+        // run without the lock is cosmetic — the next request starts fresh).
+        try
+        {
+            await _runs.UpdateStatusAsync(
+                runId, namespaceId,
+                new DiscoveryRunStatusUpdate(
+                    Status: DiscoveryRunStatus.Failed,
+                    CompletedUtc: _time.GetUtcNow(),
+                    Failure: new DiscoveryRunFailure(
+                        Category: DiscoveryFailureCategory.Transport,
+                        Message: reason,
+                        OccurredAtPhase: DiscoveryPhase.Enqueue,
+                        RetriesExhausted: null)),
+                ifMatch: null, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Microsoft.Azure.Cosmos.CosmosException ex)
+        {
+            LogAbandonMarkFailed(runId, ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            LogAbandonMarkFailed(runId, ex.Message);
+        }
+
+        await _locks.ReleaseAsync(namespaceId, runId, cancellationToken).ConfigureAwait(false);
+        _meter.RunsCompleted.Add(1,
+            new KeyValuePair<string, object?>(DiscoveryMeter.TagStatus, "failed"),
+            new KeyValuePair<string, object?>(DiscoveryMeter.TagFailureCategory, nameof(DiscoveryFailureCategory.Transport)));
+        LogAbandoned(runId, namespaceId, reason);
+    }
+
     private async Task<DiscoveryRun> CreateQueuedRunAsync(
         string namespaceId,
         string runId,
@@ -189,4 +241,12 @@ public sealed partial class DiscoveryRunCoalescer : IDiscoveryRunCoalescer
     [LoggerMessage(EventId = 9604, Level = LogLevel.Warning,
         Message = "Failed to mark orphaned run {RunId} as WorkerLost: {Reason}")]
     private partial void LogOrphanCleanupFailed(string runId, string reason);
+
+    [LoggerMessage(EventId = 9605, Level = LogLevel.Error,
+        Message = "Discovery run {RunId} abandoned for namespace {NamespaceId}: {Reason}")]
+    private partial void LogAbandoned(string runId, string namespaceId, string reason);
+
+    [LoggerMessage(EventId = 9606, Level = LogLevel.Warning,
+        Message = "Failed to mark abandoned run {RunId} as Failed/Enqueue: {Reason}")]
+    private partial void LogAbandonMarkFailed(string runId, string reason);
 }

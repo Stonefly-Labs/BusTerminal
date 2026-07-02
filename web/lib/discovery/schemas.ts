@@ -40,6 +40,7 @@ export type DiscoveryFailureCategory = z.infer<typeof discoveryFailureCategorySc
 
 export const DISCOVERY_PHASES = [
   "LockAcquire",
+  "Enqueue",
   "FetchQueues",
   "FetchTopics",
   "FetchSubscriptions",
