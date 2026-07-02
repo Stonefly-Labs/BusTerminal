@@ -48,6 +48,7 @@ const FAILURE_CATEGORY_LABEL: Record<DiscoveryFailureCategory, string> = {
 
 const FAILURE_PHASE_LABEL: Record<DiscoveryPhase, string> = {
   LockAcquire: "Acquire run lock",
+  Enqueue: "Enqueue discovery request",
   FetchQueues: "Fetch queues",
   FetchTopics: "Fetch topics",
   FetchSubscriptions: "Fetch subscriptions",
