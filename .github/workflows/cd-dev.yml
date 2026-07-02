@@ -80,6 +80,20 @@ jobs:
             -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
             -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
 
+      # Preserve the live parked posture (dev cost control — see
+      # docs/dev-environment-parking.md). `parked` defaults to false, so
+      # without this a routine deploy would silently unpark the environment.
+      # Park/unpark transitions happen only via env-park-dev.yml (or
+      # apply-env.sh --park/--unpark). GITHUB_ENV makes it stick for both
+      # applies in this job.
+      - name: Preserve live parked posture
+        working-directory: iac/environments/dev
+        run: |
+          PARKED=$(tofu output -raw parked 2>/dev/null || echo false)
+          case "$PARKED" in true|false) ;; *) PARKED=false ;; esac
+          echo "TF_VAR_parked=$PARKED" >> "$GITHUB_ENV"
+          echo "parked=$PARKED"
+
       # First apply: ensures ACR + supporting infra exist before images can be
       # pushed. Uses already-deployed image refs when state exists, falls back
       # to a public placeholder on the first-ever run for this environment.

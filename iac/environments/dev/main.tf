@@ -440,8 +440,11 @@ module "backend_app" {
     # empty, which (combined with the coalescer persisting the run+lock first)
     # leaves a wedged `Queued` run that blocks all later clicks. The UAMI
     # holds Azure Service Bus Data Sender on the namespace (service-bus module).
-    Discovery__ServiceBus__FullyQualifiedNamespace = module.service_bus.fqdn
-    Discovery__ServiceBus__QueueName               = module.service_bus.discovery_queue_name
+    # When parked both values are "" — the publisher's constructor throw is
+    # contained per the PR #116/#120 coalescer fix, and the app is scaled to
+    # zero anyway.
+    Discovery__ServiceBus__FullyQualifiedNamespace = local.service_bus_fqdn
+    Discovery__ServiceBus__QueueName               = local.service_bus_discovery_queue_name
   }
 
   secret_env_vars = {
@@ -690,10 +693,59 @@ resource "azurerm_cosmosdb_sql_role_assignment" "developer_data_contributor" {
   principal_id        = data.azurerm_client_config.current.object_id
 }
 
+# -----------------------------------------------------------------------------
+# Dev-environment parking (cost control).
+#
+# `parked = true` destroys the resources that bill 24×7 even when idle and
+# scales the indexer to zero; everything stateful or ~free stays up. Azure AI
+# Search (Basic) cannot be paused — Microsoft's documented way to stop billing
+# is deletion — and a Service Bus namespace carries its base charge while it
+# exists. Both are safe to destroy here:
+#
+#   - The search index is a projection of the canonical Cosmos store
+#     (prevent_destroy intentionally OFF on ai-search-index). On unpark the
+#     indexer re-projects every entity from the change feed — the park flow
+#     clears `registry-entities-leases` so `StartFromBeginning = true` replays
+#     from offset zero (see iac/scripts/clear-indexer-leases.sh).
+#   - The discovery queue holds only re-triggerable discovery requests.
+#
+# Persistent core (never parked): Cosmos, Key Vault (purge protection makes a
+# destroy/recreate impossible anyway), ACR, workload UAMI + role assignments,
+# LAW/App Insights, CAE, storage. Backend/frontend apps already scale to zero.
+#
+# The `local.*` indirections below keep container-app env vars computable when
+# the modules are count=0 — parked apps get "" and are themselves scaled to
+# zero. See docs/dev-environment-parking.md for the operator workflow.
+# -----------------------------------------------------------------------------
+locals {
+  ai_search_endpoint               = var.parked ? "" : module.ai_search[0].endpoint
+  ai_search_index_name             = var.parked ? "" : module.ai_search_registry_index[0].index_name
+  service_bus_fqdn                 = var.parked ? "" : module.service_bus[0].fqdn
+  service_bus_discovery_queue_name = var.parked ? "" : module.service_bus[0].discovery_queue_name
+}
+
+# Address migration for the count-gates introduced with `var.parked` — without
+# these, adding count would read as destroy-and-recreate of all three modules.
+moved {
+  from = module.ai_search
+  to   = module.ai_search[0]
+}
+
+moved {
+  from = module.ai_search_registry_index
+  to   = module.ai_search_registry_index[0]
+}
+
+moved {
+  from = module.service_bus
+  to   = module.service_bus[0]
+}
+
 # Spec 005 — Azure AI Search service (T061). Warm PE in dev per Q2c.
 # Workload UAMI is granted `Search Index Data Contributor` inside the module
 # (per the FR-033 forward-looking workload RBAC enumeration).
 module "ai_search" {
+  count  = var.parked ? 0 : 1
   source = "../../modules/ai-search"
 
   name                = module.naming.ai_search_name
@@ -726,6 +778,7 @@ module "ai_search" {
 # tfvars. Workload UAMI is granted both `Azure Service Bus Data Sender` AND
 # `Azure Service Bus Data Receiver` inside the module (FR-033).
 module "service_bus" {
+  count  = var.parked ? 0 : 1
   source = "../../modules/service-bus"
 
   name                = module.naming.service_bus_name
@@ -784,9 +837,10 @@ module "cosmos_registry_store" {
 }
 
 module "ai_search_registry_index" {
+  count  = var.parked ? 0 : 1
   source = "../../modules/ai-search-index"
 
-  search_service_name = module.ai_search.name
+  search_service_name = module.ai_search[0].name
 }
 
 # Spec 006 — AzureWebJobsStorage for the indexer Functions runtime.
@@ -890,14 +944,21 @@ module "indexer_container_app" {
   cosmos_entities_container_name = module.cosmos_registry_store.entities_container_name
   cosmos_leases_container_name   = module.cosmos_registry_store.leases_container_name
 
-  ai_search_endpoint   = module.ai_search.endpoint
-  ai_search_index_name = module.ai_search_registry_index.index_name
+  ai_search_endpoint   = local.ai_search_endpoint
+  ai_search_index_name = local.ai_search_index_name
 
   # Spec 009 — Service Bus trigger wiring for the DiscoveryRequested worker.
   # Without these the function fails indexing and the host disables it, so the
-  # discovery-requested queue is never drained.
-  service_bus_fqdn     = module.service_bus.fqdn
-  discovery_queue_name = module.service_bus.discovery_queue_name
+  # discovery-requested queue is never drained. (Parked: both are "" and the
+  # app is scaled to zero, so the host never starts.)
+  service_bus_fqdn     = local.service_bus_fqdn
+  discovery_queue_name = local.service_bus_discovery_queue_name
+
+  # Parking: the change-feed trigger normally keeps one replica warm
+  # (module default min_replicas = 1) — that replica bills 24×7, so parking
+  # scales it to zero. With no scale rules the app stays at zero until the
+  # unpark apply restores min_replicas = 1.
+  min_replicas = var.parked ? 0 : 1
 
   app_insights_connection_string_kv_secret_uri = azurerm_key_vault_secret.app_insights_connection_string.versionless_id
 

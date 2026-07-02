@@ -144,34 +144,43 @@ output "cosmos_canonical_change_events_container_name" {
   value       = module.cosmos_canonical_store.change_events_container_name
 }
 
+# AI Search + Service Bus outputs are null while the environment is parked
+# (`var.parked = true` — the modules are count-gated for cost control; see the
+# parking block in main.tf).
+
+output "parked" {
+  description = "Whether the environment is currently parked (24×7-billing resources destroyed). Workflows and apply-env.sh read this back so unrelated applies preserve the parked state."
+  value       = var.parked
+}
+
 output "ai_search_id" {
-  description = "AI Search service resource ID."
-  value       = module.ai_search.id
+  description = "AI Search service resource ID. Null while parked."
+  value       = var.parked ? null : module.ai_search[0].id
 }
 
 output "ai_search_name" {
-  description = "AI Search service name."
-  value       = module.ai_search.name
+  description = "AI Search service name. Null while parked."
+  value       = var.parked ? null : module.ai_search[0].name
 }
 
 output "ai_search_endpoint" {
-  description = "AI Search service endpoint (`https://<name>.search.windows.net`)."
-  value       = module.ai_search.endpoint
+  description = "AI Search service endpoint (`https://<name>.search.windows.net`). Null while parked."
+  value       = var.parked ? null : module.ai_search[0].endpoint
 }
 
 output "service_bus_namespace_id" {
-  description = "Service Bus namespace resource ID."
-  value       = module.service_bus.id
+  description = "Service Bus namespace resource ID. Null while parked."
+  value       = var.parked ? null : module.service_bus[0].id
 }
 
 output "service_bus_namespace_name" {
-  description = "Service Bus namespace name."
-  value       = module.service_bus.name
+  description = "Service Bus namespace name. Null while parked."
+  value       = var.parked ? null : module.service_bus[0].name
 }
 
 output "service_bus_namespace_fqdn" {
-  description = "Service Bus namespace FQDN (`<name>.servicebus.windows.net`)."
-  value       = module.service_bus.fqdn
+  description = "Service Bus namespace FQDN (`<name>.servicebus.windows.net`). Null while parked."
+  value       = var.parked ? null : module.service_bus[0].fqdn
 }
 
 # -----------------------------------------------------------------------------
@@ -346,13 +355,13 @@ output "cosmos_registry_leases_container_id" {
 }
 
 output "ai_search_registry_index_name" {
-  description = "Name of the registry search index (registry-entities-v1). Bound to AiSearch:IndexName."
-  value       = module.ai_search_registry_index.index_name
+  description = "Name of the registry search index (registry-entities-v1). Bound to AiSearch:IndexName. Null while parked."
+  value       = var.parked ? null : module.ai_search_registry_index[0].index_name
 }
 
 output "ai_search_registry_index_id" {
-  description = "Full azapi-managed resource id of the registry search index."
-  value       = module.ai_search_registry_index.index_id
+  description = "Full azapi-managed resource id of the registry search index. Null while parked."
+  value       = var.parked ? null : module.ai_search_registry_index[0].index_id
 }
 
 output "indexer_container_app_id" {
@@ -378,13 +387,13 @@ output "indexer_container_app_fqdn" {
 # -----------------------------------------------------------------------------
 
 output "service_bus_discovery_queue_name" {
-  description = "Name of the internal `discovery-requested` queue on the platform Service Bus namespace. Bound to ServiceBus:DiscoveryQueueName."
-  value       = module.service_bus.discovery_queue_name
+  description = "Name of the internal `discovery-requested` queue on the platform Service Bus namespace. Bound to ServiceBus:DiscoveryQueueName. Null while parked."
+  value       = var.parked ? null : module.service_bus[0].discovery_queue_name
 }
 
 output "service_bus_discovery_queue_id" {
-  description = "ARM resource id of the discovery-requested queue."
-  value       = module.service_bus.discovery_queue_id
+  description = "ARM resource id of the discovery-requested queue. Null while parked."
+  value       = var.parked ? null : module.service_bus[0].discovery_queue_id
 }
 
 output "cosmos_registry_discovery_runs_container_name" {

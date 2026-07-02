@@ -305,6 +305,23 @@ variable "log_analytics_retention_days" {
   }
 }
 
+# Dev-environment parking (cost control) — see the parking block in main.tf
+# and docs/dev-environment-parking.md. Not surfaced in test/prod templates:
+# parking is a dev-only cost lever.
+variable "parked" {
+  description = <<-EOT
+    When true, the composition destroys the resources that bill 24×7 while
+    idle (AI Search service + registry index, Service Bus namespace +
+    discovery queue) and scales the indexer Container App to zero. All
+    stateful / ~free resources stay up. Toggled by the park/unpark workflow
+    (`env-park-dev.yml`) and `iac/scripts/apply-env.sh --park|--unpark`;
+    both reuse the live value from the `parked` state output so unrelated
+    applies (cd-dev, iac-apply-dev) don't silently unpark the environment.
+  EOT
+  type        = bool
+  default     = false
+}
+
 # Spec 005 / T134 / FR-010 — backend Container App ingress posture. Dev
 # defaults `true` (external ingress) so the backend remains reachable from
 # outside the CAE for local developer + smoke-test workflows. Prod template
