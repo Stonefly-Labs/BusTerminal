@@ -1,0 +1,221 @@
+name: Env · park/unpark · dev
+
+# Dev cost control — see docs/dev-environment-parking.md.
+#
+# `park` destroys the dev resources that bill 24×7 while idle (AI Search
+# Basic — Azure has no pause, deletion is the documented way to stop billing —
+# plus the Service Bus namespace) and scales the indexer Container App to
+# zero, then clears the indexer's change-feed leases so the next unpark
+# re-populates the search index from Cosmos automatically. `unpark` recreates
+# everything (~5–10 min, AI Search provisioning dominates; allow a few more
+# minutes for data-plane RBAC propagation on the fresh resources).
+#
+# The nightly cron is a forget-proof safety net; it no-ops when the env is
+# already parked. cd-dev / iac-apply-dev / iac-validate all reuse the live
+# `parked` state output, so a merge to main does NOT silently unpark.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "park (destroy 24×7-billing resources) or unpark (recreate them)"
+        type: choice
+        options:
+          - park
+          - unpark
+        required: true
+  schedule:
+    # Nightly safety-net park. 04:00 UTC ≈ 23:00 CDT / 00:00 EDT — adjust to taste.
+    - cron: "0 4 * * *"
+
+# Shared concurrency group with `cd-dev.yml` + `iac-apply-dev.yml` — all
+# three run `tofu apply` against the same dev tfstate.
+concurrency:
+  group: dev-tofu-apply-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  park:
+    name: tofu apply — ${{ inputs.mode || 'park (scheduled)' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_github_org_repo: ${{ github.repository }}
+      TF_VAR_unique_suffix: ${{ vars.UNIQUE_SUFFIX_DEV }}
+      TF_VAR_entra_tenant_id: ${{ vars.ENTRA_TENANT_ID_DEV }}
+      TF_VAR_entra_api_client_id: ${{ vars.ENTRA_API_CLIENT_ID_DEV }}
+      TF_VAR_entra_web_client_id: ${{ vars.ENTRA_WEB_CLIENT_ID_DEV }}
+      TF_VAR_pipeline_identity_client_id: ${{ vars.AZURE_CLIENT_ID }}
+      TF_VAR_kv_operator_object_ids: ${{ vars.KV_OPERATOR_OBJECT_IDS_DEV }}
+      # Fallbacks for a first-ever apply; the live refs from state win below.
+      TF_VAR_backend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+      TF_VAR_frontend_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+      TF_VAR_indexer_image: "mcr.microsoft.com/azuredocs/aci-helloworld:latest"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Resolve requested mode
+        id: mode
+        run: |
+          MODE="${{ inputs.mode || 'park' }}"
+          if [ "$MODE" = "park" ]; then
+            echo "parked=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "parked=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Requested mode: $MODE"
+
+      - name: Read pinned OpenTofu version
+        id: tofu_version
+        run: echo "version=$(cat iac/.terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: ${{ steps.tofu_version.outputs.version }}
+
+      - name: Azure login (OIDC federated)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: tofu init (azurerm backend via OIDC)
+        working-directory: iac/environments/dev
+        run: |
+          tofu init \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
+
+      # Skip everything when the env is already in the requested posture —
+      # matters for the nightly cron, which fires whether or not anyone
+      # unparked that day.
+      - name: Check current posture
+        id: posture
+        working-directory: iac/environments/dev
+        run: |
+          CURRENT=$(tofu output -raw parked 2>/dev/null || echo false)
+          case "$CURRENT" in true|false) ;; *) CURRENT=false ;; esac
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          if [ "$CURRENT" = "${{ steps.mode.outputs.parked }}" ]; then
+            echo "noop=true" >> "$GITHUB_OUTPUT"
+            echo "Environment already parked=$CURRENT — nothing to do."
+          else
+            echo "noop=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Reuse the currently-deployed image refs so the park/unpark apply
+      # never resets app revisions to placeholders (same pattern as
+      # iac-apply-dev.yml).
+      - name: Reuse live image refs from state (if any)
+        id: live_images
+        if: steps.posture.outputs.noop != 'true'
+        working-directory: iac/environments/dev
+        run: |
+          set -euo pipefail
+          BACKEND="$TF_VAR_backend_image"
+          FRONTEND="$TF_VAR_frontend_image"
+          INDEXER="$TF_VAR_indexer_image"
+          if tofu state list 2>/dev/null | grep -q .; then
+            JSON=$(tofu output -json 2>/dev/null || true)
+            if echo "$JSON" | jq empty >/dev/null 2>&1; then
+              REUSE_BACKEND=$(echo "$JSON" | jq -r '.backend_image_in_use.value // empty')
+              REUSE_FRONTEND=$(echo "$JSON" | jq -r '.frontend_image_in_use.value // empty')
+              REUSE_INDEXER=$(echo "$JSON" | jq -r '.indexer_image_in_use.value // empty')
+              [ -n "$REUSE_BACKEND" ] && BACKEND="$REUSE_BACKEND"
+              [ -n "$REUSE_FRONTEND" ] && FRONTEND="$REUSE_FRONTEND"
+              [ -n "$REUSE_INDEXER" ] && INDEXER="$REUSE_INDEXER"
+            fi
+          fi
+          echo "backend=$BACKEND" >> "$GITHUB_OUTPUT"
+          echo "frontend=$FRONTEND" >> "$GITHUB_OUTPUT"
+          echo "indexer=$INDEXER" >> "$GITHUB_OUTPUT"
+
+      - name: tofu plan
+        id: plan
+        if: steps.posture.outputs.noop != 'true'
+        working-directory: iac/environments/dev
+        run: |
+          set -euo pipefail
+          tofu plan -no-color -input=false -lock-timeout=300s \
+            -var "parked=${{ steps.mode.outputs.parked }}" \
+            -var "backend_image=${{ steps.live_images.outputs.backend }}" \
+            -var "frontend_image=${{ steps.live_images.outputs.frontend }}" \
+            -var "indexer_image=${{ steps.live_images.outputs.indexer }}" \
+            -out=tfplan > plan.out 2>&1 || { tail -c 60000 plan.out; exit 1; }
+          tail -c 60000 plan.out > plan.tail
+          {
+            echo '### OpenTofu plan — dev (${{ inputs.mode || 'park (scheduled)' }})'
+            echo ''
+            echo '```'
+            cat plan.tail
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: tofu show -json tfplan
+        if: steps.posture.outputs.noop != 'true'
+        working-directory: iac/environments/dev
+        run: tofu show -json tfplan > tfplan.json
+
+      # Parking destroys nothing on the BT-IAC-007 stateful list (AI Search +
+      # Service Bus are deliberately absent from it), so a clean gate is the
+      # expected outcome — a failure here means the plan picked up something
+      # beyond the parking surface and must not auto-apply.
+      - name: Custom IaC policy gate (BT-IAC-001..007)
+        if: steps.posture.outputs.noop != 'true'
+        working-directory: iac/environments/dev
+        run: |
+          bash "$GITHUB_WORKSPACE/iac/policies/run-policies.sh" \
+            --plan tfplan.json \
+            --env dev \
+            --allowlist "$GITHUB_WORKSPACE/iac/policies/allowlist.json" \
+            --composition-dir . \
+            --report policies-report.json \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: tofu apply tfplan
+        if: steps.posture.outputs.noop != 'true'
+        working-directory: iac/environments/dev
+        run: tofu apply -input=false -lock-timeout=300s tfplan
+
+      # Clear the indexer's change-feed lease checkpoints while it is scaled
+      # to zero. This is what makes unpark self-healing: with no leases and
+      # StartFromBeginning = true, the indexer re-projects every registry
+      # entity into the freshly recreated (empty) search index.
+      - name: Clear indexer change-feed leases
+        if: steps.mode.outputs.parked == 'true' && steps.posture.outputs.noop != 'true'
+        run: bash iac/scripts/clear-indexer-leases.sh --env dev
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Dev environment — ${{ inputs.mode || 'park (scheduled)' }}"
+            if [ "${{ steps.posture.outputs.noop }}" = "true" ]; then
+              echo "No-op: environment was already parked=${{ steps.posture.outputs.current }}."
+            elif [ "${{ steps.mode.outputs.parked }}" = "true" ]; then
+              echo "Parked. AI Search + Service Bus destroyed, indexer at zero, leases cleared."
+              echo "Unpark via: \`gh workflow run env-park-dev.yml -f mode=unpark\`"
+            else
+              echo "Unparked. Allow a few minutes for data-plane RBAC propagation on the"
+              echo "fresh AI Search / Service Bus resources; the indexer backfills the"
+              echo "search index automatically from the Cosmos change feed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

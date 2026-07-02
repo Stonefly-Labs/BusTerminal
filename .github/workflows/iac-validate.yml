@@ -164,6 +164,17 @@ jobs:
             -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
             -backend-config="client_id=${{ vars.AZURE_CLIENT_ID }}"
 
+      # Preserve the live parked posture (dev cost control — see
+      # docs/dev-environment-parking.md) so a PR plan against a parked
+      # environment doesn't render as a wall of spurious re-creates.
+      - name: Preserve live parked posture
+        working-directory: iac/environments/dev
+        run: |
+          PARKED=$(tofu output -raw parked 2>/dev/null || echo false)
+          case "$PARKED" in true|false) ;; *) PARKED=false ;; esac
+          echo "TF_VAR_parked=$PARKED" >> "$GITHUB_ENV"
+          echo "parked=$PARKED"
+
       - name: tofu plan
         working-directory: iac/environments/dev
         id: plan
