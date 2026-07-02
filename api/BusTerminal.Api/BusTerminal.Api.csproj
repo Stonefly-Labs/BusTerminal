@@ -43,6 +43,11 @@
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <!-- Transitive override: Microsoft.AspNetCore.OpenApi resolves Microsoft.OpenApi
+         2.0.0 (GHSA-v5pm-xwqc-g5wc / CVE-2026-49451, stack overflow on circular schema
+         refs). 2.7.5 is the first patched 2.x release. Remove this override when
+         Microsoft.AspNetCore.OpenApi's transitive Microsoft.OpenApi is >= 2.7.5. -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.60.0" />
     <PackageReference Include="Microsoft.Graph" Version="5.105.0" />
     <!-- Transitive override: Microsoft.Graph 5.105.0 pulls Microsoft.Graph.Core 3.2.5
